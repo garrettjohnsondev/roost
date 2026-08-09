@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -117,8 +118,25 @@ wss.on('connection', (ws: WebSocket, req) => {
 // Warm the model cache so the first phone load is instant.
 void getLiveModels(config.projects[0] ?? repoRoot);
 
+function printTailscaleUrl(port: number) {
+  const candidates = ['tailscale', '/Applications/Tailscale.app/Contents/MacOS/Tailscale'];
+  const tryNext = (i: number) => {
+    if (i >= candidates.length) {
+      console.log('[pocket] tailscale CLI not found — find your Mac\'s address in the Tailscale menu bar app');
+      return;
+    }
+    execFile(candidates[i], ['ip', '-4'], (err, stdout) => {
+      const ip = stdout?.trim().split('\n')[0];
+      if (!err && ip) console.log(`[pocket] on your phone, open:  http://${ip}:${port}`);
+      else tryNext(i + 1);
+    });
+  };
+  tryNext(0);
+}
+
 httpServer.listen(config.port, '0.0.0.0', () => {
-  console.log(`[pocket] listening on http://0.0.0.0:${config.port}`);
+  console.log(`[pocket] listening on http://localhost:${config.port}`);
   console.log(`[pocket] projects: ${config.projects.join(', ')}`);
   if (!token) console.log('[pocket] no POCKET_TOKEN set — keep this server tailnet-only');
+  printTailscaleUrl(config.port);
 });
