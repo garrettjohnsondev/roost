@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot } from './config.js';
+import { listClaudeSessions, listCodexSessions } from './resumable.js';
 import { SessionManager } from './sessions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
@@ -40,8 +41,23 @@ app.get('/api/sessions', (_req, res) => {
   res.json({ sessions: manager.list() });
 });
 
+app.get('/api/resumable', async (req, res) => {
+  const agent = String(req.query.agent ?? '');
+  const cwd = String(req.query.cwd ?? '');
+  if ((agent !== 'claude' && agent !== 'codex') || !config.projects.includes(cwd)) {
+    res.status(400).json({ error: 'agent must be claude|codex and cwd a configured project' });
+    return;
+  }
+  try {
+    const sessions = agent === 'claude' ? await listClaudeSessions(cwd) : listCodexSessions(cwd);
+    res.json({ sessions });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
 app.post('/api/sessions', (req, res) => {
-  const { agent, cwd, model, resume } = req.body ?? {};
+  const { agent, cwd, model, resume, title } = req.body ?? {};
   if (agent !== 'claude' && agent !== 'codex') {
     res.status(400).json({ error: 'agent must be "claude" or "codex"' });
     return;
@@ -51,6 +67,7 @@ app.post('/api/sessions', (req, res) => {
     return;
   }
   const session = manager.create(agent as AgentKind, cwd, { model, resume });
+  if (resume && typeof title === 'string' && title) session.title = title;
   res.json({ session: session.meta() });
 });
 

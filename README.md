@@ -15,6 +15,10 @@ Reach it from your phone anywhere over [Tailscale](https://tailscale.com).
 - Paste or attach screenshots from your phone's camera roll
 - Live token usage (and dollar cost for Claude)
 - Sessions survive phone disconnects — history replays when you reconnect
+- **Resume past sessions**: pick up any previous Claude Code session (`~/.claude`) or Codex
+  thread (`~/.codex/sessions`) for a project — including ones you started in VS Code — with
+  full conversation history
+- Markdown rendering with copy-able, scrollable code blocks
 
 ## Requirements
 

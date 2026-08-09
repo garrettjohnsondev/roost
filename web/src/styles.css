@@ -162,6 +162,43 @@ button {
   margin-bottom: 10px;
 }
 
+.resume-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.resume-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.resume-row.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+}
+
+.resume-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resume-time {
+  color: var(--text-dim);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
 .session-row {
   display: flex;
   align-items: center;

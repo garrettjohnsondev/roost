@@ -12,8 +12,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   config: () => request<PocketConfigResponse>('/api/config'),
   sessions: () => request<{ sessions: SessionMeta[] }>('/api/sessions'),
-  createSession: (body: { agent: string; cwd: string; model?: string }) =>
+  createSession: (body: { agent: string; cwd: string; model?: string; resume?: string; title?: string }) =>
     request<{ session: SessionMeta }>('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
+  resumable: (agent: string, cwd: string) =>
+    request<{ sessions: Array<{ id: string; title: string; updatedAt: number }> }>(
+      `/api/resumable?agent=${encodeURIComponent(agent)}&cwd=${encodeURIComponent(cwd)}`,
+    ),
   closeSession: (id: string) => request<{ closed: boolean }>(`/api/sessions/${id}`, { method: 'DELETE' }),
 };
 

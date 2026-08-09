@@ -2,12 +2,30 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import type { AgentKind, PocketConfigResponse, SessionMeta } from './types';
 
+interface Resumable {
+  id: string;
+  title: string;
+  updatedAt: number;
+}
+
+function fmtAgo(ts: number): string {
+  const mins = Math.round((Date.now() - ts) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
 export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: string) => void }) {
   const { config, onOpen } = props;
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [agent, setAgent] = useState<AgentKind>('claude');
   const [cwd, setCwd] = useState(config.projects[0] ?? '');
   const [model, setModel] = useState(config.claude.defaultModel);
+  const [resumable, setResumable] = useState<Resumable[]>([]);
+  const [resume, setResume] = useState<Resumable | null>(null);
+  const [showAllResumable, setShowAllResumable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,11 +39,34 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
     setModel(config[agent].defaultModel);
   }, [agent, config]);
 
+  useEffect(() => {
+    setResume(null);
+    setShowAllResumable(false);
+    setResumable([]);
+    if (!cwd) return;
+    let cancelled = false;
+    api
+      .resumable(agent, cwd)
+      .then((r) => {
+        if (!cancelled) setResumable(r.sessions);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, cwd]);
+
   async function create() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.createSession({ agent, cwd, model: model || undefined });
+      const r = await api.createSession({
+        agent,
+        cwd,
+        model: model || undefined,
+        resume: resume?.id,
+        title: resume?.title,
+      });
       onOpen(r.session.id);
     } catch (e: any) {
       setError(String(e.message ?? e));
@@ -38,6 +79,8 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
     await api.closeSession(id).catch(() => {});
     setSessions((prev) => prev.filter((s) => s.id !== id));
   }
+
+  const visibleResumable = showAllResumable ? resumable : resumable.slice(0, 5);
 
   return (
     <div className="page">
@@ -81,9 +124,34 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
             </button>
           </div>
         </div>
+        {resumable.length > 0 && (
+          <div className="field">
+            <label>Continue a previous session</label>
+            <div className="resume-list">
+              <button className={resume === null ? 'resume-row active' : 'resume-row'} onClick={() => setResume(null)}>
+                <span className="resume-title">Start fresh</span>
+              </button>
+              {visibleResumable.map((s) => (
+                <button
+                  key={s.id}
+                  className={resume?.id === s.id ? 'resume-row active' : 'resume-row'}
+                  onClick={() => setResume(s)}
+                >
+                  <span className="resume-title">{s.title}</span>
+                  <span className="resume-time">{fmtAgo(s.updatedAt)}</span>
+                </button>
+              ))}
+              {resumable.length > 5 && !showAllResumable && (
+                <button className="link" onClick={() => setShowAllResumable(true)}>
+                  Show {resumable.length - 5} more
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {error && <div className="error-note">{error}</div>}
         <button className="primary" disabled={busy || !cwd} onClick={create}>
-          {busy ? 'Starting…' : 'Start session'}
+          {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
         </button>
       </section>
 
