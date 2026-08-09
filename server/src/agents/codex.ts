@@ -1,0 +1,256 @@
+import { randomUUID } from 'node:crypto';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { now, type ApprovalSetting, type ServerEvent, type UserImage } from '../protocol.js';
+import { truncate } from '../util.js';
+import { JsonRpcProcess } from '../jsonrpc.js';
+import type { AgentAdapter, AgentAdapterOptions, PendingApproval } from './types.js';
+
+// Wire strings verified against `codex app-server generate-ts` for codex-cli 0.146.0.
+const APPROVAL_TO_POLICY: Record<ApprovalSetting, string> = {
+  ask: 'on-request',
+  'auto-edits': 'on-request',
+  'full-auto': 'never',
+};
+
+type CodexDecision = 'accept' | 'acceptForSession' | 'decline';
+
+export class CodexAdapter implements AgentAdapter {
+  private rpc: JsonRpcProcess;
+  private threadId: string | null = null;
+  private ready: Promise<void>;
+  private pending = new Map<string, { resolve: (d: CodexDecision) => void }>();
+  private itemNames = new Map<string, string>();
+  private model: string;
+  private effort: string;
+  private approvals: ApprovalSetting;
+  private contextWindow: number | null = null;
+  private disposed = false;
+
+  constructor(private opts: AgentAdapterOptions) {
+    this.model = opts.model;
+    this.effort = opts.effort;
+    this.approvals = opts.approvals;
+    this.emit({ type: 'status', state: 'connecting', ts: now() });
+    this.rpc = new JsonRpcProcess('codex', ['app-server'], opts.cwd, {
+      onRequest: (method, params) => this.onServerRequest(method, params),
+      onNotification: (method, params) => this.onNotification(method, params),
+      onExit: (code, stderrTail) => {
+        if (this.disposed) return;
+        this.emit({ type: 'error', message: `codex app-server exited (code ${code}). ${stderrTail ? 'stderr: ' + truncate(stderrTail, 500) : ''}`, ts: now() });
+        this.emit({ type: 'status', state: 'error', message: 'codex exited', ts: now() });
+      },
+    });
+    this.ready = this.init();
+    this.ready.catch((err) => {
+      this.emit({ type: 'error', message: `Failed to start Codex: ${err?.message ?? err}`, ts: now() });
+      this.emit({ type: 'status', state: 'error', message: String(err?.message ?? err), ts: now() });
+    });
+  }
+
+  private emit(e: ServerEvent) {
+    this.opts.emit(e);
+  }
+
+  private async init(): Promise<void> {
+    await this.rpc.request('initialize', {
+      clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+      capabilities: null,
+    });
+    this.rpc.notify('initialized');
+
+    const params: Record<string, unknown> = {
+      cwd: this.opts.cwd,
+      model: this.model || null,
+      approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
+      sandbox: 'workspace-write',
+    };
+    const result = this.opts.resume
+      ? await this.rpc.request('thread/resume', { threadId: this.opts.resume, ...params })
+      : await this.rpc.request('thread/start', params);
+
+    this.threadId = result?.thread?.id ?? result?.threadId ?? null;
+    if (!this.threadId) throw new Error(`codex thread/start returned no thread id: ${truncate(JSON.stringify(result), 300)}`);
+    this.opts.onAgentSessionId(this.threadId);
+    if (!this.model && result?.model) this.model = result.model;
+    this.emit({ type: 'status', state: 'idle', ts: now() });
+  }
+
+  private async onServerRequest(method: string, params: any): Promise<any> {
+    if (method === 'item/commandExecution/requestApproval' || method === 'execCommandApproval') {
+      const decision = await this.requestApproval(
+        `Codex wants to run a command`,
+        [params?.command, params?.reason, params?.cwd ? `in ${params.cwd}` : '']
+          .filter(Boolean)
+          .join('\n'),
+      );
+      return { decision };
+    }
+    if (method === 'item/fileChange/requestApproval' || method === 'applyPatchApproval') {
+      const decision = await this.requestApproval(
+        'Codex wants to change files',
+        [params?.reason, params?.grantRoot ? `grant root: ${params.grantRoot}` : ''].filter(Boolean).join('\n') || 'Apply proposed file changes',
+      );
+      return { decision };
+    }
+    if (method === 'item/permissions/requestApproval') {
+      const decision = await this.requestApproval('Codex requests permissions', truncate(JSON.stringify(params ?? {}, null, 2), 1500));
+      return { decision };
+    }
+    // Anything we don't understand: refuse rather than hang the server.
+    throw new Error(`Pocket does not handle server request ${method}`);
+  }
+
+  private requestApproval(title: string, detail: string): Promise<CodexDecision> {
+    const requestId = randomUUID();
+    return new Promise((resolve) => {
+      this.pending.set(requestId, { resolve });
+      this.emit({ type: 'approval_request', requestId, title, detail, ts: now() });
+    });
+  }
+
+  resolveApproval(requestId: string, decision: 'allow' | 'allow-session' | 'deny'): void {
+    const pending = this.pending.get(requestId);
+    if (!pending) return;
+    this.pending.delete(requestId);
+    this.emit({ type: 'approval_resolved', requestId, decision, ts: now() });
+    pending.resolve(decision === 'deny' ? 'decline' : decision === 'allow-session' ? 'acceptForSession' : 'accept');
+  }
+
+  private onNotification(method: string, params: any) {
+    switch (method) {
+      case 'item/agentMessage/delta':
+        if (params?.delta) this.emit({ type: 'assistant_delta', delta: params.delta, ts: now() });
+        break;
+      case 'item/reasoning/textDelta':
+      case 'item/reasoning/summaryTextDelta':
+        if (params?.delta) this.emit({ type: 'thinking_delta', delta: params.delta, ts: now() });
+        break;
+      case 'item/started': {
+        const item = params?.item;
+        if (!item) break;
+        const described = this.describeItem(item);
+        if (described) {
+          this.itemNames.set(item.id, described.name);
+          this.emit({ type: 'tool_start', toolId: item.id, name: described.name, detail: described.detail, ts: now() });
+        }
+        break;
+      }
+      case 'item/completed': {
+        const item = params?.item;
+        if (!item) break;
+        if (item.type === 'agentMessage' && item.text) {
+          this.emit({ type: 'assistant_message', text: item.text, ts: now() });
+        } else if (this.itemNames.has(item.id)) {
+          const ok = item.type === 'commandExecution' ? item.exitCode === 0 || item.exitCode == null : item.status !== 'failed';
+          const detail = item.type === 'commandExecution' && item.exitCode != null ? `exit ${item.exitCode}` : undefined;
+          this.emit({ type: 'tool_end', toolId: item.id, name: this.itemNames.get(item.id)!, ok, detail, ts: now() });
+          this.itemNames.delete(item.id);
+        }
+        break;
+      }
+      case 'turn/started':
+        this.emit({ type: 'status', state: 'working', ts: now() });
+        break;
+      case 'turn/completed':
+        this.emit({ type: 'status', state: 'idle', ts: now() });
+        break;
+      case 'thread/tokenUsage/updated': {
+        const total = params?.tokenUsage?.total ?? {};
+        const input = total.inputTokens ?? total.input_tokens ?? 0;
+        const output = total.outputTokens ?? total.output_tokens ?? 0;
+        if (params?.tokenUsage?.modelContextWindow) this.contextWindow = params.tokenUsage.modelContextWindow;
+        const last = params?.tokenUsage?.last ?? {};
+        const lastTotal = (last.inputTokens ?? last.input_tokens ?? 0) + (last.outputTokens ?? last.output_tokens ?? 0);
+        this.emit({
+          type: 'usage',
+          usage: {
+            inputTokens: input,
+            outputTokens: output,
+            contextPct: this.contextWindow ? Math.min(100, Math.round((lastTotal / this.contextWindow) * 100)) : undefined,
+          },
+          ts: now(),
+        });
+        break;
+      }
+      case 'error':
+        this.emit({ type: 'error', message: params?.error?.message ?? truncate(JSON.stringify(params ?? {}), 300), ts: now() });
+        break;
+      default:
+        break; // plenty of notifications we render nothing for
+    }
+  }
+
+  private describeItem(item: any): { name: string; detail: string } | null {
+    switch (item.type) {
+      case 'commandExecution':
+        return { name: 'shell', detail: truncate(item.command ?? '', 300) };
+      case 'fileChange':
+        return { name: 'edit', detail: truncate((item.changes ?? []).map((c: any) => c.path ?? '').join(', '), 300) };
+      case 'mcpToolCall':
+        return { name: `${item.server}:${item.tool}`, detail: truncate(JSON.stringify(item.arguments ?? {}), 300) };
+      case 'webSearch':
+        return { name: 'web search', detail: truncate(item.query ?? '', 300) };
+      default:
+        return null;
+    }
+  }
+
+  async sendUserMessage(text: string, images?: UserImage[]): Promise<void> {
+    await this.ready;
+    if (!this.threadId) throw new Error('Codex thread is not ready');
+    const input: any[] = [];
+    for (const img of images ?? []) {
+      const dir = join(tmpdir(), 'pocket-uploads');
+      mkdirSync(dir, { recursive: true });
+      const ext = img.mediaType.split('/')[1]?.split('+')[0] || 'png';
+      const path = join(dir, `${randomUUID()}.${ext}`);
+      writeFileSync(path, Buffer.from(img.data, 'base64'));
+      input.push({ type: 'localImage', path });
+    }
+    if (text) input.push({ type: 'text', text, text_elements: [] });
+    this.emit({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
+    this.emit({ type: 'status', state: 'working', ts: now() });
+    void this.rpc
+      .request('turn/start', {
+        threadId: this.threadId,
+        input,
+        approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
+        model: this.model || null,
+        effort: this.effort || null,
+      }, 10 * 60_000)
+      .catch((err) => {
+        this.emit({ type: 'error', message: `Codex turn failed: ${err?.message ?? err}`, ts: now() });
+        this.emit({ type: 'status', state: 'idle', ts: now() });
+      });
+  }
+
+  async setModel(model: string): Promise<void> {
+    this.model = model; // applied on the next turn/start
+  }
+
+  async setEffort(effort: string): Promise<void> {
+    this.effort = effort; // applied on the next turn/start
+  }
+
+  async setApprovals(approvals: ApprovalSetting): Promise<void> {
+    this.approvals = approvals; // applied on the next turn/start
+  }
+
+  async interrupt(): Promise<void> {
+    if (this.threadId) {
+      await this.rpc.request('turn/interrupt', { threadId: this.threadId }).catch(() => {});
+      this.emit({ type: 'status', state: 'idle', ts: now() });
+    }
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    for (const [id, pending] of this.pending) {
+      pending.resolve('decline');
+      this.pending.delete(id);
+    }
+    this.rpc.kill();
+  }
+}

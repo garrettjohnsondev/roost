@@ -1,0 +1,101 @@
+import { createServer } from 'node:http';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import express from 'express';
+import { WebSocketServer, type WebSocket } from 'ws';
+import { loadConfig, repoRoot } from './config.js';
+import { SessionManager } from './sessions.js';
+import type { AgentKind, ClientMessage } from './protocol.js';
+
+const config = loadConfig();
+const manager = new SessionManager(config);
+const token = process.env.POCKET_TOKEN;
+
+const app = express();
+app.use(express.json({ limit: '30mb' }));
+
+function authorized(req: express.Request): boolean {
+  if (!token) return true;
+  const header = req.headers.authorization;
+  return header === `Bearer ${token}` || req.query.token === token;
+}
+
+app.use('/api', (req, res, next) => {
+  if (!authorized(req)) {
+    res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  next();
+});
+
+app.get('/api/config', (_req, res) => {
+  res.json({
+    projects: config.projects,
+    claude: config.claude,
+    codex: config.codex,
+  });
+});
+
+app.get('/api/sessions', (_req, res) => {
+  res.json({ sessions: manager.list() });
+});
+
+app.post('/api/sessions', (req, res) => {
+  const { agent, cwd, model, resume } = req.body ?? {};
+  if (agent !== 'claude' && agent !== 'codex') {
+    res.status(400).json({ error: 'agent must be "claude" or "codex"' });
+    return;
+  }
+  if (typeof cwd !== 'string' || !config.projects.includes(cwd)) {
+    res.status(400).json({ error: 'cwd must be one of the configured projects' });
+    return;
+  }
+  const session = manager.create(agent as AgentKind, cwd, { model, resume });
+  res.json({ session: session.meta() });
+});
+
+app.delete('/api/sessions/:id', (req, res) => {
+  res.json({ closed: manager.close(req.params.id) });
+});
+
+// Serve the built web app when present (production mode).
+const webDist = join(repoRoot, 'web', 'dist');
+if (existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get(/^\/(?!api|ws).*/, (_req, res) => res.sendFile(join(webDist, 'index.html')));
+}
+
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+wss.on('connection', (ws: WebSocket, req) => {
+  const url = new URL(req.url ?? '/ws', 'http://localhost');
+  if (token && url.searchParams.get('token') !== token) {
+    ws.close(4001, 'unauthorized');
+    return;
+  }
+  const sessionId = url.searchParams.get('session');
+  const session = sessionId ? manager.get(sessionId) : undefined;
+  if (!session) {
+    ws.close(4004, 'unknown session');
+    return;
+  }
+  session.attach(ws);
+  ws.on('message', (raw) => {
+    let msg: ClientMessage;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    void session.handleClientMessage(msg).catch((err) => {
+      session.reportError(String(err?.message ?? err));
+    });
+  });
+});
+
+httpServer.listen(config.port, '0.0.0.0', () => {
+  console.log(`[pocket] listening on http://0.0.0.0:${config.port}`);
+  console.log(`[pocket] projects: ${config.projects.join(', ')}`);
+  if (!token) console.log('[pocket] no POCKET_TOKEN set — keep this server tailnet-only');
+});
