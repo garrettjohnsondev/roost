@@ -173,6 +173,10 @@ button {
   min-width: 0;
 }
 
+.browse-shortcuts {
+  margin-bottom: 10px;
+}
+
 .browse-path {
   margin-bottom: 8px;
 }

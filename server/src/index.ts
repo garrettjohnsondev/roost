@@ -58,7 +58,18 @@ app.get('/api/browse', (req, res) => {
         return { name: e.name, path: full, isRepo: existsSync(join(full, '.git')) };
       })
       .sort((a, b) => (a.isRepo === b.isRepo ? a.name.localeCompare(b.name) : a.isRepo ? -1 : 1));
-    res.json({ path, parent: dirname(path) !== path ? dirname(path) : null, dirs: entries });
+    const shortcuts = [{ name: 'Home', path: homedir() }];
+    try {
+      for (const v of readdirSync('/Volumes', { withFileTypes: true })) {
+        if (!v.name.startsWith('.')) {
+          const full = join('/Volumes', v.name);
+          if (realpathSync(full) !== '/') shortcuts.push({ name: v.name, path: full }); // skip the boot volume alias
+        }
+      }
+    } catch {
+      /* no /Volumes on this platform */
+    }
+    res.json({ path, parent: dirname(path) !== path ? dirname(path) : null, dirs: entries, shortcuts });
   } catch (err: any) {
     res.status(400).json({ error: String(err?.message ?? err) });
   }
@@ -167,8 +178,8 @@ function printTailscaleUrl(port: number) {
       return;
     }
     execFile(candidates[i], ['ip', '-4'], (err, stdout) => {
-      const ip = stdout?.trim().split('\n')[0];
-      if (!err && ip) console.log(`[pocket] on your phone, open:  http://${ip}:${port}`);
+      const ip = stdout?.trim().split('\n')[0] ?? '';
+      if (!err && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) console.log(`[pocket] on your phone, open:  http://${ip}:${port}`);
       else tryNext(i + 1);
     });
   };

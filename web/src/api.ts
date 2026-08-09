@@ -15,9 +15,12 @@ export const api = {
   createSession: (body: { agent: string; cwd: string; model?: string; resume?: string; title?: string }) =>
     request<{ session: SessionMeta }>('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   browse: (path?: string) =>
-    request<{ path: string; parent: string | null; dirs: Array<{ name: string; path: string; isRepo: boolean }> }>(
-      `/api/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`,
-    ),
+    request<{
+      path: string;
+      parent: string | null;
+      dirs: Array<{ name: string; path: string; isRepo: boolean }>;
+      shortcuts: Array<{ name: string; path: string }>;
+    }>(`/api/browse${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   addProject: (path: string) =>
     request<{ projects: string[] }>('/api/projects', { method: 'POST', body: JSON.stringify({ path }) }),
   resumable: (agent: string, cwd: string) =>

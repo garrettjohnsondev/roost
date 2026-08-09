@@ -18,7 +18,12 @@ function fmtAgo(ts: number): string {
 }
 
 function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => void }) {
-  const [dir, setDir] = useState<{ path: string; parent: string | null; dirs: Array<{ name: string; path: string; isRepo: boolean }> } | null>(null);
+  const [dir, setDir] = useState<{
+    path: string;
+    parent: string | null;
+    dirs: Array<{ name: string; path: string; isRepo: boolean }>;
+    shortcuts: Array<{ name: string; path: string }>;
+  } | null>(null);
 
   useEffect(() => {
     api.browse().then(setDir).catch(() => {});
@@ -32,6 +37,17 @@ function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => v
         <h3>Add project</h3>
         {dir && (
           <>
+            <div className="chips browse-shortcuts">
+              {dir.shortcuts.map((s) => (
+                <button
+                  key={s.path}
+                  className={dir.path === s.path ? 'chip active' : 'chip'}
+                  onClick={() => nav(s.path)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
             <div className="mono-note browse-path">{dir.path}</div>
             <div className="resume-list browse-list">
               {dir.parent && (
