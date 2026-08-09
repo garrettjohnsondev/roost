@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,13 +25,18 @@ const DEFAULTS: PocketConfig = {
 /** Repo root is two levels up from server/src (or server/dist). */
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+const configPath = () => process.env.POCKET_CONFIG ?? join(repoRoot, 'pocket.config.json');
+
 export function loadConfig(): PocketConfig {
-  const configPath = process.env.POCKET_CONFIG ?? join(repoRoot, 'pocket.config.json');
   try {
-    const parsed = JSON.parse(readFileSync(configPath, 'utf8'));
+    const parsed = JSON.parse(readFileSync(configPath(), 'utf8'));
     return { ...DEFAULTS, ...parsed, claude: { ...DEFAULTS.claude, ...parsed.claude }, codex: { ...DEFAULTS.codex, ...parsed.codex } };
   } catch {
-    console.warn(`[pocket] no readable config at ${configPath}, using defaults`);
+    console.warn(`[pocket] no readable config at ${configPath()}, using defaults`);
     return DEFAULTS;
   }
+}
+
+export function saveConfig(config: PocketConfig): void {
+  writeFileSync(configPath(), JSON.stringify(config, null, 2) + '\n');
 }

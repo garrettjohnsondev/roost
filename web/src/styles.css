@@ -162,6 +162,26 @@ button {
   margin-bottom: 10px;
 }
 
+.project-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.project-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.browse-path {
+  margin-bottom: 8px;
+}
+
+.browse-list {
+  max-height: 40dvh;
+  overflow-y: auto;
+}
+
 .resume-list {
   display: flex;
   flex-direction: column;

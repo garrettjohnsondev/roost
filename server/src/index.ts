@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { loadConfig, repoRoot } from './config.js';
+import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { listClaudeSessions, listCodexSessions } from './resumable.js';
 import { SessionManager } from './sessions.js';
@@ -43,6 +44,46 @@ app.get('/api/config', async (_req, res) => {
 
 app.get('/api/sessions', (_req, res) => {
   res.json({ sessions: manager.list() });
+});
+
+// Directory browser for the add-project flow (tailnet-only, like everything else here).
+app.get('/api/browse', (req, res) => {
+  const requested = String(req.query.path ?? '') || homedir();
+  try {
+    const path = realpathSync(requested);
+    const entries = readdirSync(path, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => {
+        const full = join(path, e.name);
+        return { name: e.name, path: full, isRepo: existsSync(join(full, '.git')) };
+      })
+      .sort((a, b) => (a.isRepo === b.isRepo ? a.name.localeCompare(b.name) : a.isRepo ? -1 : 1));
+    res.json({ path, parent: dirname(path) !== path ? dirname(path) : null, dirs: entries });
+  } catch (err: any) {
+    res.status(400).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/projects', (req, res) => {
+  const { path } = req.body ?? {};
+  try {
+    const resolved = realpathSync(String(path ?? ''));
+    if (!statSync(resolved).isDirectory()) throw new Error('not a directory');
+    if (!config.projects.includes(resolved)) {
+      config.projects.push(resolved);
+      saveConfig(config);
+    }
+    res.json({ projects: config.projects });
+  } catch (err: any) {
+    res.status(400).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.delete('/api/projects', (req, res) => {
+  const path = String(req.query.path ?? '');
+  config.projects = config.projects.filter((p) => p !== path);
+  saveConfig(config);
+  res.json({ projects: config.projects });
 });
 
 app.get('/api/resumable', async (req, res) => {

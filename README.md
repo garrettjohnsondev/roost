@@ -31,8 +31,24 @@ Reach it from your phone anywhere over [Tailscale](https://tailscale.com).
 
 ```bash
 npm install
-npm run build
-npm start          # serves UI + API on http://0.0.0.0:8790
+npm run service:install   # builds, then installs an auto-starting background service
+```
+
+Pocket now runs permanently: it starts at login and restarts if it crashes. The startup log
+(`~/Library/Logs/pocket.log`) prints the exact URL to open on your phone. Manage it with:
+
+```bash
+npm run service:status
+npm run service:uninstall
+tail -f ~/Library/Logs/pocket.log
+```
+
+After pulling code changes, re-run `npm run service:install` to rebuild and restart.
+
+To run manually in the foreground instead (e.g. for development):
+
+```bash
+npm run build && npm start   # serves UI + API on http://0.0.0.0:8790
 ```
 
 Then on your phone (with Tailscale connected), open:
@@ -49,13 +65,12 @@ Find the name with `tailscale status`. Add the page to your home screen for an a
 npm run dev        # server on :8790 with reload + Vite dev server on :5173
 ```
 
-### Configuration
+### Projects
 
-Edit `pocket.config.json`:
-
-- `projects` — allow-listed directories sessions can run in (add your repos here)
-- `claude.models` / `codex.models` — model choices shown in the UI
-- `port` — HTTP/WebSocket port
+Add projects **from your phone**: tap "＋ Add" next to the project picker and browse to any
+folder (git repos are marked ●). The list persists in `pocket.config.json`, which you can also
+edit by hand (`projects`, `port`, fallback model lists). No restart needed when adding from
+the UI.
 
 ### Keeping the Mac awake
 

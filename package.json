@@ -11,7 +11,10 @@
     "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
     "build": "npm run build -w web && npm run build -w server",
     "start": "npm run start -w server",
-    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "service:install": "npm run build && node scripts/service.mjs install",
+    "service:uninstall": "node scripts/service.mjs uninstall",
+    "service:status": "node scripts/service.mjs status"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

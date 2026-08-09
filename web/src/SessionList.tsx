@@ -17,10 +17,59 @@ function fmtAgo(ts: number): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => void }) {
+  const [dir, setDir] = useState<{ path: string; parent: string | null; dirs: Array<{ name: string; path: string; isRepo: boolean }> } | null>(null);
+
+  useEffect(() => {
+    api.browse().then(setDir).catch(() => {});
+  }, []);
+
+  const nav = (path: string) => api.browse(path).then(setDir).catch(() => {});
+
+  return (
+    <div className="sheet-backdrop" onClick={props.onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <h3>Add project</h3>
+        {dir && (
+          <>
+            <div className="mono-note browse-path">{dir.path}</div>
+            <div className="resume-list browse-list">
+              {dir.parent && (
+                <button className="resume-row" onClick={() => nav(dir.parent!)}>
+                  <span className="resume-title">‹ up</span>
+                </button>
+              )}
+              {dir.dirs.map((d) => (
+                <button key={d.path} className="resume-row" onClick={() => nav(d.path)}>
+                  <span className="resume-title">
+                    {d.isRepo ? '● ' : ''}
+                    {d.name}
+                  </span>
+                  <span className="resume-time">›</span>
+                </button>
+              ))}
+            </div>
+            <div className="sheet-actions">
+              <button className="danger" onClick={props.onClose}>
+                Cancel
+              </button>
+              <button className="primary" onClick={() => props.onPick(dir.path)}>
+                Use this folder
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: string) => void }) {
   const { config, onOpen } = props;
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [agent, setAgent] = useState<AgentKind>('claude');
+  const [projects, setProjects] = useState<string[]>(config.projects);
+  const [showBrowser, setShowBrowser] = useState(false);
   const [cwd, setCwd] = useState(config.projects[0] ?? '');
   const [model, setModel] = useState(config.claude.defaultModel);
   const [resumable, setResumable] = useState<Resumable[]>([]);
@@ -103,13 +152,18 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
         </div>
         <div className="field">
           <label>Project</label>
-          <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
-            {config.projects.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+          <div className="project-row">
+            <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
+              {projects.map((p) => (
+                <option key={p} value={p}>
+                  {p.split('/').slice(-2).join('/')}
+                </option>
+              ))}
+            </select>
+            <button className="chip" onClick={() => setShowBrowser(true)}>
+              ＋ Add
+            </button>
+          </div>
         </div>
         <div className="field">
           <label>Model</label>
@@ -154,6 +208,23 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
           {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
         </button>
       </section>
+
+      {showBrowser && (
+        <FolderBrowser
+          onClose={() => setShowBrowser(false)}
+          onPick={async (path) => {
+            try {
+              const r = await api.addProject(path);
+              setProjects(r.projects);
+              setCwd(path);
+              setShowBrowser(false);
+            } catch (e: any) {
+              setError(String(e.message ?? e));
+              setShowBrowser(false);
+            }
+          }}
+        />
+      )}
 
       {sessions.length > 0 && (
         <section className="card">
