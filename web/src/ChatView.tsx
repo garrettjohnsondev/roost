@@ -97,11 +97,11 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
               <div className="chips">
                 {agentConfig.models.map((m) => (
                   <button
-                    key={m}
-                    className={session.meta!.model === m ? 'chip active' : 'chip'}
-                    onClick={() => session.send({ type: 'set_model', model: m })}
+                    key={m.id}
+                    className={session.meta!.model === m.id ? 'chip active' : 'chip'}
+                    onClick={() => session.send({ type: 'set_model', model: m.id })}
                   >
-                    {m}
+                    {m.label}
                   </button>
                 ))}
               </div>
@@ -109,7 +109,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             <div className="field">
               <label>Effort</label>
               <div className="chips">
-                {agentConfig.efforts.map((e) => (
+                {(agentConfig.models.find((m) => m.id === session.meta!.model)?.efforts ?? agentConfig.efforts).map((e) => (
                   <button
                     key={e}
                     className={session.meta!.effort === e ? 'chip active' : 'chip'}

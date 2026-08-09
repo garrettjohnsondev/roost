@@ -115,8 +115,8 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
           <label>Model</label>
           <div className="chips">
             {agentConfig.models.map((m) => (
-              <button key={m} className={model === m ? 'chip active' : 'chip'} onClick={() => setModel(m)}>
-                {m}
+              <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
+                {m.label}
               </button>
             ))}
             <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>

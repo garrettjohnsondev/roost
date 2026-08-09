@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot } from './config.js';
+import { getLiveModels, type ModelOption } from './models.js';
 import { listClaudeSessions, listCodexSessions } from './resumable.js';
 import { SessionManager } from './sessions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
@@ -29,11 +30,13 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-app.get('/api/config', (_req, res) => {
+app.get('/api/config', async (_req, res) => {
+  const live = await getLiveModels(config.projects[0] ?? repoRoot);
+  const fallback = (models: string[]): ModelOption[] => models.map((m) => ({ id: m, label: m }));
   res.json({
     projects: config.projects,
-    claude: config.claude,
-    codex: config.codex,
+    claude: { ...config.claude, models: live.claude.length ? live.claude : fallback(config.claude.models) },
+    codex: { ...config.codex, models: live.codex.length ? live.codex : fallback(config.codex.models) },
   });
 });
 
@@ -110,6 +113,9 @@ wss.on('connection', (ws: WebSocket, req) => {
     });
   });
 });
+
+// Warm the model cache so the first phone load is instant.
+void getLiveModels(config.projects[0] ?? repoRoot);
 
 httpServer.listen(config.port, '0.0.0.0', () => {
   console.log(`[pocket] listening on http://0.0.0.0:${config.port}`);

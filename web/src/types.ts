@@ -50,8 +50,14 @@ export type ServerEvent =
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };
 
+export interface ModelOption {
+  id: string;
+  label: string;
+  efforts?: string[];
+}
+
 export interface AgentConfig {
-  models: string[];
+  models: ModelOption[];
   defaultModel: string;
   efforts: string[];
 }
