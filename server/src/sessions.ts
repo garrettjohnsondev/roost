@@ -28,7 +28,10 @@ export class Session {
     opts: { model?: string; resume?: string } = {},
   ) {
     const agentConfig = config[agent];
-    this.model = opts.model ?? agentConfig.defaultModel;
+    // Resuming without an explicit model leaves it unset so the engine continues with
+    // whatever the original session was using; onModelResolved fills in the true value
+    // once the agent reports it, instead of forcing today's default onto old history.
+    this.model = opts.model ?? (opts.resume ? '' : agentConfig.defaultModel);
     this.effort = '';
     this.approvals = 'ask';
     const adapterOptions = {

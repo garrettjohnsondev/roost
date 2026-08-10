@@ -7,13 +7,36 @@ import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { getLiveModels, type ModelOption } from './models.js';
-import { listClaudeSessions, listCodexSessions } from './resumable.js';
+import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
 import { SessionManager } from './sessions.js';
+import { getCachedUsage, refreshUsage } from './usage.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 const config = loadConfig();
 const manager = new SessionManager(config);
 const token = process.env.POCKET_TOKEN;
+
+/** Mounted external volumes, boot disk excluded — used both as folder-browser
+ *  shortcuts and to default new setups onto external storage (e.g. a project SSD)
+ *  instead of the user's home folder. */
+function listVolumeShortcuts(): Array<{ name: string; path: string }> {
+  const shortcuts: Array<{ name: string; path: string }> = [];
+  try {
+    for (const v of readdirSync('/Volumes', { withFileTypes: true })) {
+      if (!v.name.startsWith('.')) {
+        const full = join('/Volumes', v.name);
+        if (realpathSync(full) !== '/') shortcuts.push({ name: v.name, path: full });
+      }
+    }
+  } catch {
+    /* no /Volumes on this platform */
+  }
+  return shortcuts;
+}
+
+function primaryVolume(): string | null {
+  return listVolumeShortcuts()[0]?.path ?? null;
+}
 
 const app = express();
 app.use(express.json({ limit: '30mb' }));
@@ -37,6 +60,7 @@ app.get('/api/config', async (_req, res) => {
   const fallback = (models: string[]): ModelOption[] => models.map((m) => ({ id: m, label: m }));
   res.json({
     projects: config.projects,
+    primaryVolume: primaryVolume(),
     claude: { ...config.claude, models: live.claude.length ? live.claude : fallback(config.claude.models) },
     codex: { ...config.codex, models: live.codex.length ? live.codex : fallback(config.codex.models) },
   });
@@ -47,8 +71,10 @@ app.get('/api/sessions', (_req, res) => {
 });
 
 // Directory browser for the add-project flow (tailnet-only, like everything else here).
+// Defaults onto an external volume (e.g. a project SSD) rather than the home folder, since
+// that's where new projects are more often kept.
 app.get('/api/browse', (req, res) => {
-  const requested = String(req.query.path ?? '') || homedir();
+  const requested = String(req.query.path ?? '') || primaryVolume() || homedir();
   try {
     const path = realpathSync(requested);
     const entries = readdirSync(path, { withFileTypes: true })
@@ -58,17 +84,7 @@ app.get('/api/browse', (req, res) => {
         return { name: e.name, path: full, isRepo: existsSync(join(full, '.git')) };
       })
       .sort((a, b) => (a.isRepo === b.isRepo ? a.name.localeCompare(b.name) : a.isRepo ? -1 : 1));
-    const shortcuts = [{ name: 'Home', path: homedir() }];
-    try {
-      for (const v of readdirSync('/Volumes', { withFileTypes: true })) {
-        if (!v.name.startsWith('.')) {
-          const full = join('/Volumes', v.name);
-          if (realpathSync(full) !== '/') shortcuts.push({ name: v.name, path: full }); // skip the boot volume alias
-        }
-      }
-    } catch {
-      /* no /Volumes on this platform */
-    }
+    const shortcuts = [{ name: 'Home', path: homedir() }, ...listVolumeShortcuts()];
     res.json({ path, parent: dirname(path) !== path ? dirname(path) : null, dirs: entries, shortcuts });
   } catch (err: any) {
     res.status(400).json({ error: String(err?.message ?? err) });
@@ -122,9 +138,32 @@ app.post('/api/sessions', (req, res) => {
     res.status(400).json({ error: 'cwd must be one of the configured projects' });
     return;
   }
-  const session = manager.create(agent as AgentKind, cwd, { model, resume });
+  // On resume, an explicit model continues to override; otherwise leave it unset so the
+  // engine picks back up with whatever the original session was using, instead of forcing
+  // today's default model onto yesterday's conversation.
+  const session = manager.create(agent as AgentKind, cwd, { model: model || undefined, resume });
   if (resume && typeof title === 'string' && title) session.title = title;
   res.json({ session: session.meta() });
+});
+
+app.get('/api/recent', async (_req, res) => {
+  try {
+    res.json({ projects: await getRecentProjects(config.projects) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.get('/api/usage', (_req, res) => {
+  res.json({ usage: getCachedUsage() });
+});
+
+app.post('/api/usage/refresh', async (_req, res) => {
+  try {
+    res.json({ usage: await refreshUsage(config.projects[0] ?? repoRoot) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
 });
 
 app.delete('/api/sessions/:id', (req, res) => {

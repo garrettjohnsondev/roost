@@ -113,6 +113,12 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             <div className="field">
               <label>Effort</label>
               <div className="chips">
+                <button
+                  className={session.meta!.effort === '' ? 'chip active' : 'chip'}
+                  onClick={() => session.send({ type: 'set_effort', effort: '' })}
+                >
+                  Auto
+                </button>
                 {(agentConfig.models.find(isCurrentModel)?.efforts ?? agentConfig.efforts).map((e) => (
                   <button
                     key={e}

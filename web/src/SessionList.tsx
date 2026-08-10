@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import type { AgentKind, PocketConfigResponse, SessionMeta } from './types';
-
-interface Resumable {
-  id: string;
-  title: string;
-  updatedAt: number;
-}
+import { GlobalSettings } from './GlobalSettings';
+import { UsagePanel } from './UsagePanel';
+import type { Theme } from './theme';
+import type { AgentKind, PocketConfigResponse, RecentProject, SessionMeta } from './types';
 
 function fmtAgo(ts: number): string {
   const mins = Math.round((Date.now() - ts) / 60_000);
@@ -15,6 +12,17 @@ function fmtAgo(ts: number): string {
   const hours = Math.round(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+function shortPath(path: string): string {
+  const parts = path.split('/').filter(Boolean);
+  return parts.slice(-2).join('/') || path;
+}
+
+interface Resumable {
+  id: string;
+  title: string;
+  updatedAt: number;
 }
 
 function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => void }) {
@@ -80,13 +88,22 @@ function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => v
   );
 }
 
-export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: string) => void }) {
-  const { config, onOpen } = props;
+export function SessionList(props: {
+  config: PocketConfigResponse;
+  onOpen: (id: string) => void;
+  theme: Theme;
+  onThemeChange: (t: Theme) => void;
+}) {
+  const { config, onOpen, theme, onThemeChange } = props;
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
-  const [agent, setAgent] = useState<AgentKind>('claude');
+  const [recent, setRecent] = useState<RecentProject[] | null>(null);
   const [projects, setProjects] = useState<string[]>(config.projects);
   const [showBrowser, setShowBrowser] = useState(false);
-  const [cwd, setCwd] = useState(config.projects[0] ?? '');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showNewSession, setShowNewSession] = useState(false);
+  const [agent, setAgent] = useState<AgentKind>('claude');
+  const defaultProject = () => recent?.[0]?.path ?? config.primaryVolume ?? config.projects[0] ?? '';
+  const [cwd, setCwd] = useState(defaultProject());
   const [model, setModel] = useState(config.claude.defaultModel);
   const [resumable, setResumable] = useState<Resumable[]>([]);
   const [resume, setResume] = useState<Resumable | null>(null);
@@ -98,6 +115,13 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
 
   useEffect(() => {
     api.sessions().then((r) => setSessions(r.sessions)).catch(() => {});
+    api
+      .recent()
+      .then((r) => {
+        setRecent(r.projects);
+        if (r.projects[0]) setCwd(r.projects[0].path);
+      })
+      .catch(() => setRecent([]));
   }, []);
 
   useEffect(() => {
@@ -121,6 +145,24 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
     };
   }, [agent, cwd]);
 
+  async function openRecent(project: RecentProject) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.createSession({
+        agent: project.lastAgent,
+        cwd: project.path,
+        resume: project.lastResumeId,
+        title: project.lastTitle,
+      });
+      onOpen(r.session.id);
+    } catch (e: any) {
+      setError(String(e.message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function create() {
     setBusy(true);
     setError(null);
@@ -128,7 +170,7 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
       const r = await api.createSession({
         agent,
         cwd,
-        model: model || undefined,
+        model: resume ? undefined : model || undefined,
         resume: resume?.id,
         title: resume?.title,
       });
@@ -150,98 +192,35 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Pocket</h1>
-        <span className="subtitle">your laptop, in your pocket</span>
+        <div className="page-header-row">
+          <div>
+            <h1>Pocket</h1>
+            <span className="subtitle">your laptop, in your pocket</span>
+          </div>
+          <button className="ghost" onClick={() => setShowSettings(true)}>
+            ⚙
+          </button>
+        </div>
       </header>
 
-      <section className="card">
-        <h2>New session</h2>
-        <div className="field">
-          <label>Agent</label>
-          <div className="segmented">
-            {(['claude', 'codex'] as const).map((a) => (
-              <button key={a} className={agent === a ? 'seg active' : 'seg'} onClick={() => setAgent(a)}>
-                {a === 'claude' ? 'Claude Code' : 'Codex'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="field">
-          <label>Project</label>
-          <div className="project-row">
-            <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
-              {projects.map((p) => (
-                <option key={p} value={p}>
-                  {p.split('/').slice(-2).join('/')}
-                </option>
-              ))}
-            </select>
-            <button className="chip" onClick={() => setShowBrowser(true)}>
-              ＋ Add
-            </button>
-          </div>
-        </div>
-        <div className="field">
-          <label>Model</label>
-          <div className="chips">
-            {agentConfig.models.map((m) => (
-              <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
-                {m.label}
-              </button>
-            ))}
-            {!agentConfig.models.some((m) => m.id === 'default') && (
-              <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
-                default
-              </button>
-            )}
-          </div>
-        </div>
-        {resumable.length > 0 && (
-          <div className="field">
-            <label>Continue a previous session</label>
-            <div className="resume-list">
-              <button className={resume === null ? 'resume-row active' : 'resume-row'} onClick={() => setResume(null)}>
-                <span className="resume-title">Start fresh</span>
-              </button>
-              {visibleResumable.map((s) => (
-                <button
-                  key={s.id}
-                  className={resume?.id === s.id ? 'resume-row active' : 'resume-row'}
-                  onClick={() => setResume(s)}
-                >
-                  <span className="resume-title">{s.title}</span>
-                  <span className="resume-time">{fmtAgo(s.updatedAt)}</span>
-                </button>
-              ))}
-              {resumable.length > 5 && !showAllResumable && (
-                <button className="link" onClick={() => setShowAllResumable(true)}>
-                  Show {resumable.length - 5} more
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-        {error && <div className="error-note">{error}</div>}
-        <button className="primary" disabled={busy || !cwd} onClick={create}>
-          {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
-        </button>
-      </section>
+      <UsagePanel />
 
-      {showBrowser && (
-        <FolderBrowser
-          onClose={() => setShowBrowser(false)}
-          onPick={async (path) => {
-            try {
-              const r = await api.addProject(path);
-              setProjects(r.projects);
-              setCwd(path);
-              setShowBrowser(false);
-            } catch (e: any) {
-              setError(String(e.message ?? e));
-              setShowBrowser(false);
-            }
-          }}
-        />
+      {recent !== null && recent.length > 0 && (
+        <section className="card">
+          <h2>Jump back in</h2>
+          <div className="recent-list">
+            {recent.map((p) => (
+              <button key={p.path} className="recent-row" disabled={busy} onClick={() => openRecent(p)}>
+                <span className={`agent-dot ${p.lastAgent}`} />
+                <span className="recent-info">
+                  <span className="recent-project">{shortPath(p.path)}</span>
+                  <span className="recent-title">{p.lastTitle}</span>
+                </span>
+                <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {sessions.length > 0 && (
@@ -262,6 +241,113 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
             </div>
           ))}
         </section>
+      )}
+
+      <section className="card">
+        <button className="new-session-toggle" onClick={() => setShowNewSession((v) => !v)}>
+          <h2>Start something new</h2>
+          <span className="ghost">{showNewSession ? '︿' : '﹀'}</span>
+        </button>
+        {showNewSession && (
+          <>
+            <div className="field">
+              <label>Agent</label>
+              <div className="segmented">
+                {(['claude', 'codex'] as const).map((a) => (
+                  <button key={a} className={agent === a ? 'seg active' : 'seg'} onClick={() => setAgent(a)}>
+                    {a === 'claude' ? 'Claude Code' : 'Codex'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="field">
+              <label>Project</label>
+              <div className="project-row">
+                <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
+                  {projects.map((p) => (
+                    <option key={p} value={p}>
+                      {shortPath(p)}
+                    </option>
+                  ))}
+                </select>
+                <button className="chip" onClick={() => setShowBrowser(true)}>
+                  ＋ Add
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <label>Model</label>
+              <div className="chips">
+                {agentConfig.models.map((m) => (
+                  <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
+                    {m.label}
+                  </button>
+                ))}
+                {!agentConfig.models.some((m) => m.id === 'default') && (
+                  <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
+                    default
+                  </button>
+                )}
+              </div>
+            </div>
+            {resumable.length > 0 && (
+              <div className="field">
+                <label>Continue a previous session</label>
+                <div className="resume-list">
+                  <button className={resume === null ? 'resume-row active' : 'resume-row'} onClick={() => setResume(null)}>
+                    <span className="resume-title">Start fresh</span>
+                  </button>
+                  {visibleResumable.map((s) => (
+                    <button
+                      key={s.id}
+                      className={resume?.id === s.id ? 'resume-row active' : 'resume-row'}
+                      onClick={() => setResume(s)}
+                    >
+                      <span className="resume-title">{s.title}</span>
+                      <span className="resume-time">{fmtAgo(s.updatedAt)}</span>
+                    </button>
+                  ))}
+                  {resumable.length > 5 && !showAllResumable && (
+                    <button className="link" onClick={() => setShowAllResumable(true)}>
+                      Show {resumable.length - 5} more
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {error && <div className="error-note">{error}</div>}
+            <button className="primary" disabled={busy || !cwd} onClick={create}>
+              {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
+            </button>
+          </>
+        )}
+      </section>
+
+      {showBrowser && (
+        <FolderBrowser
+          onClose={() => setShowBrowser(false)}
+          onPick={async (path) => {
+            try {
+              const r = await api.addProject(path);
+              setProjects(r.projects);
+              setCwd(path);
+              setShowBrowser(false);
+            } catch (e: any) {
+              setError(String(e.message ?? e));
+              setShowBrowser(false);
+            }
+          }}
+        />
+      )}
+
+      {showSettings && (
+        <GlobalSettings
+          theme={theme}
+          onThemeChange={onThemeChange}
+          projects={projects}
+          onProjectsChange={setProjects}
+          onClose={() => setShowSettings(false)}
+        />
       )}
     </div>
   );

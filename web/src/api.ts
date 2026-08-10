@@ -1,4 +1,4 @@
-import type { ClientMessage, PocketConfigResponse, ServerEvent, SessionMeta } from './types';
+import type { ClientMessage, PocketConfigResponse, RecentProject, ServerEvent, SessionMeta, UsageSnapshot } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -28,6 +28,11 @@ export const api = {
       `/api/resumable?agent=${encodeURIComponent(agent)}&cwd=${encodeURIComponent(cwd)}`,
     ),
   closeSession: (id: string) => request<{ closed: boolean }>(`/api/sessions/${id}`, { method: 'DELETE' }),
+  removeProject: (path: string) =>
+    request<{ projects: string[] }>(`/api/projects?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
+  recent: () => request<{ projects: RecentProject[] }>('/api/recent'),
+  usage: () => request<{ usage: UsageSnapshot | null }>('/api/usage'),
+  refreshUsage: () => request<{ usage: UsageSnapshot }>('/api/usage/refresh', { method: 'POST' }),
 };
 
 /** WebSocket wrapper with automatic reconnect; the server replays history on each attach. */

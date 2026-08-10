@@ -65,8 +65,36 @@ export interface AgentConfig {
 
 export interface PocketConfigResponse {
   projects: string[];
+  primaryVolume: string | null;
   claude: AgentConfig;
   codex: AgentConfig;
+}
+
+export interface RecentProject {
+  path: string;
+  lastAgent: AgentKind;
+  lastActivity: number;
+  lastTitle: string;
+  lastResumeId: string;
+}
+
+export interface UsageWindow {
+  label: string;
+  usedPercent?: number;
+  resetsAt?: number;
+  status?: string;
+}
+
+export interface AgentUsage {
+  windows: UsageWindow[];
+  planType?: string;
+  error?: string;
+}
+
+export interface UsageSnapshot {
+  claude: AgentUsage;
+  codex: AgentUsage;
+  fetchedAt: number;
 }
 
 export type ChatItem =

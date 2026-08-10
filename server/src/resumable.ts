@@ -10,19 +10,12 @@ export interface ResumableSession {
   updatedAt: number;
 }
 
-const MAX_RESULTS = 20;
-
-export async function listClaudeSessions(cwd: string): Promise<ResumableSession[]> {
-  const sessions = await listSessions({ dir: cwd });
-  return sessions
-    .map((s) => ({
-      id: s.sessionId,
-      title: truncate(s.customTitle || s.summary || s.firstPrompt || 'Untitled session', 80),
-      updatedAt: s.lastModified,
-    }))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, MAX_RESULTS);
+interface GroupedSession extends ResumableSession {
+  cwd: string;
 }
+
+const MAX_PER_PROJECT = 20;
+const GROUP_TTL_MS = 60_000;
 
 /** Read at most `bytes` from the start of a file without loading the whole thing. */
 function head(path: string, bytes: number): string {
@@ -36,10 +29,39 @@ function head(path: string, bytes: number): string {
   }
 }
 
+let claudeCache: { at: number; byCwd: Map<string, GroupedSession[]> } | null = null;
+
+async function loadClaudeGrouped(): Promise<Map<string, GroupedSession[]>> {
+  if (claudeCache && Date.now() - claudeCache.at < GROUP_TTL_MS) return claudeCache.byCwd;
+  const all = await listSessions({});
+  const byCwd = new Map<string, GroupedSession[]>();
+  for (const s of all) {
+    if (!s.cwd) continue;
+    const entry: GroupedSession = {
+      id: s.sessionId,
+      title: truncate(s.customTitle || s.summary || s.firstPrompt || 'Untitled session', 80),
+      updatedAt: s.lastModified,
+      cwd: s.cwd,
+    };
+    const bucket = byCwd.get(s.cwd);
+    if (bucket) {
+      if (bucket.length < MAX_PER_PROJECT) bucket.push(entry);
+    } else {
+      byCwd.set(s.cwd, [entry]);
+    }
+  }
+  claudeCache = { at: Date.now(), byCwd };
+  return byCwd;
+}
+
+let codexCache: { at: number; byCwd: Map<string, GroupedSession[]> } | null = null;
+
 /** Codex rollout files: ~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<threadId>.jsonl.
  *  First line is session_meta (thread id + cwd); user messages appear as
  *  response_item/message/role=user with input_text content. */
-export function listCodexSessions(cwd: string): ResumableSession[] {
+function loadCodexGrouped(): Map<string, GroupedSession[]> {
+  if (codexCache && Date.now() - codexCache.at < GROUP_TTL_MS) return codexCache.byCwd;
+
   const root = join(homedir(), '.codex', 'sessions');
   let files: string[];
   try {
@@ -47,32 +69,19 @@ export function listCodexSessions(cwd: string): ResumableSession[] {
       .filter((f) => f.endsWith('.jsonl'))
       .map((f) => join(root, f));
   } catch {
-    return [];
+    files = [];
   }
 
-  const byMtime = files
-    .map((path) => {
-      try {
-        return { path, mtime: statSync(path).mtimeMs };
-      } catch {
-        return null;
-      }
-    })
-    .filter((f): f is { path: string; mtime: number } => f !== null)
-    .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, 200);
-
-  const results: ResumableSession[] = [];
-  for (const { path, mtime } of byMtime) {
-    if (results.length >= MAX_RESULTS) break;
+  const byCwd = new Map<string, GroupedSession[]>();
+  for (const path of files) {
     try {
       const lines = head(path, 128 * 1024).split('\n');
       const meta = JSON.parse(lines[0] ?? '{}');
       if (meta?.type !== 'session_meta') continue;
       const payload = meta.payload ?? {};
-      if (payload.cwd !== cwd) continue;
+      const cwd = payload.cwd;
       const id = payload.id ?? payload.session_id;
-      if (!id) continue;
+      if (!cwd || !id) continue;
 
       let title = 'Untitled session';
       for (const line of lines.slice(1)) {
@@ -93,10 +102,60 @@ export function listCodexSessions(cwd: string): ResumableSession[] {
           }
         }
       }
-      results.push({ id, title, updatedAt: Math.round(mtime) });
+      const updatedAt = Math.round(statSync(path).mtimeMs);
+      const bucket = byCwd.get(cwd);
+      const record: GroupedSession = { id, title, updatedAt, cwd };
+      if (bucket) bucket.push(record);
+      else byCwd.set(cwd, [record]);
     } catch {
       continue;
     }
   }
-  return results;
+  for (const bucket of byCwd.values()) bucket.sort((a, b) => b.updatedAt - a.updatedAt);
+  codexCache = { at: Date.now(), byCwd };
+  return byCwd;
+}
+
+export async function listClaudeSessions(cwd: string): Promise<ResumableSession[]> {
+  const byCwd = await loadClaudeGrouped();
+  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT);
+}
+
+export async function listCodexSessions(cwd: string): Promise<ResumableSession[]> {
+  const byCwd = loadCodexGrouped();
+  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT);
+}
+
+export interface RecentProject {
+  path: string;
+  lastAgent: 'claude' | 'codex';
+  lastActivity: number;
+  lastTitle: string;
+  lastResumeId: string;
+}
+
+/** Most-recently-active session per project, across both agents — the data
+ *  behind the phone's "jump back in" home screen. */
+export async function getRecentProjects(projects: string[]): Promise<RecentProject[]> {
+  const [claudeByCwd, codexByCwd] = await Promise.all([loadClaudeGrouped(), Promise.resolve(loadCodexGrouped())]);
+  const recents: RecentProject[] = [];
+  for (const path of projects) {
+    const topClaude = claudeByCwd.get(path)?.[0];
+    const topCodex = codexByCwd.get(path)?.[0];
+    const best =
+      !topClaude && !topCodex
+        ? null
+        : !topCodex || (topClaude && topClaude.updatedAt >= topCodex.updatedAt)
+          ? { agent: 'claude' as const, session: topClaude! }
+          : { agent: 'codex' as const, session: topCodex! };
+    if (!best) continue;
+    recents.push({
+      path,
+      lastAgent: best.agent,
+      lastActivity: best.session.updatedAt,
+      lastTitle: best.session.title,
+      lastResumeId: best.session.id,
+    });
+  }
+  return recents.sort((a, b) => b.lastActivity - a.lastActivity);
 }

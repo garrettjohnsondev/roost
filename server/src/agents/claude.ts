@@ -33,6 +33,10 @@ export class ClaudeAdapter implements AgentAdapter {
       cwd: this.opts.cwd,
       model: this.opts.model || undefined,
       permissionMode: APPROVAL_TO_PERMISSION_MODE[this.approvals],
+      // Required by the SDK to ever honor 'bypassPermissions', including switching into it
+      // mid-session via setPermissionMode. Safe here: Pocket only requests that mode when the
+      // user explicitly taps "Full auto" in the UI — this doesn't change what's reachable.
+      allowDangerouslySkipPermissions: true,
       includePartialMessages: true,
       resume: this.opts.resume,
       // Load the same settings the interactive CLI uses (CLAUDE.md, skills, MCP servers).
@@ -179,13 +183,11 @@ export class ClaudeAdapter implements AgentAdapter {
   }
 
   async setEffort(effort: string): Promise<void> {
-    if (typeof this.q?.setEffort === 'function') {
-      await this.q.setEffort(effort);
-    } else if (typeof this.q?.applyFlagSettings === 'function') {
-      await this.q.applyFlagSettings({ effortLevel: effort });
-    } else {
+    if (typeof this.q?.applyFlagSettings !== 'function') {
       throw new Error('Changing effort mid-session is not supported by the installed SDK; it will apply on the next session.');
     }
+    // '' means "Auto" in Pocket's UI; the SDK clears the flag-level override with null.
+    await this.q.applyFlagSettings({ effortLevel: (effort || null) as any });
   }
 
   async setApprovals(approvals: ApprovalSetting): Promise<void> {
