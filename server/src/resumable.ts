@@ -12,6 +12,9 @@ export interface ResumableSession {
 
 interface GroupedSession extends ResumableSession {
   cwd: string;
+  /** On-disk rollout file — Codex entries only; lets preview() jump straight to the file
+   *  instead of re-scanning ~/.codex/sessions to relocate it. */
+  file?: string;
 }
 
 const MAX_PER_PROJECT = 20;
@@ -24,6 +27,21 @@ function head(path: string, bytes: number): string {
     const buf = Buffer.alloc(bytes);
     const read = readSync(fd, buf, 0, bytes, 0);
     return buf.toString('utf8', 0, read);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Read the last `bytes` of a file — for pulling recent activity out of a rollout log
+ *  without loading the whole (potentially multi-MB) transcript into memory. */
+export function tail(path: string, bytes: number): string {
+  const size = statSync(path).size;
+  const start = Math.max(0, size - bytes);
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.alloc(size - start);
+    readSync(fd, buf, 0, buf.length, start);
+    return buf.toString('utf8');
   } finally {
     closeSync(fd);
   }
@@ -104,7 +122,7 @@ function loadCodexGrouped(): Map<string, GroupedSession[]> {
       }
       const updatedAt = Math.round(statSync(path).mtimeMs);
       const bucket = byCwd.get(cwd);
-      const record: GroupedSession = { id, title, updatedAt, cwd };
+      const record: GroupedSession = { id, title, updatedAt, cwd, file: path };
       if (bucket) bucket.push(record);
       else byCwd.set(cwd, [record]);
     } catch {
@@ -124,6 +142,11 @@ export async function listClaudeSessions(cwd: string): Promise<ResumableSession[
 export async function listCodexSessions(cwd: string): Promise<ResumableSession[]> {
   const byCwd = loadCodexGrouped();
   return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT);
+}
+
+export function getCodexRolloutPath(cwd: string, id: string): string | null {
+  const byCwd = loadCodexGrouped();
+  return byCwd.get(cwd)?.find((s) => s.id === id)?.file ?? null;
 }
 
 export interface RecentProject {

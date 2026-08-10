@@ -27,6 +27,7 @@ export interface SessionMeta {
   createdAt: number;
   updatedAt: number;
   agentSessionId?: string;
+  resumedFrom?: string;
 }
 
 export interface UsageInfo {
@@ -97,6 +98,24 @@ export interface UsageSnapshot {
   claude: AgentUsage;
   codex: AgentUsage;
   fetchedAt: number;
+}
+
+export interface PreviewMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+export interface PreviewFile {
+  path: string;
+  action: 'created' | 'edited' | 'deleted' | 'touched';
+  before?: string;
+  after?: string;
+  extra?: number;
+}
+
+export interface PreviewResult {
+  messages: PreviewMessage[];
+  files: PreviewFile[];
 }
 
 export type ChatItem =

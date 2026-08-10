@@ -15,6 +15,7 @@ export class Session {
   updatedAt = now();
   title = 'New session';
   agentSessionId?: string;
+  readonly resumedFrom?: string;
   private transcript: ServerEvent[] = [];
   private sockets = new Set<WebSocket>();
   private adapter: AgentAdapter;
@@ -35,6 +36,7 @@ export class Session {
     this.model = opts.model ?? (opts.resume ? '' : agentConfig.defaultModel);
     this.effort = '';
     this.approvals = 'ask';
+    this.resumedFrom = opts.resume;
     const adapterOptions = {
       cwd,
       model: this.model,
@@ -66,6 +68,7 @@ export class Session {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       agentSessionId: this.agentSessionId,
+      resumedFrom: this.resumedFrom,
     };
   }
 

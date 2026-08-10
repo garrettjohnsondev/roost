@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { Markdown } from './Markdown';
+import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, PocketConfigResponse, SessionMeta, UserImage } from './types';
+import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -50,12 +51,38 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
   const session = useSession(sessionId);
   const [showSettings, setShowSettings] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [recap, setRecap] = useState<PreviewResult | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const recapFetchedFor = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [session.items, session.status]);
+  }, [session.items, session.status, recap]);
+
+  useEffect(() => {
+    setRecap(null); // switching sessions — don't show the previous chat's recap
+  }, [sessionId]);
+
+  // A resumed session's Pocket-visible thread starts empty even though the agent
+  // remembers everything — without this, every reopened chat looks like it forgot the
+  // whole project. Fetch a free (no-token) recap of the underlying history exactly once,
+  // and only while the live thread here is still empty — once you've sent something in
+  // Pocket, that conversation is the context and the recap would just be clutter.
+  useEffect(() => {
+    const resumedFrom = session.meta?.resumedFrom;
+    const meta = session.meta;
+    if (!resumedFrom || !meta || session.items.length > 0) return;
+    if (recapFetchedFor.current === sessionId) return;
+    recapFetchedFor.current = sessionId;
+    setRecapLoading(true);
+    api
+      .preview(meta.agent, meta.cwd, resumedFrom)
+      .then((r) => setRecap(r.preview))
+      .catch(() => setRecap(null))
+      .finally(() => setRecapLoading(false));
+  }, [sessionId, session.meta?.resumedFrom, session.meta?.agent, session.meta?.cwd, session.items.length]);
 
   const agent = session.meta?.agent ?? 'claude';
   const agentConfig = config[agent];
@@ -111,6 +138,13 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
       )}
 
       <div className="messages" ref={scrollRef}>
+        {(recap || recapLoading) && (
+          <div className="recap-card">
+            <div className="recap-header">Picking up from before</div>
+            <PreviewContent preview={recap} loading={recapLoading} />
+            <div className="recap-divider">continuing below</div>
+          </div>
+        )}
         {session.items.map((item, i) => (
           <Message key={i} item={item} />
         ))}

@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
+import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
@@ -124,6 +125,24 @@ app.get('/api/resumable', async (req, res) => {
   try {
     const sessions = agent === 'claude' ? await listClaudeSessions(cwd) : listCodexSessions(cwd);
     res.json({ sessions });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+// Read-only recap of a past session — last few messages and touched files, pulled straight
+// from the on-disk transcript. No agent process involved, so it costs nothing to check.
+app.get('/api/preview', async (req, res) => {
+  const agent = String(req.query.agent ?? '');
+  const cwd = String(req.query.cwd ?? '');
+  const id = String(req.query.id ?? '');
+  if ((agent !== 'claude' && agent !== 'codex') || !config.projects.includes(cwd) || !id) {
+    res.status(400).json({ error: 'agent must be claude|codex, cwd a configured project, and id required' });
+    return;
+  }
+  try {
+    const preview = agent === 'claude' ? await getClaudePreview(cwd, id) : getCodexPreview(cwd, id);
+    res.json({ preview });
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }

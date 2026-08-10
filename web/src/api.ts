@@ -1,4 +1,4 @@
-import type { ClientMessage, PocketConfigResponse, RecentProject, ServerEvent, SessionMeta, UsageSnapshot } from './types';
+import type { ClientMessage, PocketConfigResponse, PreviewResult, RecentProject, ServerEvent, SessionMeta, UsageSnapshot } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -31,6 +31,10 @@ export const api = {
   removeProject: (path: string) =>
     request<{ projects: string[] }>(`/api/projects?path=${encodeURIComponent(path)}`, { method: 'DELETE' }),
   recent: () => request<{ projects: RecentProject[] }>('/api/recent'),
+  preview: (agent: string, cwd: string, id: string) =>
+    request<{ preview: PreviewResult }>(
+      `/api/preview?agent=${encodeURIComponent(agent)}&cwd=${encodeURIComponent(cwd)}&id=${encodeURIComponent(id)}`,
+    ),
   usage: () => request<{ usage: UsageSnapshot | null }>('/api/usage'),
   refreshUsage: () => request<{ usage: UsageSnapshot }>('/api/usage/refresh', { method: 'POST' }),
 };

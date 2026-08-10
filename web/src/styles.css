@@ -371,6 +371,158 @@ button {
   flex-shrink: 0;
 }
 
+/* ---------- inline recap (resumed chats) ---------- */
+
+.recap-card {
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  padding: 12px 12px 6px;
+  margin-bottom: 4px;
+  background: var(--surface);
+}
+
+.recap-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.recap-divider {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 11px;
+  margin: 6px 0 4px;
+}
+
+/* ---------- preview / recap ---------- */
+
+.preview-scroll {
+  margin: 10px 0;
+}
+
+.preview-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.preview-msg {
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  background: var(--surface-2);
+}
+
+.preview-msg.user {
+  border-left: 3px solid var(--accent);
+}
+
+.preview-msg.assistant {
+  border-left: 3px solid var(--border);
+}
+
+.preview-msg-role {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.preview-msg-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-file {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.preview-file-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.preview-file-action {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.preview-file-action.created {
+  color: var(--ok);
+}
+
+.preview-file-action.deleted {
+  color: var(--danger);
+}
+
+.preview-file-path {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.preview-file-dir {
+  color: var(--text-dim);
+}
+
+.preview-diff {
+  margin-top: 6px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+}
+
+.preview-diff-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 2px 4px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+.preview-diff-line.remove {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.preview-diff-line.add {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: var(--ok);
+}
+
+.preview-diff-extra {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
 /* ---------- global settings ---------- */
 
 .settings-project-row {

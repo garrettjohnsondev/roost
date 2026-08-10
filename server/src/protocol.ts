@@ -34,6 +34,9 @@ export interface SessionMeta {
   updatedAt: number;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
+  /** Set only when this session was created via resume — the id it was resumed from.
+   *  Distinct from agentSessionId, which every session eventually gets (fresh or not). */
+  resumedFrom?: string;
 }
 
 export interface UsageInfo {

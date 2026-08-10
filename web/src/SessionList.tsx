@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GlobalSettings } from './GlobalSettings';
+import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
 import type { Theme } from './theme';
 import type { AgentKind, PocketConfigResponse, RecentProject, SessionMeta } from './types';
@@ -97,6 +98,7 @@ export function SessionList(props: {
   const [showAllResumable, setShowAllResumable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<RecentProject | null>(null);
 
   const agentConfig = config[agent];
 
@@ -223,10 +225,10 @@ export function SessionList(props: {
       {visibleRecent.length > 0 && (
         <section className="card">
           <h2>Recent</h2>
-          <p className="section-hint">History from past sessions. Tapping one starts it fresh from where it left off.</p>
+          <p className="section-hint">History from past sessions. Tap one to see a free recap before reopening it.</p>
           <div className="recent-list">
             {visibleRecent.map((p) => (
-              <button key={p.path} className="recent-row" disabled={busy} onClick={() => openRecent(p)}>
+              <button key={p.path} className="recent-row" disabled={busy} onClick={() => setPreviewing(p)}>
                 <span className={`agent-dot ${p.lastAgent}`} />
                 <span className="recent-info">
                   <span className="recent-project">{shortPath(p.path)}</span>
@@ -345,6 +347,18 @@ export function SessionList(props: {
           projects={projects}
           onProjectsChange={setProjects}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {previewing && (
+        <PreviewSheet
+          agent={previewing.lastAgent}
+          cwd={previewing.path}
+          id={previewing.lastResumeId}
+          title={shortPath(previewing.path)}
+          busy={busy}
+          onClose={() => setPreviewing(null)}
+          onResume={() => openRecent(previewing)}
         />
       )}
     </div>
