@@ -61,7 +61,29 @@ switch (command) {
     mkdirSync(dirname(plistPath), { recursive: true });
     writeFileSync(plistPath, plist);
     shQuiet(`launchctl bootout gui/${uid}/${LABEL}`); // remove any previous copy
-    sh(`launchctl bootstrap gui/${uid} ${plistPath}`);
+
+    // launchd sometimes hasn't fully released the old label by the time bootout returns —
+    // an immediate bootstrap can then fail with "Bootstrap failed: 5: Input/output error".
+    // Retry with a growing delay instead of leaving the service down on a lost race.
+    const attempts = [300, 1000, 2000];
+    let lastErr;
+    let started = false;
+    for (const delayMs of attempts) {
+      execSync(`sleep ${delayMs / 1000}`);
+      try {
+        sh(`launchctl bootstrap gui/${uid} ${plistPath}`);
+        started = true;
+        break;
+      } catch (err) {
+        lastErr = err;
+        shQuiet(`launchctl bootout gui/${uid}/${LABEL}`);
+      }
+    }
+    if (!started) {
+      console.error(`Failed to start ${LABEL} after ${attempts.length} attempts.`);
+      console.error(lastErr?.stderr?.toString?.() ?? String(lastErr));
+      process.exit(1);
+    }
     console.log(`Installed and started ${LABEL}.`);
     console.log(`It now starts automatically at login and restarts if it crashes.`);
     console.log(`Logs: tail -f ${logPath}`);

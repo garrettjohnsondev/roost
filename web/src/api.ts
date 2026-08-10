@@ -35,6 +35,10 @@ export const api = {
   refreshUsage: () => request<{ usage: UsageSnapshot }>('/api/usage/refresh', { method: 'POST' }),
 };
 
+// Close codes the server uses for a session that is gone for good — reconnecting would
+// just hit the same wall forever, so these stop the retry loop instead of spinning on it.
+const TERMINAL_CLOSE_CODES = new Set([4004, 4010]);
+
 /** WebSocket wrapper with automatic reconnect; the server replays history on each attach. */
 export class SessionSocket {
   private ws: WebSocket | null = null;
@@ -45,6 +49,7 @@ export class SessionSocket {
     private sessionId: string,
     private onEvent: (event: ServerEvent) => void,
     private onConnectionChange: (connected: boolean) => void,
+    private onSessionGone: (reason: string) => void,
   ) {
     this.connect();
   }
@@ -63,12 +68,16 @@ export class SessionSocket {
         /* ignore malformed frames */
       }
     };
-    this.ws.onclose = () => {
+    this.ws.onclose = (e) => {
       this.onConnectionChange(false);
-      if (!this.closedByUser) {
-        setTimeout(() => this.connect(), this.retryMs);
-        this.retryMs = Math.min(this.retryMs * 2, 15000);
+      if (this.closedByUser) return;
+      if (TERMINAL_CLOSE_CODES.has(e.code)) {
+        this.closedByUser = true; // stop retrying — the session itself is gone
+        this.onSessionGone(e.reason || 'This session was closed.');
+        return;
       }
+      setTimeout(() => this.connect(), this.retryMs);
+      this.retryMs = Math.min(this.retryMs * 2, 15000);
     };
   }
 

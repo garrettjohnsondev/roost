@@ -67,6 +67,7 @@ export interface AgentConfig {
 export interface PocketConfigResponse {
   projects: string[];
   primaryVolume: string | null;
+  sessionIdleTimeoutHours: number;
   claude: AgentConfig;
   codex: AgentConfig;
 }

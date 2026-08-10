@@ -175,6 +175,10 @@ export function SessionList(props: {
   }
 
   const visibleResumable = showAllResumable ? resumable : resumable.slice(0, 5);
+  // A project already showing under "Active now" would otherwise appear twice — once as a
+  // live, instantly-ready row and once as history — which is exactly what reads as confusing.
+  const activeCwds = new Set(sessions.map((s) => s.cwd));
+  const visibleRecent = (recent ?? []).filter((p) => !activeCwds.has(p.path));
 
   return (
     <div className="page">
@@ -192,41 +196,48 @@ export function SessionList(props: {
 
       <UsagePanel />
 
-      {recent !== null && recent.length > 0 && (
-        <section className="card">
-          <h2>Jump back in</h2>
-          <div className="recent-list">
-            {recent.map((p) => (
-              <button key={p.path} className="recent-row" disabled={busy} onClick={() => openRecent(p)}>
-                <span className={`agent-dot ${p.lastAgent}`} />
-                <span className="recent-info">
-                  <span className="recent-project">{shortPath(p.path)}</span>
-                  <span className="recent-title">{p.lastTitle}</span>
-                </span>
-                <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
       {sessions.length > 0 && (
         <section className="card">
-          <h2>Active sessions</h2>
+          <h2>Active now</h2>
+          <p className="section-hint">
+            Live and instantly ready. Closes automatically after {config.sessionIdleTimeoutHours}h with no activity, or tap ✕.
+          </p>
           {sessions.map((s) => (
             <div key={s.id} className="session-row">
               <button className="session-open" onClick={() => onOpen(s.id)}>
                 <span className={`agent-dot ${s.agent}`} />
                 <span className="session-title">{s.title}</span>
                 <span className="session-sub">
-                  {s.agent} · {s.model || 'default model'}
+                  {s.agent} · {s.model || 'default model'} · {shortPath(s.cwd)}
                 </span>
               </button>
+              <span className="live-badge">● Live</span>
               <button className="ghost" onClick={() => close(s.id)}>
                 ✕
               </button>
             </div>
           ))}
+        </section>
+      )}
+
+      {visibleRecent.length > 0 && (
+        <section className="card">
+          <h2>Recent</h2>
+          <p className="section-hint">History from past sessions. Tapping one starts it fresh from where it left off.</p>
+          <div className="recent-list">
+            {visibleRecent.map((p) => (
+              <button key={p.path} className="recent-row" disabled={busy} onClick={() => openRecent(p)}>
+                <span className={`agent-dot ${p.lastAgent}`} />
+                <span className="recent-info">
+                  <span className="recent-project">{shortPath(p.path)}</span>
+                  <span className="recent-title">
+                    {p.lastAgent} · {p.lastTitle}
+                  </span>
+                </span>
+                <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
+              </button>
+            ))}
+          </div>
         </section>
       )}
 

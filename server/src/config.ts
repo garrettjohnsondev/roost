@@ -11,6 +11,8 @@ export interface AgentConfig {
 export interface PocketConfig {
   port: number;
   projects: string[];
+  /** Hours an active session may sit with no real activity before it's auto-closed. */
+  sessionIdleTimeoutHours: number;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -18,6 +20,7 @@ export interface PocketConfig {
 const DEFAULTS: PocketConfig = {
   port: 8790,
   projects: [process.cwd()],
+  sessionIdleTimeoutHours: 24,
   claude: { models: ['sonnet', 'opus', 'haiku'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
 };

@@ -139,17 +139,37 @@ export class Session {
     this.pushEvent({ type: 'error', message, ts: now() });
   }
 
-  dispose() {
+  /** Closes the underlying agent process and every attached socket. `reason` reaches the
+   *  client as the WebSocket close reason (code 4010) so the UI can explain why, instead
+   *  of the socket just silently dying and retrying forever. */
+  dispose(reason = 'Closed') {
     this.adapter.dispose();
-    for (const ws of this.sockets) ws.close();
+    for (const ws of this.sockets) ws.close(4010, reason);
     this.sockets.clear();
   }
 }
 
+const IDLE_SWEEP_INTERVAL_MS = 30 * 60 * 1000;
+
 export class SessionManager {
   private sessions = new Map<string, Session>();
 
-  constructor(private config: PocketConfig) {}
+  constructor(private config: PocketConfig) {
+    const interval = setInterval(() => this.sweepIdle(), IDLE_SWEEP_INTERVAL_MS);
+    interval.unref(); // don't hold the process open just for the sweep timer
+  }
+
+  private sweepIdle() {
+    const hours = this.config.sessionIdleTimeoutHours;
+    if (!hours || hours <= 0) return;
+    const cutoff = now() - hours * 60 * 60 * 1000;
+    for (const [id, session] of this.sessions) {
+      if (session.updatedAt < cutoff) {
+        session.dispose(`Closed automatically after ${hours}h of inactivity`);
+        this.sessions.delete(id);
+      }
+    }
+  }
 
   create(agent: AgentKind, cwd: string, opts: { model?: string; resume?: string } = {}): Session {
     const session = new Session(agent, cwd, this.config, opts);
@@ -168,7 +188,7 @@ export class SessionManager {
   close(id: string): boolean {
     const session = this.sessions.get(id);
     if (!session) return false;
-    session.dispose();
+    session.dispose('Closed');
     this.sessions.delete(id);
     return true;
   }

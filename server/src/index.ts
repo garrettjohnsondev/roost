@@ -61,6 +61,7 @@ app.get('/api/config', async (_req, res) => {
   res.json({
     projects: config.projects,
     primaryVolume: primaryVolume(),
+    sessionIdleTimeoutHours: config.sessionIdleTimeoutHours,
     claude: { ...config.claude, models: live.claude.length ? live.claude : fallback(config.claude.models) },
     codex: { ...config.codex, models: live.codex.length ? live.codex : fallback(config.codex.models) },
   });

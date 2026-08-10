@@ -9,6 +9,9 @@ export interface SessionState {
   connected: boolean;
   usage: UsageInfo | null;
   pendingApproval: { requestId: string; title: string; detail: string } | null;
+  /** Set once the server tells us this session is gone for good (closed or idle-expired) —
+   *  further reconnect attempts would be pointless, so the UI should offer a way back out. */
+  closedReason: string | null;
   send: (msg: ClientMessage) => void;
 }
 
@@ -77,9 +80,11 @@ export function useSession(sessionId: string): SessionState {
   const [connected, setConnected] = useState(false);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [pendingApproval, setPendingApproval] = useState<SessionState['pendingApproval']>(null);
+  const [closedReason, setClosedReason] = useState<string | null>(null);
   const socketRef = useRef<SessionSocket | null>(null);
 
   useEffect(() => {
+    setClosedReason(null);
     const handle = (event: ServerEvent) => {
       switch (event.type) {
         case 'replay': {
@@ -122,7 +127,7 @@ export function useSession(sessionId: string): SessionState {
           setItems((prev) => apply(prev, event));
       }
     };
-    const socket = new SessionSocket(sessionId, handle, setConnected);
+    const socket = new SessionSocket(sessionId, handle, setConnected, setClosedReason);
     socketRef.current = socket;
     return () => socket.close();
   }, [sessionId]);
@@ -134,6 +139,7 @@ export function useSession(sessionId: string): SessionState {
     connected,
     usage,
     pendingApproval,
+    closedReason,
     send: (msg) => socketRef.current?.send(msg),
   };
 }

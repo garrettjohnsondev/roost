@@ -114,14 +114,24 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         {session.items.map((item, i) => (
           <Message key={i} item={item} />
         ))}
-        {session.status === 'working' && <div className="working-indicator">working…</div>}
-        {session.status === 'connecting' && <div className="working-indicator">starting agent…</div>}
+        {session.status === 'working' && !session.closedReason && <div className="working-indicator">working…</div>}
+        {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
       </div>
 
-      <Composer
-        disabled={!session.connected}
-        onSend={(text, images) => session.send({ type: 'user_message', text, images })}
-      />
+      {session.closedReason ? (
+        <div className="closed-banner">
+          <div className="closed-banner-text">{session.closedReason}</div>
+          <div className="closed-banner-sub">Your conversation is still saved — reopen it from "Jump back in" on the home screen.</div>
+          <button className="primary" onClick={onBack}>
+            Back to sessions
+          </button>
+        </div>
+      ) : (
+        <Composer
+          disabled={!session.connected}
+          onSend={(text, images) => session.send({ type: 'user_message', text, images })}
+        />
+      )}
 
       {session.pendingApproval && (
         <div className="sheet-backdrop">
