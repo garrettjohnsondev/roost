@@ -6,6 +6,8 @@ export interface ModelOption {
   id: string;
   label: string;
   efforts?: string[];
+  /** Canonical wire id this option resolves to (e.g. 'opus' -> 'claude-opus-5'). */
+  resolvedModel?: string;
 }
 
 interface ModelCache {
@@ -34,6 +36,7 @@ async function fetchClaudeModels(cwd: string): Promise<ModelOption[]> {
       id: m.value,
       label: m.displayName || m.value,
       efforts: m.supportedEffortLevels,
+      resolvedModel: m.resolvedModel,
     }));
   } finally {
     input.close();

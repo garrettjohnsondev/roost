@@ -189,9 +189,11 @@ export function SessionList(props: { config: PocketConfigResponse; onOpen: (id: 
                 {m.label}
               </button>
             ))}
-            <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
-              default
-            </button>
+            {!agentConfig.models.some((m) => m.id === 'default') && (
+              <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
+                default
+              </button>
+            )}
           </div>
         </div>
         {resumable.length > 0 && (

@@ -16,6 +16,10 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
 
   const agent = session.meta?.agent ?? 'claude';
   const agentConfig = config[agent];
+  const isCurrentModel = (m: { id: string; resolvedModel?: string }) =>
+    session.meta?.model === m.id || (!!m.resolvedModel && session.meta?.model === m.resolvedModel);
+  const currentModelLabel =
+    agentConfig.models.find(isCurrentModel)?.label ?? session.meta?.model ?? 'default';
 
   return (
     <div className="chat-page">
@@ -28,7 +32,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
           <div>
             <div className="chat-title-text">{session.meta?.title ?? '…'}</div>
             <div className="chat-title-sub">
-              {agent} · {session.meta?.model || 'default'} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
+              {agent} · {currentModelLabel} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
               {!session.connected && ' · reconnecting…'}
             </div>
           </div>
@@ -98,7 +102,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
                 {agentConfig.models.map((m) => (
                   <button
                     key={m.id}
-                    className={session.meta!.model === m.id ? 'chip active' : 'chip'}
+                    className={isCurrentModel(m) ? 'chip active' : 'chip'}
                     onClick={() => session.send({ type: 'set_model', model: m.id })}
                   >
                     {m.label}
@@ -109,7 +113,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             <div className="field">
               <label>Effort</label>
               <div className="chips">
-                {(agentConfig.models.find((m) => m.id === session.meta!.model)?.efforts ?? agentConfig.efforts).map((e) => (
+                {(agentConfig.models.find(isCurrentModel)?.efforts ?? agentConfig.efforts).map((e) => (
                   <button
                     key={e}
                     className={session.meta!.effort === e ? 'chip active' : 'chip'}

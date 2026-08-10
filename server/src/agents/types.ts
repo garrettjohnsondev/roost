@@ -10,6 +10,8 @@ export interface AgentAdapterOptions {
   emit: (event: ServerEvent) => void;
   /** Called when the underlying agent session id becomes known. */
   onAgentSessionId: (id: string) => void;
+  /** Called when the agent reports the actual model it is running. */
+  onModelResolved?: (model: string) => void;
 }
 
 export interface AgentAdapter {

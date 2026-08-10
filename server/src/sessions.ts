@@ -42,6 +42,10 @@ export class Session {
         this.agentSessionId = id;
         this.broadcastMeta();
       },
+      onModelResolved: (model: string) => {
+        this.model = model;
+        this.broadcastMeta();
+      },
     };
     this.adapter = agent === 'claude' ? new ClaudeAdapter(adapterOptions) : new CodexAdapter(adapterOptions);
   }

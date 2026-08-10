@@ -20,6 +20,8 @@ export class ClaudeAdapter implements AgentAdapter {
   constructor(private opts: AgentAdapterOptions) {
     this.approvals = opts.approvals;
     this.start();
+    // The CLI engine starts lazily on the first message; the session is ready for input now.
+    this.emit({ type: 'status', state: 'idle', ts: now() });
   }
 
   private emit(e: ServerEvent) {
@@ -66,7 +68,10 @@ export class ClaudeAdapter implements AgentAdapter {
   private handle(m: any) {
     switch (m.type) {
       case 'system':
-        if (m.subtype === 'init' && m.session_id) this.opts.onAgentSessionId(m.session_id);
+        if (m.subtype === 'init') {
+          if (m.session_id) this.opts.onAgentSessionId(m.session_id);
+          if (m.model) this.opts.onModelResolved?.(m.model);
+        }
         break;
       case 'stream_event': {
         const ev = m.event;

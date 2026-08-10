@@ -73,7 +73,10 @@ export class CodexAdapter implements AgentAdapter {
     this.threadId = result?.thread?.id ?? result?.threadId ?? null;
     if (!this.threadId) throw new Error(`codex thread/start returned no thread id: ${truncate(JSON.stringify(result), 300)}`);
     this.opts.onAgentSessionId(this.threadId);
-    if (!this.model && result?.model) this.model = result.model;
+    if (result?.model) {
+      if (!this.model) this.model = result.model;
+      this.opts.onModelResolved?.(result.model);
+    }
     this.emit({ type: 'status', state: 'idle', ts: now() });
   }
 

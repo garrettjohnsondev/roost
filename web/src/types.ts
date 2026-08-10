@@ -54,6 +54,7 @@ export interface ModelOption {
   id: string;
   label: string;
   efforts?: string[];
+  resolvedModel?: string;
 }
 
 export interface AgentConfig {
