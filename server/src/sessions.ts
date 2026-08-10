@@ -12,6 +12,7 @@ const TRANSCRIPT_CAP = 5000;
 export class Session {
   readonly id = randomUUID();
   readonly createdAt = now();
+  updatedAt = now();
   title = 'New session';
   agentSessionId?: string;
   private transcript: ServerEvent[] = [];
@@ -63,6 +64,7 @@ export class Session {
       effort: this.effort,
       approvals: this.approvals,
       createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
       agentSessionId: this.agentSessionId,
     };
   }
@@ -70,6 +72,11 @@ export class Session {
   private pushEvent(event: ServerEvent) {
     this.transcript.push(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
+    // Meaningful activity only — status/usage churn shouldn't bump a session to the top
+    // of the "recent" switcher just because it's mid-turn.
+    if (event.type === 'user_message' || event.type === 'assistant_message' || event.type === 'tool_start') {
+      this.updatedAt = now();
+    }
     this.broadcast(event);
   }
 
@@ -155,7 +162,7 @@ export class SessionManager {
   }
 
   list(): SessionMeta[] {
-    return [...this.sessions.values()].map((s) => s.meta()).sort((a, b) => b.createdAt - a.createdAt);
+    return [...this.sessions.values()].map((s) => s.meta()).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
   close(id: string): boolean {

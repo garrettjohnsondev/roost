@@ -19,7 +19,12 @@ export function App() {
   if (!config) return <div className="center-note">Connecting…</div>;
 
   return activeSession ? (
-    <ChatView sessionId={activeSession} config={config} onBack={() => setActiveSession(null)} />
+    <ChatView
+      sessionId={activeSession}
+      config={config}
+      onBack={() => setActiveSession(null)}
+      onSwitch={setActiveSession}
+    />
   ) : (
     <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} />
   );

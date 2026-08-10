@@ -504,6 +504,13 @@ button {
   align-items: center;
   gap: 10px;
   min-width: 0;
+  text-align: left;
+  padding: 4px 6px;
+  border-radius: 10px;
+}
+
+.chat-title:active {
+  background: var(--surface-2);
 }
 
 .chat-title-text {
@@ -514,9 +521,59 @@ button {
   text-overflow: ellipsis;
 }
 
+.chat-title-chevron {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .chat-title-sub {
   color: var(--text-dim);
   font-size: 12px;
+}
+
+/* ---------- session switcher ---------- */
+
+.switcher-backdrop {
+  align-items: flex-start;
+}
+
+.switcher-panel {
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  max-height: 70dvh;
+  overflow-y: auto;
+}
+
+.switcher-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 8px;
+  border-radius: 10px;
+}
+
+.switcher-row:active {
+  background: var(--surface-2);
+}
+
+.switcher-row + .switcher-row {
+  border-top: 1px solid var(--border);
+}
+
+.switcher-all {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.switcher-empty {
+  padding: 14px 8px;
 }
 
 .usage-bar {

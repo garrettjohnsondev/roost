@@ -25,6 +25,7 @@ export interface SessionMeta {
   effort: string;
   approvals: ApprovalSetting;
   createdAt: number;
+  updatedAt: number;
   agentSessionId?: string;
 }
 

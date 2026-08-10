@@ -31,6 +31,7 @@ export interface SessionMeta {
   effort: string;
   approvals: ApprovalSetting;
   createdAt: number;
+  updatedAt: number;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
 }

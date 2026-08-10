@@ -1,12 +1,55 @@
 import { useEffect, useRef, useState } from 'react';
+import { api } from './api';
+import { fmtAgo, shortPath } from './format';
 import { Markdown } from './Markdown';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, PocketConfigResponse, UserImage } from './types';
+import type { ApprovalSetting, ChatItem, PocketConfigResponse, SessionMeta, UserImage } from './types';
 
-export function ChatView(props: { sessionId: string; config: PocketConfigResponse; onBack: () => void }) {
-  const { sessionId, config, onBack } = props;
+const SWITCHER_LIMIT = 5;
+
+function SessionSwitcher(props: { currentId: string; onPick: (id: string) => void; onAllSessions: () => void; onClose: () => void }) {
+  const [sessions, setSessions] = useState<SessionMeta[] | null>(null);
+
+  useEffect(() => {
+    api
+      .sessions()
+      .then((r) => setSessions(r.sessions.filter((s) => s.id !== props.currentId).slice(0, SWITCHER_LIMIT)))
+      .catch(() => setSessions([]));
+  }, [props.currentId]);
+
+  return (
+    <div className="sheet-backdrop switcher-backdrop" onClick={props.onClose}>
+      <div className="switcher-panel" onClick={(e) => e.stopPropagation()}>
+        {sessions === null && <div className="usage-empty switcher-empty">Loading…</div>}
+        {sessions?.length === 0 && <div className="usage-empty switcher-empty">No other active sessions</div>}
+        {sessions?.map((s) => (
+          <button key={s.id} className="switcher-row" onClick={() => props.onPick(s.id)}>
+            <span className={`agent-dot ${s.agent}`} />
+            <span className="recent-info">
+              <span className="recent-project">{s.title}</span>
+              <span className="recent-title">
+                {shortPath(s.cwd)} · {s.agent}
+              </span>
+            </span>
+            <span className="recent-time">{fmtAgo(s.updatedAt)}</span>
+          </button>
+        ))}
+        <button className="switcher-row switcher-all" onClick={props.onAllSessions}>
+          <span className="recent-info">
+            <span className="recent-project">All sessions</span>
+          </span>
+          <span className="recent-time">›</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function ChatView(props: { sessionId: string; config: PocketConfigResponse; onBack: () => void; onSwitch: (id: string) => void }) {
+  const { sessionId, config, onBack, onSwitch } = props;
   const session = useSession(sessionId);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSwitcher, setShowSwitcher] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,20 +70,37 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         <button className="ghost" onClick={onBack}>
           ‹
         </button>
-        <div className="chat-title">
+        <button className="chat-title" onClick={() => setShowSwitcher(true)}>
           <span className={`agent-dot ${agent}`} />
           <div>
-            <div className="chat-title-text">{session.meta?.title ?? '…'}</div>
+            <div className="chat-title-text">
+              {session.meta?.title ?? '…'} <span className="chat-title-chevron">▾</span>
+            </div>
             <div className="chat-title-sub">
               {agent} · {currentModelLabel} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
               {!session.connected && ' · reconnecting…'}
             </div>
           </div>
-        </div>
+        </button>
         <button className="ghost" onClick={() => setShowSettings(true)}>
           ⚙
         </button>
       </header>
+
+      {showSwitcher && (
+        <SessionSwitcher
+          currentId={sessionId}
+          onPick={(id) => {
+            setShowSwitcher(false);
+            onSwitch(id);
+          }}
+          onAllSessions={() => {
+            setShowSwitcher(false);
+            onBack();
+          }}
+          onClose={() => setShowSwitcher(false)}
+        />
+      )}
 
       {session.usage && (
         <div className="usage-bar">
