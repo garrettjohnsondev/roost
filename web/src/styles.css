@@ -67,6 +67,84 @@ button {
   text-align: center;
 }
 
+/* ---------- crash screen ---------- */
+
+.crash-screen {
+  min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + 24px) 20px 24px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.crash-screen h1 {
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.crash-screen p {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 0 0 14px;
+}
+
+.crash-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 50dvh;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.crash-screen .primary {
+  width: auto;
+  padding: 12px 20px;
+}
+
+/* ---------- global error banner ---------- */
+
+.error-banner-stack {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.error-banner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.error-banner-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.error-banner-dismiss {
+  color: #fff;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
 /* ---------- session list ---------- */
 
 .page {
