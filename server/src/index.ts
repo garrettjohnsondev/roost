@@ -123,7 +123,12 @@ app.get('/api/resumable', async (req, res) => {
     return;
   }
   try {
-    const sessions = agent === 'claude' ? await listClaudeSessions(cwd) : listCodexSessions(cwd);
+    // Both branches must be awaited — listCodexSessions returns a Promise (it's declared
+    // async even though its body happens to be synchronous), and a bare ternary here
+    // previously only awaited the Claude arm. The unresolved Promise then got JSON.stringify'd
+    // as `{}` (Promises have no own enumerable properties) instead of the real array,
+    // which crashed the client the moment it tried to .slice() a plain object.
+    const sessions = agent === 'claude' ? await listClaudeSessions(cwd) : await listCodexSessions(cwd);
     res.json({ sessions });
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });

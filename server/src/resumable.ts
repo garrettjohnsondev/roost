@@ -134,14 +134,19 @@ function loadCodexGrouped(): Map<string, GroupedSession[]> {
   return byCwd;
 }
 
+// Trim internal fields (cwd is implied by the request, file is a local filesystem path)
+// down to the public shape callers actually declared — GroupedSession's extras would
+// otherwise ride along silently, since TS's structural typing doesn't strip them at runtime.
+const toPublic = (s: GroupedSession): ResumableSession => ({ id: s.id, title: s.title, updatedAt: s.updatedAt });
+
 export async function listClaudeSessions(cwd: string): Promise<ResumableSession[]> {
   const byCwd = await loadClaudeGrouped();
-  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT);
+  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT).map(toPublic);
 }
 
 export async function listCodexSessions(cwd: string): Promise<ResumableSession[]> {
   const byCwd = loadCodexGrouped();
-  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT);
+  return (byCwd.get(cwd) ?? []).slice(0, MAX_PER_PROJECT).map(toPublic);
 }
 
 export function getCodexRolloutPath(cwd: string, id: string): string | null {
