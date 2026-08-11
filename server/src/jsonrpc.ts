@@ -1,7 +1,15 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { createInterface } from 'node:readline';
 
 type Json = any;
+
+// A single JSON-RPC line can legitimately carry megabytes (a large tool output, an embedded
+// image) — but Node's `readline` accumulates the current line as one JS string via `+=`, and
+// a pathological line with no trailing newline for long enough throws `RangeError: Invalid
+// string length` once it exceeds V8's max string size. That's an uncaught exception with
+// nothing upstream to catch it, which previously crashed the entire server — every project,
+// every active session — for one oversized message on one Codex thread. This cap turns that
+// hard crash into "drop the one bad line and keep going."
+const MAX_BUFFERED_LINE_BYTES = 64 * 1024 * 1024;
 
 export interface JsonRpcHandlers {
   /** Server -> client request (must be answered). Return the result object. */
@@ -17,11 +25,11 @@ export class JsonRpcProcess {
   private pending = new Map<number, { resolve: (v: Json) => void; reject: (e: Error) => void }>();
   private stderrTail: string[] = [];
   private debug = process.env.DEBUG_CODEX === '1';
+  private lineBuffer = '';
 
   constructor(command: string, args: string[], cwd: string, private handlers: JsonRpcHandlers) {
     this.child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
-    const rl = createInterface({ input: this.child.stdout });
-    rl.on('line', (line) => this.onLine(line));
+    this.child.stdout.on('data', (chunk: Buffer) => this.onStdoutData(chunk));
     this.child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
       if (this.debug) console.error('[codex stderr]', text.trimEnd());
@@ -39,6 +47,21 @@ export class JsonRpcProcess {
       this.pending.clear();
       handlers.onExit(null, String(err));
     });
+  }
+
+  private onStdoutData(chunk: Buffer) {
+    this.lineBuffer += chunk.toString('utf8');
+    if (this.lineBuffer.length > MAX_BUFFERED_LINE_BYTES) {
+      console.error(`[codex] dropping oversized unterminated line (${this.lineBuffer.length} bytes) — no newline seen`);
+      this.lineBuffer = '';
+      return;
+    }
+    let newlineIndex: number;
+    while ((newlineIndex = this.lineBuffer.indexOf('\n')) !== -1) {
+      const line = this.lineBuffer.slice(0, newlineIndex);
+      this.lineBuffer = this.lineBuffer.slice(newlineIndex + 1);
+      this.onLine(line);
+    }
   }
 
   private onLine(line: string) {
