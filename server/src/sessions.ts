@@ -9,6 +9,7 @@ import { CodexAdapter } from './agents/codex.js';
 import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier } from './router.js';
+import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, runConsultStep } from './consult.js';
 
 const TRANSCRIPT_CAP = 5000;
 
@@ -42,6 +43,9 @@ export class Session {
   private onChange?: () => void;
   private autoRoute: AutoRouteConfig;
   private lastTier?: Tier;
+  private consultRunning = false;
+  private pendingConsult?: { task: string; plan: string; critique: string };
+  private standardModelFor: (agent: AgentKind) => string;
   routedModel?: string;
   model: string;
   effort: string;
@@ -72,6 +76,9 @@ export class Session {
     this.onChange = opts.onChange;
     this.autoRoute = config.autoRoute[agent];
     this.routedModel = opts.restore?.routedModel;
+    // Consult one-shots run on each agent's "standard" tier model — capable enough to
+    // plan/review, without paying heavy-tier prices for a throwaway run.
+    this.standardModelFor = (a: AgentKind) => config.autoRoute[a].standard.model;
     const adapterOptions = {
       cwd,
       // In auto mode the concrete model is chosen per-message by the router; start the
@@ -108,6 +115,7 @@ export class Session {
       updatedAt: this.updatedAt,
       state: this.lastStatus,
       routedModel: this.routedModel,
+      consultPending: this.pendingConsult ? true : undefined,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
     };
@@ -247,6 +255,59 @@ export class Session {
       case 'interrupt':
         await this.adapter.interrupt();
         break;
+      case 'consult':
+        await this.runConsult(msg.text);
+        break;
+      case 'consult_proceed': {
+        const consult = this.pendingConsult;
+        if (!consult) break;
+        this.pendingConsult = undefined;
+        if (this.title === 'New session' && consult.task) this.title = truncate(consult.task, 60);
+        if (this.autoMode) await this.routeFor(consult.task);
+        await this.adapter.sendUserMessage(
+          composeProceedPrompt(consult.task, consult.plan, consult.critique),
+          undefined,
+          `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`,
+        );
+        this.broadcastMeta();
+        break;
+      }
+      case 'consult_dismiss':
+        this.pendingConsult = undefined;
+        this.broadcastMeta();
+        break;
+    }
+  }
+
+  /** Runs the two-agent conference: this session's agent plans (read-only one-shot with
+   *  a digest of recent conversation for context), the other agent critiques, both land
+   *  in the transcript, and consultPending arms the Proceed/Dismiss bar. */
+  private async runConsult(task: string): Promise<void> {
+    if (!task.trim() || this.consultRunning) return;
+    this.consultRunning = true;
+    this.pendingConsult = undefined;
+    const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    this.pushEvent({ type: 'status', state: 'working', ts: now() });
+    try {
+      const context = this.transcript
+        .filter((e) => e.type === 'user_message' || e.type === 'assistant_message')
+        .slice(-6)
+        .map((e: any) => `${e.type === 'user_message' ? 'User' : 'Agent'}: ${truncate(e.text, 300)}`)
+        .join('\n');
+
+      const plan = await runConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), this.standardModelFor(this.agent), 'plan');
+      this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, text: plan, ts: now() });
+
+      const critique = await runConsultStep(other, this.cwd, composeCriticPrompt(task, plan), this.standardModelFor(other), 'critique');
+      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, text: critique, ts: now() });
+
+      this.pendingConsult = { task, plan, critique };
+    } catch (err: any) {
+      this.reportError(`Consult failed: ${String(err?.message ?? err)}`);
+    } finally {
+      this.consultRunning = false;
+      this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+      this.broadcastMeta();
     }
   }
 

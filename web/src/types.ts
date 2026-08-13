@@ -15,6 +15,9 @@ export type ClientMessage =
   | { type: 'set_effort'; effort: string }
   | { type: 'set_approvals'; approvals: ApprovalSetting }
   | { type: 'set_title'; title: string }
+  | { type: 'consult'; text: string }
+  | { type: 'consult_proceed' }
+  | { type: 'consult_dismiss' }
   | { type: 'interrupt' };
 
 export interface ToolExpand {
@@ -36,6 +39,7 @@ export interface SessionMeta {
   updatedAt: number;
   state: 'idle' | 'working' | 'connecting' | 'error';
   routedModel?: string;
+  consultPending?: boolean;
   agentSessionId?: string;
   resumedFrom?: string;
 }
@@ -64,6 +68,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
+  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };
@@ -164,4 +169,5 @@ export type ChatItem =
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
   | { kind: 'routed'; model: string; tier: string; reason: string; ts: number }
+  | { kind: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; ts: number }
   | { kind: 'error'; text: string; ts: number };

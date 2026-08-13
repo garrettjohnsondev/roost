@@ -21,6 +21,9 @@ export type ClientMessage =
   | { type: 'set_effort'; effort: string }
   | { type: 'set_approvals'; approvals: ApprovalSetting }
   | { type: 'set_title'; title: string }
+  | { type: 'consult'; text: string }
+  | { type: 'consult_proceed' }
+  | { type: 'consult_dismiss' }
   | { type: 'interrupt' };
 
 /** Expanded detail for a tool call, shown when the user taps its chip. */
@@ -45,6 +48,8 @@ export interface SessionMeta {
   state: 'idle' | 'working' | 'connecting' | 'error';
   /** When model is 'auto': the concrete model the triage router last picked. */
   routedModel?: string;
+  /** True while a completed consult awaits the user's Proceed/Dismiss decision. */
+  consultPending?: boolean;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.
@@ -71,6 +76,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
+  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };

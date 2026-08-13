@@ -69,6 +69,9 @@ function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
     case 'routed':
       next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, ts: event.ts });
       break;
+    case 'consult':
+      next.push({ kind: 'consult', phase: event.phase, agent: event.agent, text: event.text, ts: event.ts });
+      break;
     case 'error':
       next.push({ kind: 'error', text: event.message, ts: event.ts });
       break;

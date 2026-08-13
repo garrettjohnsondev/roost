@@ -162,6 +162,20 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
       </div>
 
+      {session.meta?.consultPending && (
+        <div className="consult-bar">
+          <span className="consult-bar-text">Consult complete — proceed with the plan?</span>
+          <div className="consult-bar-actions">
+            <button className="chip" onClick={() => session.send({ type: 'consult_dismiss' })}>
+              Dismiss
+            </button>
+            <button className="chip consult-proceed" onClick={() => session.send({ type: 'consult_proceed' })}>
+              ▶ Proceed
+            </button>
+          </div>
+        </div>
+      )}
+
       {session.closedReason ? (
         <div className="closed-banner">
           <div className="closed-banner-text">{session.closedReason}</div>
@@ -176,6 +190,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
           working={session.status === 'working'}
           onInterrupt={() => session.send({ type: 'interrupt' })}
           onSend={(text, images) => session.send({ type: 'user_message', text, images })}
+          onConsult={(text) => session.send({ type: 'consult', text })}
         />
       )}
 
@@ -328,6 +343,16 @@ function Message({ item }: { item: ChatItem }) {
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
+    case 'consult':
+      return (
+        <div className={`consult-msg ${item.phase}`}>
+          <div className="consult-msg-head">
+            <span className={`agent-dot ${item.agent}`} />
+            {item.phase === 'plan' ? 'Plan' : 'Critique'} · {item.agent}
+          </div>
+          <Markdown text={item.text} />
+        </div>
+      );
     case 'error':
       return <div className="msg error">{item.text}</div>;
   }
@@ -387,6 +412,7 @@ function Composer(props: {
   working: boolean;
   onInterrupt: () => void;
   onSend: (text: string, images?: UserImage[]) => void;
+  onConsult: (text: string) => void;
 }) {
   const [text, setText] = useState('');
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
@@ -451,6 +477,19 @@ function Composer(props: {
             }
           }}
         />
+        {text.trim() && !props.working && (
+          <button
+            className="ghost consult-btn"
+            title="Consult: plan first, second agent reviews, you approve"
+            disabled={props.disabled}
+            onClick={() => {
+              props.onConsult(text.trim());
+              setText('');
+            }}
+          >
+            ⚖
+          </button>
+        )}
         <button className="primary send" disabled={props.disabled} onClick={send}>
           ↑
         </button>

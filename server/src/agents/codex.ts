@@ -228,7 +228,7 @@ export class CodexAdapter implements AgentAdapter {
     }
   }
 
-  async sendUserMessage(text: string, images?: UserImage[]): Promise<void> {
+  async sendUserMessage(text: string, images?: UserImage[], displayText?: string): Promise<void> {
     await this.ready;
     if (!this.threadId) throw new Error('Codex thread is not ready');
     const input: any[] = [];
@@ -241,7 +241,7 @@ export class CodexAdapter implements AgentAdapter {
       input.push({ type: 'localImage', path });
     }
     if (text) input.push({ type: 'text', text, text_elements: [] });
-    this.emit({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
+    this.emit({ type: 'user_message', text: displayText ?? text, imageCount: images?.length ?? 0, ts: now() });
     this.emit({ type: 'status', state: 'working', ts: now() });
     // A message sent while a turn is running steers that turn (what the VS Code extension
     // does) rather than racing a second turn/start against it, which the server rejects.

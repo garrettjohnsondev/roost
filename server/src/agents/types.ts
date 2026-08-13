@@ -15,7 +15,9 @@ export interface AgentAdapterOptions {
 }
 
 export interface AgentAdapter {
-  sendUserMessage(text: string, images?: UserImage[]): Promise<void>;
+  /** `displayText`, when given, is what the transcript shows; `text` is what the engine
+   *  receives — lets consult-proceed send a long composed prompt behind a short label. */
+  sendUserMessage(text: string, images?: UserImage[], displayText?: string): Promise<void>;
   setModel(model: string): Promise<void>;
   setEffort(effort: string): Promise<void>;
   setApprovals(approvals: ApprovalSetting): Promise<void>;

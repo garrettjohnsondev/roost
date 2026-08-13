@@ -192,13 +192,13 @@ export class ClaudeAdapter implements AgentAdapter {
     pending.resolve(decision);
   }
 
-  async sendUserMessage(text: string, images?: UserImage[]): Promise<void> {
+  async sendUserMessage(text: string, images?: UserImage[], displayText?: string): Promise<void> {
     const content: any[] = [];
     for (const img of images ?? []) {
       content.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.data } });
     }
     if (text) content.push({ type: 'text', text });
-    this.emit({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
+    this.emit({ type: 'user_message', text: displayText ?? text, imageCount: images?.length ?? 0, ts: now() });
     this.emit({ type: 'status', state: 'working', ts: now() });
     this.input.push({
       type: 'user',
