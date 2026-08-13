@@ -43,6 +43,8 @@ export interface SessionMeta {
   updatedAt: number;
   /** Current agent state — lets lists show which sessions are actively working. */
   state: 'idle' | 'working' | 'connecting' | 'error';
+  /** When model is 'auto': the concrete model the triage router last picked. */
+  routedModel?: string;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.
@@ -68,6 +70,7 @@ export type ServerEvent =
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
+  | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };

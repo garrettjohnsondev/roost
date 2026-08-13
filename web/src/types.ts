@@ -35,6 +35,7 @@ export interface SessionMeta {
   createdAt: number;
   updatedAt: number;
   state: 'idle' | 'working' | 'connecting' | 'error';
+  routedModel?: string;
   agentSessionId?: string;
   resumedFrom?: string;
 }
@@ -62,6 +63,7 @@ export type ServerEvent =
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
+  | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };
@@ -161,4 +163,5 @@ export type ChatItem =
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
+  | { kind: 'routed'; model: string; tier: string; reason: string; ts: number }
   | { kind: 'error'; text: string; ts: number };

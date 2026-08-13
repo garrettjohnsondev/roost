@@ -6,8 +6,9 @@ import { truncate } from './util.js';
 import type { AgentAdapter } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
-import { statePath, type PocketConfig } from './config.js';
+import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
 import { sendNotification } from './notify.js';
+import { shouldRetriage, triage, type Tier } from './router.js';
 
 const TRANSCRIPT_CAP = 5000;
 
@@ -22,6 +23,7 @@ interface SessionOpts {
     updatedAt: number;
     effort: string;
     approvals: ApprovalSetting;
+    routedModel?: string;
   };
   onChange?: () => void;
 }
@@ -38,9 +40,16 @@ export class Session {
   private adapter: AgentAdapter;
   private lastStatus: SessionMeta['state'] = 'idle';
   private onChange?: () => void;
+  private autoRoute: AutoRouteConfig;
+  private lastTier?: Tier;
+  routedModel?: string;
   model: string;
   effort: string;
   approvals: ApprovalSetting;
+
+  private get autoMode(): boolean {
+    return this.model === 'auto';
+  }
 
   constructor(
     readonly agent: AgentKind,
@@ -61,9 +70,13 @@ export class Session {
     this.approvals = opts.restore?.approvals ?? 'ask';
     this.resumedFrom = opts.resume;
     this.onChange = opts.onChange;
+    this.autoRoute = config.autoRoute[agent];
+    this.routedModel = opts.restore?.routedModel;
     const adapterOptions = {
       cwd,
-      model: this.model,
+      // In auto mode the concrete model is chosen per-message by the router; start the
+      // adapter on the last routed choice (or engine default) rather than the literal 'auto'.
+      model: this.autoMode ? this.routedModel ?? '' : this.model,
       effort: this.effort,
       approvals: this.approvals,
       resume: opts.resume,
@@ -73,7 +86,9 @@ export class Session {
         this.broadcastMeta();
       },
       onModelResolved: (model: string) => {
-        this.model = model;
+        // In auto mode 'auto' is the setting; the engine's answer is the routed reality.
+        if (this.autoMode) this.routedModel = model;
+        else this.model = model;
         this.broadcastMeta();
       },
     };
@@ -92,9 +107,33 @@ export class Session {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       state: this.lastStatus,
+      routedModel: this.routedModel,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
     };
+  }
+
+  /** Auto-mode dispatcher: cheap Haiku triage picks the tier, tier picks model+effort.
+   *  First message always triages; follow-ups only when they plausibly outgrow the
+   *  current tier. Any routing failure falls through silently — the message must send. */
+  private async routeFor(text: string): Promise<void> {
+    if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return;
+    const { tier, reason } = await triage(text);
+    this.lastTier = tier;
+    const target = this.autoRoute[tier];
+    if (target.model === this.routedModel) return;
+    try {
+      await this.adapter.setModel(target.model);
+      this.routedModel = target.model;
+      if (target.effort) {
+        await this.adapter.setEffort(target.effort).catch(() => {});
+        this.effort = target.effort;
+      }
+      this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
+      this.broadcastMeta();
+    } catch (err: any) {
+      this.reportError(`Auto-routing to ${target.model} failed (${String(err?.message ?? err)}) — continuing on current model.`);
+    }
   }
 
   private pushEvent(event: ServerEvent) {
@@ -153,6 +192,7 @@ export class Session {
     switch (msg.type) {
       case 'user_message':
         if (this.title === 'New session' && msg.text) this.title = truncate(msg.text, 60);
+        if (this.autoMode) await this.routeFor(msg.text);
         await this.adapter.sendUserMessage(msg.text, msg.images);
         this.broadcastMeta();
         break;
@@ -164,8 +204,17 @@ export class Session {
         }
         break;
       case 'set_model':
-        await this.adapter.setModel(msg.model);
-        this.model = msg.model;
+        if (msg.model === 'auto') {
+          // Keep whatever is currently running as the routed baseline; next message re-triages.
+          this.routedModel = this.autoMode ? this.routedModel : this.model || undefined;
+          this.model = 'auto';
+          this.lastTier = undefined;
+        } else {
+          await this.adapter.setModel(msg.model);
+          this.model = msg.model;
+          this.routedModel = undefined;
+          this.lastTier = undefined;
+        }
         this.broadcastMeta();
         break;
       case 'set_effort':
@@ -224,6 +273,7 @@ interface PersistedSession {
   cwd: string;
   title: string;
   model: string;
+  routedModel?: string;
   effort: string;
   approvals: ApprovalSetting;
   createdAt: number;
@@ -273,6 +323,7 @@ export class SessionManager {
       cwd: s.cwd,
       title: s.title,
       model: s.model,
+      routedModel: s.routedModel,
       effort: s.effort,
       approvals: s.approvals,
       createdAt: s.createdAt,
@@ -319,6 +370,7 @@ export class SessionManager {
             updatedAt: entry.updatedAt,
             effort: entry.effort,
             approvals: entry.approvals,
+            routedModel: entry.routedModel,
           },
           onChange: () => this.scheduleSave(),
         });

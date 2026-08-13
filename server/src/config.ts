@@ -15,12 +15,24 @@ export interface NotificationConfig {
   topic: string;
 }
 
+export interface RouteTarget {
+  model: string;
+  effort?: string;
+}
+
+export interface AutoRouteConfig {
+  light: RouteTarget;
+  standard: RouteTarget;
+  heavy: RouteTarget;
+}
+
 export interface PocketConfig {
   port: number;
   projects: string[];
   /** Hours an active session may sit with no real activity before it's auto-closed. */
   sessionIdleTimeoutHours: number;
   notifications: NotificationConfig;
+  autoRoute: { claude: AutoRouteConfig; codex: AutoRouteConfig };
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -30,6 +42,18 @@ const DEFAULTS: PocketConfig = {
   projects: [process.cwd()],
   sessionIdleTimeoutHours: 24,
   notifications: { url: 'https://ntfy.sh', topic: '' },
+  autoRoute: {
+    claude: {
+      light: { model: 'haiku' },
+      standard: { model: 'sonnet' },
+      heavy: { model: 'opus', effort: 'xhigh' },
+    },
+    codex: {
+      light: { model: 'gpt-5.4-mini' },
+      standard: { model: 'gpt-5.5' },
+      heavy: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+    },
+  },
   claude: { models: ['sonnet', 'opus', 'haiku'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
 };
@@ -49,6 +73,10 @@ export function loadConfig(): PocketConfig {
       ...DEFAULTS,
       ...parsed,
       notifications: { ...DEFAULTS.notifications, ...parsed.notifications },
+      autoRoute: {
+        claude: { ...DEFAULTS.autoRoute.claude, ...parsed.autoRoute?.claude },
+        codex: { ...DEFAULTS.autoRoute.codex, ...parsed.autoRoute?.codex },
+      },
       claude: { ...DEFAULTS.claude, ...parsed.claude },
       codex: { ...DEFAULTS.codex, ...parsed.codex },
     };

@@ -488,6 +488,22 @@ button {
   flex-shrink: 0;
 }
 
+/* ---------- auto-route chip ---------- */
+
+.routed-chip {
+  align-self: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: 999px;
+  padding: 3px 12px;
+}
+
+.routed-chip strong {
+  color: var(--text);
+}
+
 /* ---------- git sheet ---------- */
 
 .git-btn {

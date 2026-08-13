@@ -303,6 +303,9 @@ export function SessionList(props: {
             <div className="field">
               <label>Model</label>
               <div className="chips">
+                <button className={model === 'auto' ? 'chip active' : 'chip'} onClick={() => setModel('auto')}>
+                  ⚡ Auto
+                </button>
                 {agentConfig.models.map((m) => (
                   <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
                     {m.label}

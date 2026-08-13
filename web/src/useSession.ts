@@ -66,6 +66,9 @@ function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       if (i >= 0) next[i] = { ...(next[i] as Extract<ChatItem, { kind: 'approval' }>), decision: event.decision };
       break;
     }
+    case 'routed':
+      next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, ts: event.ts });
+      break;
     case 'error':
       next.push({ kind: 'error', text: event.message, ts: event.ts });
       break;

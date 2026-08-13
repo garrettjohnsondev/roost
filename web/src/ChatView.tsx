@@ -89,10 +89,12 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
 
   const agent = session.meta?.agent ?? 'claude';
   const agentConfig = config[agent];
+  const isAuto = session.meta?.model === 'auto';
+  const activeModelId = isAuto ? session.meta?.routedModel : session.meta?.model;
   const isCurrentModel = (m: { id: string; resolvedModel?: string }) =>
-    session.meta?.model === m.id || (!!m.resolvedModel && session.meta?.model === m.resolvedModel);
-  const currentModelLabel =
-    agentConfig.models.find(isCurrentModel)?.label ?? session.meta?.model ?? 'default';
+    activeModelId === m.id || (!!m.resolvedModel && activeModelId === m.resolvedModel);
+  const concreteLabel = agentConfig.models.find(isCurrentModel)?.label ?? activeModelId;
+  const currentModelLabel = isAuto ? `Auto → ${concreteLabel ?? '…'}` : concreteLabel ?? 'default';
 
   return (
     <div className="chat-page">
@@ -213,10 +215,16 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             <div className="field">
               <label>Model</label>
               <div className="chips">
+                <button
+                  className={isAuto ? 'chip active' : 'chip'}
+                  onClick={() => session.send({ type: 'set_model', model: 'auto' })}
+                >
+                  ⚡ Auto
+                </button>
                 {agentConfig.models.map((m) => (
                   <button
                     key={m.id}
-                    className={isCurrentModel(m) ? 'chip active' : 'chip'}
+                    className={!isAuto && isCurrentModel(m) ? 'chip active' : 'chip'}
                     onClick={() => session.send({ type: 'set_model', model: m.id })}
                   >
                     {m.label}
@@ -311,6 +319,13 @@ function Message({ item }: { item: ChatItem }) {
         <div className="tool-chip approval">
           🔐 {item.title}
           {item.decision ? ` — ${item.decision === 'deny' ? 'denied' : 'allowed'}` : ' — waiting'}
+        </div>
+      );
+    case 'routed':
+      return (
+        <div className="routed-chip">
+          ⚡ {item.tier} · routed to <strong>{item.model}</strong>
+          {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
     case 'error':
