@@ -1,8 +1,34 @@
 import { randomUUID } from 'node:crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { now, type ApprovalSetting, type ServerEvent, type UserImage } from '../protocol.js';
+import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
+import { noteClaudeRateLimit } from '../usage.js';
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, PendingApproval } from './types.js';
+
+const EXPAND_SNIPPET = 4000;
+
+/** Full-detail payload for the tap-to-expand tool chip. */
+function toolExpand(name: string, input: any): ToolExpand {
+  const path = input?.file_path ?? input?.notebook_path ?? input?.path;
+  if (name === 'Edit') {
+    return { path, before: truncate(String(input?.old_string ?? ''), EXPAND_SNIPPET), after: truncate(String(input?.new_string ?? ''), EXPAND_SNIPPET) };
+  }
+  if (name === 'MultiEdit') {
+    const edits = Array.isArray(input?.edits) ? input.edits : [];
+    return {
+      path,
+      before: truncate(edits.map((e: any) => e?.old_string ?? '').join('\n···\n'), EXPAND_SNIPPET),
+      after: truncate(edits.map((e: any) => e?.new_string ?? '').join('\n···\n'), EXPAND_SNIPPET),
+    };
+  }
+  if (name === 'Write') {
+    return { path, after: truncate(String(input?.content ?? ''), EXPAND_SNIPPET) };
+  }
+  if (name === 'Bash') {
+    return { raw: truncate(String(input?.command ?? ''), EXPAND_SNIPPET) };
+  }
+  return { path, raw: truncate(JSON.stringify(input ?? {}, null, 2), EXPAND_SNIPPET) };
+}
 
 const APPROVAL_TO_PERMISSION_MODE: Record<ApprovalSetting, string> = {
   ask: 'default',
@@ -77,6 +103,10 @@ export class ClaudeAdapter implements AgentAdapter {
           if (m.model) this.opts.onModelResolved?.(m.model);
         }
         break;
+      case 'rate_limit_event':
+        // Free usage-panel refresh as a side effect of normal chatting.
+        if (m.rate_limit_info) noteClaudeRateLimit(m.rate_limit_info);
+        break;
       case 'stream_event': {
         const ev = m.event;
         if (ev?.type === 'content_block_delta') {
@@ -98,6 +128,7 @@ export class ClaudeAdapter implements AgentAdapter {
               toolId: block.id ?? randomUUID(),
               name: block.name ?? 'tool',
               detail: truncate(JSON.stringify(block.input ?? {}), 300),
+              expand: toolExpand(block.name ?? '', block.input),
               ts: now(),
             });
           }

@@ -8,11 +8,19 @@ export interface AgentConfig {
   efforts: string[];
 }
 
+export interface NotificationConfig {
+  /** ntfy server base URL. */
+  url: string;
+  /** ntfy topic; empty string disables notifications. */
+  topic: string;
+}
+
 export interface PocketConfig {
   port: number;
   projects: string[];
   /** Hours an active session may sit with no real activity before it's auto-closed. */
   sessionIdleTimeoutHours: number;
+  notifications: NotificationConfig;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -21,6 +29,7 @@ const DEFAULTS: PocketConfig = {
   port: 8790,
   projects: [process.cwd()],
   sessionIdleTimeoutHours: 24,
+  notifications: { url: 'https://ntfy.sh', topic: '' },
   claude: { models: ['sonnet', 'opus', 'haiku'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
 };
@@ -30,10 +39,19 @@ export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..'
 
 const configPath = () => process.env.POCKET_CONFIG ?? join(repoRoot, 'pocket.config.json');
 
+/** Session-state file lives next to the config so scratch/test configs get their own. */
+export const statePath = () => join(dirname(configPath()), '.pocket-state.json');
+
 export function loadConfig(): PocketConfig {
   try {
     const parsed = JSON.parse(readFileSync(configPath(), 'utf8'));
-    return { ...DEFAULTS, ...parsed, claude: { ...DEFAULTS.claude, ...parsed.claude }, codex: { ...DEFAULTS.codex, ...parsed.codex } };
+    return {
+      ...DEFAULTS,
+      ...parsed,
+      notifications: { ...DEFAULTS.notifications, ...parsed.notifications },
+      claude: { ...DEFAULTS.claude, ...parsed.claude },
+      codex: { ...DEFAULTS.codex, ...parsed.codex },
+    };
   } catch {
     console.warn(`[pocket] no readable config at ${configPath()}, using defaults`);
     return DEFAULTS;

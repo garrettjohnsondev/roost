@@ -7,6 +7,7 @@ import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { getLiveModels, type ModelOption } from './models.js';
+import { initNotify, sendNotification } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
 import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
@@ -14,7 +15,9 @@ import { getCachedUsage, refreshUsage } from './usage.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 const config = loadConfig();
+initNotify(config);
 const manager = new SessionManager(config);
+manager.restore();
 const token = process.env.POCKET_TOKEN;
 
 /** Mounted external volumes, boot disk excluded — used both as folder-browser
@@ -63,6 +66,7 @@ app.get('/api/config', async (_req, res) => {
     projects: config.projects,
     primaryVolume: primaryVolume(),
     sessionIdleTimeoutHours: config.sessionIdleTimeoutHours,
+    notifications: config.notifications,
     claude: { ...config.claude, models: live.claude.length ? live.claude : fallback(config.claude.models) },
     codex: { ...config.codex, models: live.codex.length ? live.codex : fallback(config.codex.models) },
   });
@@ -177,6 +181,23 @@ app.get('/api/recent', async (_req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }
+});
+
+app.post('/api/notifications', (req, res) => {
+  const { topic, url } = req.body ?? {};
+  if (typeof topic === 'string') config.notifications.topic = topic.trim();
+  if (typeof url === 'string' && url.trim()) config.notifications.url = url.trim();
+  saveConfig(config);
+  res.json({ notifications: config.notifications });
+});
+
+app.post('/api/notifications/test', (_req, res) => {
+  if (!config.notifications.topic) {
+    res.status(400).json({ error: 'notifications are not enabled' });
+    return;
+  }
+  sendNotification(`test:${Date.now()}`, 'Pocket test', 'Notifications are working.');
+  res.json({ sent: true });
 });
 
 app.get('/api/usage', (_req, res) => {

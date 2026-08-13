@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { now, type ApprovalSetting, type ServerEvent, type UserImage } from '../protocol.js';
+import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
+import { noteCodexRateLimits } from '../usage.js';
 import { truncate } from '../util.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import type { AgentAdapter, AgentAdapterOptions, PendingApproval } from './types.js';
+
+const EXPAND_SNIPPET = 4000;
 
 // Wire strings verified against `codex app-server generate-ts` for codex-cli 0.146.0.
 const APPROVAL_TO_POLICY: Record<ApprovalSetting, string> = {
@@ -19,6 +22,7 @@ type CodexDecision = 'accept' | 'acceptForSession' | 'decline';
 export class CodexAdapter implements AgentAdapter {
   private rpc: JsonRpcProcess;
   private threadId: string | null = null;
+  private activeTurnId: string | null = null;
   private ready: Promise<void>;
   private pending = new Map<string, { resolve: (d: CodexDecision) => void }>();
   private itemNames = new Map<string, string>();
@@ -136,7 +140,7 @@ export class CodexAdapter implements AgentAdapter {
         const described = this.describeItem(item);
         if (described) {
           this.itemNames.set(item.id, described.name);
-          this.emit({ type: 'tool_start', toolId: item.id, name: described.name, detail: described.detail, ts: now() });
+          this.emit({ type: 'tool_start', toolId: item.id, name: described.name, detail: described.detail, expand: described.expand, ts: now() });
         }
         break;
       }
@@ -154,10 +158,16 @@ export class CodexAdapter implements AgentAdapter {
         break;
       }
       case 'turn/started':
+        this.activeTurnId = params?.turn?.id ?? null;
         this.emit({ type: 'status', state: 'working', ts: now() });
         break;
       case 'turn/completed':
+        this.activeTurnId = null;
         this.emit({ type: 'status', state: 'idle', ts: now() });
+        break;
+      case 'account/rateLimits/updated':
+        // Free usage-panel refresh as a side effect of normal chatting.
+        noteCodexRateLimits(params?.rateLimits);
         break;
       case 'thread/tokenUsage/updated': {
         const total = params?.tokenUsage?.total ?? {};
@@ -185,14 +195,32 @@ export class CodexAdapter implements AgentAdapter {
     }
   }
 
-  private describeItem(item: any): { name: string; detail: string } | null {
+  private describeItem(item: any): { name: string; detail: string; expand?: ToolExpand } | null {
     switch (item.type) {
       case 'commandExecution':
-        return { name: 'shell', detail: truncate(item.command ?? '', 300) };
-      case 'fileChange':
-        return { name: 'edit', detail: truncate((item.changes ?? []).map((c: any) => c.path ?? '').join(', '), 300) };
+        return {
+          name: 'shell',
+          detail: truncate(item.command ?? '', 300),
+          expand: { raw: truncate(item.command ?? '', EXPAND_SNIPPET) },
+        };
+      case 'fileChange': {
+        const changes = item.changes ?? [];
+        return {
+          name: 'edit',
+          detail: truncate(changes.map((c: any) => c.path ?? '').join(', '), 300),
+          expand: {
+            path: changes.map((c: any) => c.path ?? '').join(', '),
+            // Codex logs real unified diffs on fileChange items — pass them through.
+            raw: truncate(changes.map((c: any) => c.diff ?? '').filter(Boolean).join('\n'), EXPAND_SNIPPET) || undefined,
+          },
+        };
+      }
       case 'mcpToolCall':
-        return { name: `${item.server}:${item.tool}`, detail: truncate(JSON.stringify(item.arguments ?? {}), 300) };
+        return {
+          name: `${item.server}:${item.tool}`,
+          detail: truncate(JSON.stringify(item.arguments ?? {}), 300),
+          expand: { raw: truncate(JSON.stringify(item.arguments ?? {}, null, 2), EXPAND_SNIPPET) },
+        };
       case 'webSearch':
         return { name: 'web search', detail: truncate(item.query ?? '', 300) };
       default:
@@ -215,18 +243,21 @@ export class CodexAdapter implements AgentAdapter {
     if (text) input.push({ type: 'text', text, text_elements: [] });
     this.emit({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
     this.emit({ type: 'status', state: 'working', ts: now() });
-    void this.rpc
-      .request('turn/start', {
-        threadId: this.threadId,
-        input,
-        approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
-        model: this.model || null,
-        effort: this.effort || null,
-      }, 10 * 60_000)
-      .catch((err) => {
-        this.emit({ type: 'error', message: `Codex turn failed: ${err?.message ?? err}`, ts: now() });
-        this.emit({ type: 'status', state: 'idle', ts: now() });
-      });
+    // A message sent while a turn is running steers that turn (what the VS Code extension
+    // does) rather than racing a second turn/start against it, which the server rejects.
+    const request = this.activeTurnId
+      ? this.rpc.request('turn/steer', { threadId: this.threadId, input, expectedTurnId: this.activeTurnId }, 60_000)
+      : this.rpc.request('turn/start', {
+          threadId: this.threadId,
+          input,
+          approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
+          model: this.model || null,
+          effort: this.effort || null,
+        }, 10 * 60_000);
+    void request.catch((err) => {
+      this.emit({ type: 'error', message: `Codex turn failed: ${err?.message ?? err}`, ts: now() });
+      this.emit({ type: 'status', state: 'idle', ts: now() });
+    });
   }
 
   async setModel(model: string): Promise<void> {

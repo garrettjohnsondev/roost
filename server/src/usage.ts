@@ -26,6 +26,11 @@ export function getCachedUsage(): UsageSnapshot | null {
   return cache;
 }
 
+function ensureCache(): UsageSnapshot {
+  if (!cache) cache = { claude: { windows: [] }, codex: { windows: [] }, fetchedAt: Date.now() };
+  return cache;
+}
+
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: '5-hour session',
   seven_day: '7-day (all models)',
@@ -34,6 +39,54 @@ const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   seven_day_overage_included: '7-day (overage)',
   overage: 'Overage',
 };
+
+function claudeInfoToWindow(info: any): { key: string; window: UsageWindow } {
+  const key = info?.rateLimitType ?? 'unknown';
+  return {
+    key,
+    window: {
+      label: CLAUDE_WINDOW_LABELS[key] ?? key,
+      resetsAt: info?.resetsAt ? info.resetsAt * 1000 : undefined,
+      status: info?.status,
+      usedPercent: typeof info?.utilization === 'number' ? Math.round(info.utilization * 100) : undefined,
+    },
+  };
+}
+
+function codexSnapshotToUsage(snap: any): AgentUsage {
+  const windows: UsageWindow[] = [];
+  const addWindow = (label: string, w: any) => {
+    if (!w) return;
+    windows.push({
+      label: `${label} (${formatWindow(w.windowDurationMins)})`,
+      usedPercent: typeof w.usedPercent === 'number' ? Math.round(w.usedPercent) : undefined,
+      resetsAt: w.resetsAt ? w.resetsAt * 1000 : undefined,
+    });
+  };
+  addWindow('Primary', snap?.primary);
+  addWindow('Secondary', snap?.secondary);
+  return { windows, planType: snap?.planType ?? undefined };
+}
+
+/** Passive update from a live Claude session's rate_limit_event — normal chatting keeps
+ *  the usage panel fresh for free, no probe turn needed. */
+export function noteClaudeRateLimit(info: any): void {
+  const c = ensureCache();
+  const { window } = claudeInfoToWindow(info);
+  const existing = c.claude.windows.findIndex((w) => w.label === window.label);
+  if (existing >= 0) c.claude.windows[existing] = window;
+  else c.claude.windows.push(window);
+  c.claude.error = undefined;
+  c.fetchedAt = Date.now();
+}
+
+/** Passive update from a live Codex session's account/rateLimits/updated notification. */
+export function noteCodexRateLimits(snap: any): void {
+  if (!snap) return;
+  const c = ensureCache();
+  c.codex = codexSnapshotToUsage(snap);
+  c.fetchedAt = Date.now();
+}
 
 /** Claude does not expose a numeric usage percentage via the SDK — only reset time
  *  and an allowed/warning/rejected status (the same signal /usage shows in the CLI).
@@ -49,14 +102,8 @@ async function fetchClaudeUsage(cwd: string): Promise<AgentUsage> {
   try {
     for await (const m of q) {
       if (m.type === 'rate_limit_event') {
-        const info = m.rate_limit_info ?? {};
-        const key = info.rateLimitType ?? 'unknown';
-        seen.set(key, {
-          label: CLAUDE_WINDOW_LABELS[key] ?? key,
-          resetsAt: info.resetsAt ? info.resetsAt * 1000 : undefined,
-          status: info.status,
-          usedPercent: typeof info.utilization === 'number' ? Math.round(info.utilization * 100) : undefined,
-        });
+        const { key, window } = claudeInfoToWindow(m.rate_limit_info ?? {});
+        seen.set(key, window);
         void q.interrupt?.().catch(() => {});
       }
       if (m.type === 'result') break;
@@ -87,18 +134,7 @@ async function fetchCodexUsage(cwd: string): Promise<AgentUsage> {
     const res = await rpc.request('account/rateLimits/read', {});
     const snap = res?.rateLimits;
     if (!snap) return { windows: [], error: 'No rate-limit data returned — is `codex` logged in?' };
-    const windows: UsageWindow[] = [];
-    const addWindow = (label: string, w: any) => {
-      if (!w) return;
-      windows.push({
-        label: `${label} (${formatWindow(w.windowDurationMins)})`,
-        usedPercent: typeof w.usedPercent === 'number' ? Math.round(w.usedPercent) : undefined,
-        resetsAt: w.resetsAt ? w.resetsAt * 1000 : undefined,
-      });
-    };
-    addWindow('Primary', snap.primary);
-    addWindow('Secondary', snap.secondary);
-    return { windows, planType: snap.planType ?? undefined };
+    return codexSnapshotToUsage(snap);
   } catch (err: any) {
     return { windows: [], error: String(err?.message ?? err) };
   } finally {

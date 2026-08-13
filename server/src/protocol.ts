@@ -20,7 +20,16 @@ export type ClientMessage =
   | { type: 'set_model'; model: string }
   | { type: 'set_effort'; effort: string }
   | { type: 'set_approvals'; approvals: ApprovalSetting }
+  | { type: 'set_title'; title: string }
   | { type: 'interrupt' };
+
+/** Expanded detail for a tool call, shown when the user taps its chip. */
+export interface ToolExpand {
+  path?: string;
+  before?: string;
+  after?: string;
+  raw?: string;
+}
 
 export interface SessionMeta {
   id: string;
@@ -53,7 +62,7 @@ export type ServerEvent =
   | { type: 'assistant_delta'; delta: string; ts: number }
   | { type: 'assistant_message'; text: string; ts: number }
   | { type: 'thinking_delta'; delta: string; ts: number }
-  | { type: 'tool_start'; toolId: string; name: string; detail: string; ts: number }
+  | { type: 'tool_start'; toolId: string; name: string; detail: string; expand?: ToolExpand; ts: number }
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
