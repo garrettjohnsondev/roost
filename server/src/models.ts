@@ -45,7 +45,9 @@ async function fetchClaudeModels(cwd: string): Promise<ModelOption[]> {
 }
 
 async function fetchCodexModels(cwd: string): Promise<ModelOption[]> {
-  const rpc = new JsonRpcProcess('codex', ['app-server'], cwd, {
+  // MCP servers are irrelevant to this probe and can add multi-second startup delays
+  // (or hard errors) when one is unreachable — skip them entirely.
+  const rpc = new JsonRpcProcess('codex', ['app-server', '-c', 'mcp_servers={}'], cwd, {
     onRequest: async (method) => {
       throw new Error(`model probe does not handle ${method}`);
     },

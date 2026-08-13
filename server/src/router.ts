@@ -36,14 +36,16 @@ export function parseTriage(text: string): TriageResult {
   return { tier: keyword ?? 'standard', reason: keyword ? 'keyword match' : 'triage unparseable — defaulted' };
 }
 
-const UPGRADE_HINT = /\b(refactor|architect|redesign|rewrite|overhaul|debug|investigate|migrate|deep|thorough|carefully|complex|entire|across)\b/i;
-const TIER_RANK: Record<Tier, number> = { light: 0, standard: 1, heavy: 2 };
+const TASK_HINT = /\b(refactor|architect|redesign|rewrite|overhaul|debug|investigate|migrate|deep|thorough|carefully|complex|entire|across|implement|build|create|add|fix)\b/i;
 
-/** Cheap local check for follow-up messages: only bother re-triaging when the new
- *  message plausibly outgrows the current tier — keeps triage cost off quick replies. */
-export function shouldRetriage(text: string, currentTier: Tier): boolean {
-  if (currentTier === 'heavy') return false; // nowhere to go but down; stay put
-  return text.length > 280 || UPGRADE_HINT.test(text);
+/** Cheap local check for follow-up messages: re-triage only when the message reads like
+ *  a NEW task (length or task-verb heuristic) rather than a continuation ("yes, do that").
+ *  Applies in both directions — a heavy session gets to route back DOWN when the next
+ *  task is trivial, instead of burning top-tier tokens on everything forever; and
+ *  continuations stay on the current tier because mid-task model churn hurts more than
+ *  a few over-provisioned turns. */
+export function shouldRetriage(text: string, _currentTier: Tier): boolean {
+  return text.length > 280 || TASK_HINT.test(text);
 }
 
 const TRIAGE_TIMEOUT_MS = 20_000;

@@ -158,7 +158,9 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         {session.items.map((item, i) => (
           <Message key={i} item={item} />
         ))}
-        {session.status === 'working' && !session.closedReason && <div className="working-indicator">working…</div>}
+        {session.status === 'working' && !session.closedReason && (
+          <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
+        )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
       </div>
 
@@ -343,16 +345,19 @@ function Message({ item }: { item: ChatItem }) {
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
-    case 'consult':
+    case 'consult': {
+      const verdict = item.phase === 'critique' ? item.text.match(/VERDICT:\s*(SOLID|NEEDS CHANGES)/i)?.[1]?.toUpperCase() : undefined;
       return (
         <div className={`consult-msg ${item.phase}`}>
           <div className="consult-msg-head">
             <span className={`agent-dot ${item.agent}`} />
             {item.phase === 'plan' ? 'Plan' : 'Critique'} · {item.agent}
+            {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
           </div>
           <Markdown text={item.text} />
         </div>
       );
+    }
     case 'error':
       return <div className="msg error">{item.text}</div>;
   }

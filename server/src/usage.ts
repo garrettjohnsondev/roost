@@ -118,7 +118,9 @@ async function fetchClaudeUsage(cwd: string): Promise<AgentUsage> {
 }
 
 async function fetchCodexUsage(cwd: string): Promise<AgentUsage> {
-  const rpc = new JsonRpcProcess('codex', ['app-server'], cwd, {
+  // MCP servers are irrelevant to this probe and can add multi-second startup delays
+  // (or hard errors) when one is unreachable — skip them entirely.
+  const rpc = new JsonRpcProcess('codex', ['app-server', '-c', 'mcp_servers={}'], cwd, {
     onRequest: async (method) => {
       throw new Error(`usage probe does not handle ${method}`);
     },

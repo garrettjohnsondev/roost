@@ -9,7 +9,7 @@ import { CodexAdapter } from './agents/codex.js';
 import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier } from './router.js';
-import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, runConsultStep } from './consult.js';
+import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startConsultStep, type ConsultRun } from './consult.js';
 
 const TRANSCRIPT_CAP = 5000;
 
@@ -25,6 +25,7 @@ interface SessionOpts {
     effort: string;
     approvals: ApprovalSetting;
     routedModel?: string;
+    pendingConsult?: { task: string; plan: string; critique: string };
   };
   onChange?: () => void;
 }
@@ -44,7 +45,9 @@ export class Session {
   private autoRoute: AutoRouteConfig;
   private lastTier?: Tier;
   private consultRunning = false;
-  private pendingConsult?: { task: string; plan: string; critique: string };
+  private activeConsult?: ConsultRun;
+  private consultCancelled = false;
+  pendingConsult?: { task: string; plan: string; critique: string };
   private standardModelFor: (agent: AgentKind) => string;
   routedModel?: string;
   model: string;
@@ -76,6 +79,7 @@ export class Session {
     this.onChange = opts.onChange;
     this.autoRoute = config.autoRoute[agent];
     this.routedModel = opts.restore?.routedModel;
+    this.pendingConsult = opts.restore?.pendingConsult;
     // Consult one-shots run on each agent's "standard" tier model — capable enough to
     // plan/review, without paying heavy-tier prices for a throwaway run.
     this.standardModelFor = (a: AgentKind) => config.autoRoute[a].standard.model;
@@ -133,9 +137,12 @@ export class Session {
     try {
       await this.adapter.setModel(target.model);
       this.routedModel = target.model;
-      if (target.effort) {
-        await this.adapter.setEffort(target.effort).catch(() => {});
-        this.effort = target.effort;
+      // Apply the tier's effort — including clearing a previous tier's override back to
+      // engine-auto ('') on downgrade, so heavy's xhigh doesn't stick to a light model.
+      const newEffort = target.effort ?? '';
+      if (newEffort !== this.effort) {
+        await this.adapter.setEffort(newEffort).catch(() => {});
+        this.effort = newEffort;
       }
       this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
       this.broadcastMeta();
@@ -253,6 +260,10 @@ export class Session {
         break;
       }
       case 'interrupt':
+        if (this.activeConsult) {
+          this.consultCancelled = true;
+          this.activeConsult.cancel();
+        }
         await this.adapter.interrupt();
         break;
       case 'consult':
@@ -281,13 +292,14 @@ export class Session {
 
   /** Runs the two-agent conference: this session's agent plans (read-only one-shot with
    *  a digest of recent conversation for context), the other agent critiques, both land
-   *  in the transcript, and consultPending arms the Proceed/Dismiss bar. */
+   *  in the transcript, and consultPending arms the Proceed/Dismiss bar. Stop cancels the
+   *  active one-shot; a failed critique degrades gracefully instead of losing the plan. */
   private async runConsult(task: string): Promise<void> {
     if (!task.trim() || this.consultRunning) return;
     this.consultRunning = true;
+    this.consultCancelled = false;
     this.pendingConsult = undefined;
     const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
-    this.pushEvent({ type: 'status', state: 'working', ts: now() });
     try {
       const context = this.transcript
         .filter((e) => e.type === 'user_message' || e.type === 'assistant_message')
@@ -295,16 +307,32 @@ export class Session {
         .map((e: any) => `${e.type === 'user_message' ? 'User' : 'Agent'}: ${truncate(e.text, 300)}`)
         .join('\n');
 
-      const plan = await runConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), this.standardModelFor(this.agent), 'plan');
+      this.pushEvent({ type: 'status', state: 'working', message: `Consult: ${this.agent} is drafting a plan…`, ts: now() });
+      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), this.standardModelFor(this.agent), 'plan');
+      const plan = await this.activeConsult.promise;
       this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, text: plan, ts: now() });
 
-      const critique = await runConsultStep(other, this.cwd, composeCriticPrompt(task, plan), this.standardModelFor(other), 'critique');
+      this.pushEvent({ type: 'status', state: 'working', message: `Consult: ${other} is reviewing the plan…`, ts: now() });
+      let critique: string;
+      try {
+        this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), this.standardModelFor(other), 'critique');
+        critique = await this.activeConsult.promise;
+      } catch (err: any) {
+        if (this.consultCancelled) throw err;
+        // A dead reviewer shouldn't cost the user a good plan — degrade to plan-only.
+        critique = `(Critique unavailable — ${truncate(String(err?.message ?? err), 200)}. Proceeding uses the plan as-is.)`;
+      }
       this.pushEvent({ type: 'consult', phase: 'critique', agent: other, text: critique, ts: now() });
 
       this.pendingConsult = { task, plan, critique };
+      if (this.sockets.size === 0) {
+        sendNotification(`consult:${this.id}`, `Consult ready · ${this.title}`, 'Plan and critique are waiting for your decision.');
+      }
     } catch (err: any) {
-      this.reportError(`Consult failed: ${String(err?.message ?? err)}`);
+      if (this.consultCancelled) this.pushEvent({ type: 'status', state: 'idle', message: 'Consult cancelled.', ts: now() });
+      else this.reportError(`Consult failed: ${String(err?.message ?? err)}`);
     } finally {
+      this.activeConsult = undefined;
       this.consultRunning = false;
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
       this.broadcastMeta();
@@ -341,6 +369,7 @@ interface PersistedSession {
   updatedAt: number;
   agentSessionId?: string;
   resumedFrom?: string;
+  pendingConsult?: { task: string; plan: string; critique: string };
 }
 
 export class SessionManager {
@@ -391,6 +420,7 @@ export class SessionManager {
       updatedAt: s.updatedAt,
       agentSessionId: s.agentSessionId,
       resumedFrom: s.resumedFrom,
+      pendingConsult: s.pendingConsult,
     }));
     try {
       const path = statePath();
@@ -432,6 +462,7 @@ export class SessionManager {
             effort: entry.effort,
             approvals: entry.approvals,
             routedModel: entry.routedModel,
+            pendingConsult: entry.pendingConsult,
           },
           onChange: () => this.scheduleSave(),
         });

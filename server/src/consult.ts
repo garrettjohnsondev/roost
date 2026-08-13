@@ -1,6 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JsonRpcProcess } from './jsonrpc.js';
-import { truncate } from './util.js';
+import { AsyncQueue, truncate } from './util.js';
 import type { AgentKind } from './protocol.js';
 
 /** Buzz-style pre-execution conference: the session's agent drafts a plan (read-only),
@@ -51,19 +51,7 @@ export function composeProceedPrompt(task: string, plan: string, critique: strin
 
 const READ_ONLY_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'WebSearch', 'WebFetch', 'TodoWrite', 'Task']);
 
-async function claudeOneShot(cwd: string, prompt: string, model: string): Promise<string> {
-  const q: any = query({
-    prompt,
-    options: {
-      cwd,
-      model,
-      maxTurns: 12,
-      canUseTool: async (toolName: string) =>
-        READ_ONLY_TOOLS.has(toolName)
-          ? { behavior: 'allow', updatedInput: undefined as any }
-          : { behavior: 'deny', message: 'Consult runs are read-only.' },
-    } as any,
-  });
+async function collectClaude(q: any): Promise<string> {
   const collect = (async () => {
     let final = '';
     for await (const m of q) {
@@ -89,62 +77,107 @@ async function claudeOneShot(cwd: string, prompt: string, model: string): Promis
   }
 }
 
-async function codexOneShot(cwd: string, prompt: string, model: string): Promise<string> {
-  const rpc = new JsonRpcProcess('codex', ['app-server'], cwd, {
+function codexOneShotCancellable(cwd: string, prompt: string, model: string): { promise: Promise<string>; kill: () => void } {
+  let onNotification: (method: string, params: any) => void = () => {};
+  // mcp_servers={} — a consult is read-only exploration; MCP startup only adds delay.
+  const rpc = new JsonRpcProcess('codex', ['app-server', '-c', 'mcp_servers={}'], cwd, {
     onRequest: async () => {
       throw new Error('consult runs are read-only');
     },
-    onNotification: () => {},
+    onNotification: (method, params) => onNotification(method, params),
     onExit: () => {},
   });
-  try {
-    await rpc.request('initialize', {
-      clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
-      capabilities: null,
-    });
-    rpc.notify('initialized');
-    const started = await rpc.request('thread/start', {
-      cwd,
-      model: model || null,
-      approvalPolicy: 'never',
-      sandbox: 'read-only',
-    });
-    const threadId = started?.thread?.id;
-    if (!threadId) throw new Error('codex consult thread failed to start');
+  const promise = (async () => {
+    try {
+      await rpc.request('initialize', {
+        clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+        capabilities: null,
+      });
+      rpc.notify('initialized');
+      const started = await rpc.request('thread/start', {
+        cwd,
+        model: model || null,
+        approvalPolicy: 'never',
+        sandbox: 'read-only',
+      });
+      const threadId = started?.thread?.id;
+      if (!threadId) throw new Error('codex consult thread failed to start');
 
-    let lastMessage = '';
-    const done = new Promise<string>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('consult run timed out')), ONE_SHOT_TIMEOUT_MS);
-      (rpc as any).handlers.onNotification = (method: string, params: any) => {
-        if (method === 'item/completed' && params?.item?.type === 'agentMessage' && params.item.text) {
-          lastMessage = params.item.text;
-        }
-        if (method === 'turn/completed') {
-          clearTimeout(timer);
-          resolve(lastMessage);
-        }
-        if (method === 'error' && params?.willRetry === false) {
-          clearTimeout(timer);
-          reject(new Error(params?.error?.message ?? 'codex consult error'));
-        }
-      };
-    });
-    await rpc.request('turn/start', { threadId, input: [{ type: 'text', text: prompt, text_elements: [] }] }, ONE_SHOT_TIMEOUT_MS);
-    return await done;
-  } finally {
-    rpc.kill();
-  }
+      let lastMessage = '';
+      const done = new Promise<string>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('consult run timed out')), ONE_SHOT_TIMEOUT_MS);
+        onNotification = (method, params) => {
+          if (method === 'item/completed' && params?.item?.type === 'agentMessage' && params.item.text) {
+            lastMessage = params.item.text;
+          }
+          if (method === 'turn/completed') {
+            clearTimeout(timer);
+            resolve(lastMessage);
+          }
+          if (method === 'error' && params?.willRetry === false) {
+            clearTimeout(timer);
+            reject(new Error(params?.error?.message ?? 'codex consult error'));
+          }
+        };
+      });
+      await rpc.request('turn/start', { threadId, input: [{ type: 'text', text: prompt, text_elements: [] }] }, ONE_SHOT_TIMEOUT_MS);
+      return await done;
+    } finally {
+      rpc.kill();
+    }
+  })();
+  return { promise, kill: () => rpc.kill() };
 }
 
-export async function runConsultStep(
+export interface ConsultRun {
+  promise: Promise<string>;
+  cancel: () => void;
+}
+
+/** Starts a consult step and hands back a cancel handle, so a user Stop can actually
+ *  kill the one-shot process instead of leaving it burning tokens in the background. */
+export function startConsultStep(
   agent: AgentKind,
   cwd: string,
   prompt: string,
   model: string,
   phase: 'plan' | 'critique',
-): Promise<string> {
-  const out = agent === 'claude' ? await claudeOneShot(cwd, prompt, model) : await codexOneShot(cwd, prompt, model);
-  const trimmed = out.trim();
-  if (!trimmed) throw new Error(`${agent} consult run returned no text`);
-  return truncate(trimmed, phase === 'plan' ? PLAN_CAP : CRITIQUE_CAP);
+): ConsultRun {
+  let cancel: () => void = () => {};
+  const raw =
+    agent === 'claude'
+      ? (() => {
+          // Streaming input mode is required for interrupt() to work at all — a plain
+          // string prompt makes cancel a silent no-op (verified against the SDK docs).
+          const input = new AsyncQueue<any>();
+          input.push({ type: 'user', message: { role: 'user', content: prompt }, parent_tool_use_id: null, session_id: '' });
+          const q: any = query({
+            prompt: input as AsyncIterable<any>,
+            options: {
+              cwd,
+              model,
+              maxTurns: 12,
+              canUseTool: async (toolName: string) =>
+                READ_ONLY_TOOLS.has(toolName)
+                  ? { behavior: 'allow', updatedInput: undefined as any }
+                  : { behavior: 'deny', message: 'Consult runs are read-only.' },
+            } as any,
+          });
+          cancel = () => {
+            input.close();
+            void q.interrupt?.().catch(() => {});
+          };
+          return collectClaude(q).finally(() => input.close());
+        })()
+      : (() => {
+          const { promise, kill } = codexOneShotCancellable(cwd, prompt, model);
+          cancel = kill;
+          return promise;
+        })();
+  const promise = raw.then((out) => {
+    const trimmed = out.trim();
+    if (!trimmed) throw new Error(`${agent} consult run returned no text`);
+    return truncate(trimmed, phase === 'plan' ? PLAN_CAP : CRITIQUE_CAP);
+  });
+  return { promise, cancel: () => cancel() };
 }

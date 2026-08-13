@@ -524,6 +524,23 @@ button {
   margin-bottom: 6px;
 }
 
+.verdict-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.verdict-badge.solid {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+
+.verdict-badge.changes {
+  color: #d9a441;
+  background: color-mix(in srgb, #d9a441 14%, transparent);
+}
+
 .consult-bar {
   display: flex;
   align-items: center;

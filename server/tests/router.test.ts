@@ -27,16 +27,18 @@ describe('parseTriage', () => {
 });
 
 describe('shouldRetriage', () => {
-  it('never re-triages from heavy (nowhere up to go)', () => {
-    expect(shouldRetriage('completely redesign the entire architecture from scratch', 'heavy')).toBe(false);
-  });
-
-  it('skips short follow-ups on the current tier', () => {
+  it('skips short follow-ups on any tier (continuations stay on the current model)', () => {
     expect(shouldRetriage('yes do that', 'standard')).toBe(false);
     expect(shouldRetriage('looks good, continue', 'light')).toBe(false);
+    expect(shouldRetriage('yes, keep going', 'heavy')).toBe(false);
   });
 
-  it('re-triages on upgrade keywords', () => {
+  it('re-triages task-shaped messages even from heavy — the downgrade path exists', () => {
+    expect(shouldRetriage('now just fix the typo in the readme', 'heavy')).toBe(true);
+    expect(shouldRetriage('add a small comment to util.js', 'heavy')).toBe(true);
+  });
+
+  it('re-triages on upgrade keywords from lower tiers', () => {
     expect(shouldRetriage('now refactor the session manager', 'light')).toBe(true);
     expect(shouldRetriage('debug this crash carefully', 'standard')).toBe(true);
   });
