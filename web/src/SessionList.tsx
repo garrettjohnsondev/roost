@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
+import { GitSheet } from './GitSheet';
 import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
 import type { Theme } from './theme';
-import type { AgentKind, PocketConfigResponse, RecentProject, SessionMeta } from './types';
+import type { AgentKind, GitSummary, PocketConfigResponse, RecentProject, SessionMeta } from './types';
+
+function ChangesBadge({ summary, onOpen }: { summary?: GitSummary; onOpen: () => void }) {
+  if (!summary || (summary.files === 0 && summary.ahead === 0)) return null;
+  return (
+    <button className="changes-badge" onClick={onOpen}>
+      {summary.files > 0 ? `±${summary.files}` : `↑${summary.ahead}`}
+    </button>
+  );
+}
 
 interface Resumable {
   id: string;
@@ -100,11 +110,14 @@ export function SessionList(props: {
   const [error, setError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<RecentProject | null>(null);
   const [notifications, setNotifications] = useState(config.notifications);
+  const [gitSummaries, setGitSummaries] = useState<Record<string, GitSummary>>({});
+  const [gitSheetFor, setGitSheetFor] = useState<string | null>(null);
 
   const agentConfig = config[agent];
 
   useEffect(() => {
     api.sessions().then((r) => setSessions(r.sessions)).catch(() => {});
+    api.gitSummaries().then((r) => setGitSummaries(r.summaries)).catch(() => {});
     api
       .recent()
       .then((r) => {
@@ -187,9 +200,12 @@ export function SessionList(props: {
     <div className="page">
       <header className="page-header">
         <div className="page-header-row">
-          <div>
-            <h1>Pocket</h1>
-            <span className="subtitle">your laptop, in your pocket</span>
+          <div className="page-header-brand">
+            <img className="brand-icon" src="/icon-192.png" alt="" />
+            <div>
+              <h1>Pocket</h1>
+              <span className="subtitle">your laptop, in your pocket</span>
+            </div>
           </div>
           <button className="ghost" onClick={() => setShowSettings(true)}>
             ⚙
@@ -211,10 +227,15 @@ export function SessionList(props: {
                 <span className={`agent-dot ${s.agent}`} />
                 <span className="session-title">{s.title}</span>
                 <span className="session-sub">
-                  {s.agent} · {s.model || 'default model'} · {shortPath(s.cwd)}
+                  {s.agent} · {shortPath(s.cwd)} · {fmtAgo(s.updatedAt)}
                 </span>
               </button>
-              <span className="live-badge">● Live</span>
+              <ChangesBadge summary={gitSummaries[s.cwd]} onOpen={() => setGitSheetFor(s.cwd)} />
+              {s.state === 'working' ? (
+                <span className="live-badge working">● Working</span>
+              ) : (
+                <span className="live-badge">● Live</span>
+              )}
               <button className="ghost" onClick={() => close(s.id)}>
                 ✕
               </button>
@@ -229,16 +250,19 @@ export function SessionList(props: {
           <p className="section-hint">History from past sessions. Tap one to see a free recap before reopening it.</p>
           <div className="recent-list">
             {visibleRecent.map((p) => (
-              <button key={p.path} className="recent-row" disabled={busy} onClick={() => setPreviewing(p)}>
-                <span className={`agent-dot ${p.lastAgent}`} />
-                <span className="recent-info">
-                  <span className="recent-project">{shortPath(p.path)}</span>
-                  <span className="recent-title">
-                    {p.lastAgent} · {p.lastTitle}
+              <div key={p.path} className="recent-row">
+                <button className="recent-main" disabled={busy} onClick={() => setPreviewing(p)}>
+                  <span className={`agent-dot ${p.lastAgent}`} />
+                  <span className="recent-info">
+                    <span className="recent-project">{shortPath(p.path)}</span>
+                    <span className="recent-title">
+                      {p.lastAgent} · {p.lastTitle}
+                    </span>
                   </span>
-                </span>
-                <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
-              </button>
+                  <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
+                </button>
+                <ChangesBadge summary={gitSummaries[p.path]} onOpen={() => setGitSheetFor(p.path)} />
+              </div>
             ))}
           </div>
         </section>
@@ -352,6 +376,8 @@ export function SessionList(props: {
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {gitSheetFor && <GitSheet cwd={gitSheetFor} onClose={() => setGitSheetFor(null)} />}
 
       {previewing && (
         <PreviewSheet

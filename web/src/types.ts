@@ -34,8 +34,14 @@ export interface SessionMeta {
   approvals: ApprovalSetting;
   createdAt: number;
   updatedAt: number;
+  state: 'idle' | 'working' | 'connecting' | 'error';
   agentSessionId?: string;
   resumedFrom?: string;
+}
+
+export interface GitSummary {
+  files: number;
+  ahead: number;
 }
 
 export interface UsageInfo {

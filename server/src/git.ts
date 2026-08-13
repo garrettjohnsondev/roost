@@ -114,6 +114,32 @@ export async function gitCommit(cwd: string, message: string): Promise<string> {
   return truncate(out, 2000);
 }
 
+export interface GitSummary {
+  files: number;
+  ahead: number;
+}
+
+let summariesCache: { at: number; data: Record<string, GitSummary> } | null = null;
+const SUMMARIES_TTL_MS = 30_000;
+
+/** Light dirty-state overview for the home screen's per-project badges. */
+export async function getGitSummaries(cwds: string[]): Promise<Record<string, GitSummary>> {
+  if (summariesCache && Date.now() - summariesCache.at < SUMMARIES_TTL_MS) return summariesCache.data;
+  const data: Record<string, GitSummary> = {};
+  await Promise.all(
+    cwds.map(async (cwd) => {
+      try {
+        const status = await getGitStatus(cwd);
+        if (status.isRepo) data[cwd] = { files: status.files.length, ahead: status.ahead ?? 0 };
+      } catch {
+        /* non-repo or git hiccup — no badge */
+      }
+    }),
+  );
+  summariesCache = { at: Date.now(), data };
+  return data;
+}
+
 export async function gitPush(cwd: string): Promise<string> {
   try {
     // Push output (branch tracking info etc.) goes to stderr on success.

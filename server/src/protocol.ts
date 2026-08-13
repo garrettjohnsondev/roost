@@ -41,6 +41,8 @@ export interface SessionMeta {
   approvals: ApprovalSetting;
   createdAt: number;
   updatedAt: number;
+  /** Current agent state — lets lists show which sessions are actively working. */
+  state: 'idle' | 'working' | 'connecting' | 'error';
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.

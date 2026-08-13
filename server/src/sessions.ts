@@ -36,7 +36,7 @@ export class Session {
   private transcript: ServerEvent[] = [];
   private sockets = new Set<WebSocket>();
   private adapter: AgentAdapter;
-  private lastStatus: string = 'idle';
+  private lastStatus: SessionMeta['state'] = 'idle';
   private onChange?: () => void;
   model: string;
   effort: string;
@@ -91,6 +91,7 @@ export class Session {
       approvals: this.approvals,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
+      state: this.lastStatus,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
     };

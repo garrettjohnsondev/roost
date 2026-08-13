@@ -33,6 +33,7 @@ function SessionSwitcher(props: { currentId: string; onPick: (id: string) => voi
                 {shortPath(s.cwd)} · {s.agent}
               </span>
             </span>
+            {s.state === 'working' && <span className="live-badge working">●</span>}
             <span className="recent-time">{fmtAgo(s.updatedAt)}</span>
           </button>
         ))}

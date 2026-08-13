@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
-import { getGitDiff, getGitStatus, gitCommit, gitPush } from './git.js';
+import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
@@ -192,6 +192,14 @@ function guardProject(req: express.Request, res: express.Response): string | nul
   }
   return cwd;
 }
+
+app.get('/api/git/summaries', async (_req, res) => {
+  try {
+    res.json({ summaries: await getGitSummaries(config.projects) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
 
 app.get('/api/git', async (req, res) => {
   const cwd = guardProject(req, res);
