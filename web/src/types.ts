@@ -132,6 +132,23 @@ export interface PreviewResult {
   files: PreviewFile[];
 }
 
+export interface GitFile {
+  path: string;
+  status: string;
+  additions?: number;
+  deletions?: number;
+  untracked: boolean;
+}
+
+export interface GitStatusResult {
+  isRepo: boolean;
+  branch?: string;
+  ahead?: number;
+  behind?: number;
+  hasCommits: boolean;
+  files: GitFile[];
+}
+
 export type ChatItem =
   | { kind: 'user'; text: string; imageCount: number; ts: number }
   | { kind: 'assistant'; text: string; complete: boolean; ts: number }

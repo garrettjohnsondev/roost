@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
+import { getGitDiff, getGitStatus, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
@@ -178,6 +179,60 @@ app.post('/api/sessions', (req, res) => {
 app.get('/api/recent', async (_req, res) => {
   try {
     res.json({ projects: await getRecentProjects(config.projects) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+function guardProject(req: express.Request, res: express.Response): string | null {
+  const cwd = String((req.method === 'GET' ? req.query.cwd : req.body?.cwd) ?? '');
+  if (!config.projects.includes(cwd)) {
+    res.status(400).json({ error: 'cwd must be a configured project' });
+    return null;
+  }
+  return cwd;
+}
+
+app.get('/api/git', async (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  try {
+    res.json({ git: await getGitStatus(cwd) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.get('/api/git/diff', async (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  try {
+    res.json({ diff: await getGitDiff(cwd, String(req.query.path ?? '')) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/git/commit', async (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  const message = String(req.body?.message ?? '').trim();
+  if (!message) {
+    res.status(400).json({ error: 'commit message required' });
+    return;
+  }
+  try {
+    res.json({ output: await gitCommit(cwd, message) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.stderr || err?.message || err) });
+  }
+});
+
+app.post('/api/git/push', async (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  try {
+    res.json({ output: await gitPush(cwd) });
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }

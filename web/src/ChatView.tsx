@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
+import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
@@ -51,6 +52,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
   const session = useSession(sessionId);
   const [showSettings, setShowSettings] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [showGit, setShowGit] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
   const recapFetchedFor = useRef<string | null>(null);
@@ -109,10 +111,15 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             </div>
           </div>
         </button>
+        <button className="ghost git-btn" onClick={() => setShowGit(true)}>
+          ⎇
+        </button>
         <button className="ghost" onClick={() => setShowSettings(true)}>
           ⚙
         </button>
       </header>
+
+      {showGit && session.meta && <GitSheet cwd={session.meta.cwd} onClose={() => setShowGit(false)} />}
 
       {showSwitcher && (
         <SessionSwitcher

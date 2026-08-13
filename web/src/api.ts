@@ -1,4 +1,13 @@
-import type { ClientMessage, PocketConfigResponse, PreviewResult, RecentProject, ServerEvent, SessionMeta, UsageSnapshot } from './types';
+import type {
+  ClientMessage,
+  GitStatusResult,
+  PocketConfigResponse,
+  PreviewResult,
+  RecentProject,
+  ServerEvent,
+  SessionMeta,
+  UsageSnapshot,
+} from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -43,6 +52,12 @@ export const api = {
       body: JSON.stringify(body),
     }),
   testNotification: () => request<{ sent: boolean }>('/api/notifications/test', { method: 'POST' }),
+  gitStatus: (cwd: string) => request<{ git: GitStatusResult }>(`/api/git?cwd=${encodeURIComponent(cwd)}`),
+  gitDiff: (cwd: string, path: string) =>
+    request<{ diff: string }>(`/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`),
+  gitCommit: (cwd: string, message: string) =>
+    request<{ output: string }>('/api/git/commit', { method: 'POST', body: JSON.stringify({ cwd, message }) }),
+  gitPush: (cwd: string) => request<{ output: string }>('/api/git/push', { method: 'POST', body: JSON.stringify({ cwd }) }),
 };
 
 // Close codes the server uses for a session that is gone for good — reconnecting would

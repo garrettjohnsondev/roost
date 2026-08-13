@@ -449,6 +449,144 @@ button {
   flex-shrink: 0;
 }
 
+/* ---------- git sheet ---------- */
+
+.git-btn {
+  font-size: 17px;
+}
+
+.git-branch-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.git-branch {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.git-ahead {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.git-behind {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.git-notice {
+  font-size: 12px;
+  color: var(--ok);
+  margin-bottom: 8px;
+}
+
+.git-files {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 45dvh;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.git-file {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.git-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.git-file-path {
+  flex: 1;
+}
+
+.git-counts {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.git-count-add {
+  color: var(--ok);
+}
+
+.git-count-del {
+  color: var(--danger);
+}
+
+.git-diff {
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 8px 10px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 40dvh;
+  overflow: auto;
+}
+
+.git-diff-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.git-diff-line.add {
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: var(--ok);
+}
+
+.git-diff-line.remove {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.git-diff-line.hunk {
+  color: var(--accent);
+}
+
+.git-diff-line.meta {
+  color: var(--text-dim);
+}
+
+.git-commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.git-commit-input {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 16px;
+}
+
+.git-push-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
 /* ---------- expandable tool chips ---------- */
 
 .tool-block {
