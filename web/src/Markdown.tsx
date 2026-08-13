@@ -1,5 +1,6 @@
 import { useRef, useState, type ComponentProps } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
 
 function copyText(text: string) {
@@ -43,6 +44,7 @@ export function Markdown({ text }: { text: string }) {
     <div className="markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeHighlight, { detect: false, ignoreMissing: true }]]}
         components={{
           pre: Pre,
           a: (props) => <a {...props} target="_blank" rel="noreferrer" />,

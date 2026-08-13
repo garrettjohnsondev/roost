@@ -48,7 +48,7 @@ function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
         const item = next[i];
         if (item.kind === 'thinking' && item.open) next[i] = { ...item, open: false };
       }
-      next.push({ kind: 'tool', toolId: event.toolId, name: event.name, detail: event.detail, done: false, ts: event.ts });
+      next.push({ kind: 'tool', toolId: event.toolId, name: event.name, detail: event.detail, expand: event.expand, done: false, ts: event.ts });
       break;
     case 'tool_end': {
       const i = next.findLastIndex((item) => item.kind === 'tool' && item.toolId === event.toolId);

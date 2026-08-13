@@ -449,6 +449,191 @@ button {
   flex-shrink: 0;
 }
 
+/* ---------- expandable tool chips ---------- */
+
+.tool-block {
+  align-self: flex-start;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.tool-block .tool-chip {
+  width: 100%;
+  text-align: left;
+}
+
+.tool-expand-hint {
+  color: var(--text-dim);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.tool-expand {
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  font-size: 11px;
+}
+
+.tool-expand-path {
+  margin-bottom: 6px;
+  white-space: normal;
+  word-break: break-all;
+}
+
+.tool-expand-raw {
+  margin: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40dvh;
+  overflow-y: auto;
+}
+
+/* ---------- composer working hint ---------- */
+
+.composer-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.stop-btn {
+  flex-shrink: 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+/* ---------- rename ---------- */
+
+.rename-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ---------- notifications settings ---------- */
+
+.notify-setup {
+  margin-top: 10px;
+}
+
+.notify-hint {
+  margin: 0 0 8px;
+}
+
+.notify-hint a {
+  color: var(--accent);
+}
+
+.notify-topic {
+  font-size: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  user-select: all;
+}
+
+/* ---------- syntax highlighting (highlight.js classes) ---------- */
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-tag {
+  color: #a626a4;
+}
+
+[data-theme='dark'] .hljs-keyword,
+[data-theme='dark'] .hljs-selector-tag,
+[data-theme='dark'] .hljs-tag {
+  color: #c678dd;
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: #50a14f;
+}
+
+[data-theme='dark'] .hljs-string,
+[data-theme='dark'] .hljs-regexp,
+[data-theme='dark'] .hljs-addition {
+  color: #98c379;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-attr,
+.hljs-symbol {
+  color: #b76b01;
+}
+
+[data-theme='dark'] .hljs-number,
+[data-theme='dark'] .hljs-literal,
+[data-theme='dark'] .hljs-attr,
+[data-theme='dark'] .hljs-symbol {
+  color: #d19a66;
+}
+
+.hljs-title,
+.hljs-function,
+.hljs-section,
+.hljs-name {
+  color: #4078f2;
+}
+
+[data-theme='dark'] .hljs-title,
+[data-theme='dark'] .hljs-function,
+[data-theme='dark'] .hljs-section,
+[data-theme='dark'] .hljs-name {
+  color: #61afef;
+}
+
+.hljs-built_in,
+.hljs-type,
+.hljs-class {
+  color: #c18401;
+}
+
+[data-theme='dark'] .hljs-built_in,
+[data-theme='dark'] .hljs-type,
+[data-theme='dark'] .hljs-class {
+  color: #e5c07b;
+}
+
+.hljs-deletion {
+  color: var(--danger);
+}
+
 /* ---------- inline recap (resumed chats) ---------- */
 
 .recap-card {

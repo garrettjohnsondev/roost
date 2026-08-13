@@ -14,7 +14,15 @@ export type ClientMessage =
   | { type: 'set_model'; model: string }
   | { type: 'set_effort'; effort: string }
   | { type: 'set_approvals'; approvals: ApprovalSetting }
+  | { type: 'set_title'; title: string }
   | { type: 'interrupt' };
+
+export interface ToolExpand {
+  path?: string;
+  before?: string;
+  after?: string;
+  raw?: string;
+}
 
 export interface SessionMeta {
   id: string;
@@ -44,7 +52,7 @@ export type ServerEvent =
   | { type: 'assistant_delta'; delta: string; ts: number }
   | { type: 'assistant_message'; text: string; ts: number }
   | { type: 'thinking_delta'; delta: string; ts: number }
-  | { type: 'tool_start'; toolId: string; name: string; detail: string; ts: number }
+  | { type: 'tool_start'; toolId: string; name: string; detail: string; expand?: ToolExpand; ts: number }
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
@@ -65,10 +73,16 @@ export interface AgentConfig {
   efforts: string[];
 }
 
+export interface NotificationConfig {
+  url: string;
+  topic: string;
+}
+
 export interface PocketConfigResponse {
   projects: string[];
   primaryVolume: string | null;
   sessionIdleTimeoutHours: number;
+  notifications: NotificationConfig;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -122,6 +136,6 @@ export type ChatItem =
   | { kind: 'user'; text: string; imageCount: number; ts: number }
   | { kind: 'assistant'; text: string; complete: boolean; ts: number }
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
-  | { kind: 'tool'; toolId: string; name: string; detail: string; done: boolean; ok?: boolean; endDetail?: string; ts: number }
+  | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
   | { kind: 'error'; text: string; ts: number };

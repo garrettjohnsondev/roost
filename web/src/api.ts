@@ -37,6 +37,12 @@ export const api = {
     ),
   usage: () => request<{ usage: UsageSnapshot | null }>('/api/usage'),
   refreshUsage: () => request<{ usage: UsageSnapshot }>('/api/usage/refresh', { method: 'POST' }),
+  setNotifications: (body: { topic: string; url?: string }) =>
+    request<{ notifications: { url: string; topic: string } }>('/api/notifications', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  testNotification: () => request<{ sent: boolean }>('/api/notifications/test', { method: 'POST' }),
 };
 
 // Close codes the server uses for a session that is gone for good — reconnecting would

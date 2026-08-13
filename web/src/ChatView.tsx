@@ -163,6 +163,8 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
       ) : (
         <Composer
           disabled={!session.connected}
+          working={session.status === 'working'}
+          onInterrupt={() => session.send({ type: 'interrupt' })}
           onSend={(text, images) => session.send({ type: 'user_message', text, images })}
         />
       )}
@@ -255,6 +257,10 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
               </div>
             </div>
             <div className="field">
+              <label>Session name</label>
+              <RenameField current={session.meta.title} onRename={(title) => session.send({ type: 'set_title', title })} />
+            </div>
+            <div className="field">
               <label>Working directory</label>
               <div className="mono-note">{session.meta.cwd}</div>
             </div>
@@ -291,14 +297,7 @@ function Message({ item }: { item: ChatItem }) {
     case 'thinking':
       return <ThinkingBlock text={item.text} open={item.open} />;
     case 'tool':
-      return (
-        <div className={`tool-chip ${item.done ? (item.ok ? 'ok' : 'fail') : 'running'}`}>
-          <span className="tool-name">{item.name}</span>
-          <span className="tool-detail">{item.detail}</span>
-          {item.done && item.endDetail && <span className="tool-detail"> · {item.endDetail}</span>}
-          {!item.done && <span className="spinner" />}
-        </div>
-      );
+      return <ToolChip item={item} />;
     case 'approval':
       return (
         <div className="tool-chip approval">
@@ -311,6 +310,45 @@ function Message({ item }: { item: ChatItem }) {
   }
 }
 
+function RenameField({ current, onRename }: { current: string; onRename: (title: string) => void }) {
+  const [value, setValue] = useState(current);
+  return (
+    <div className="rename-row">
+      <input className="rename-input" value={value} onChange={(e) => setValue(e.target.value)} maxLength={80} />
+      <button className="chip" disabled={!value.trim() || value === current} onClick={() => onRename(value.trim())}>
+        Save
+      </button>
+    </div>
+  );
+}
+
+function ToolChip({ item }: { item: Extract<ChatItem, { kind: 'tool' }> }) {
+  const [expanded, setExpanded] = useState(false);
+  const expandable = Boolean(item.expand && (item.expand.before || item.expand.after || item.expand.raw));
+  return (
+    <div className="tool-block">
+      <button
+        className={`tool-chip ${item.done ? (item.ok ? 'ok' : 'fail') : 'running'}`}
+        onClick={() => expandable && setExpanded((v) => !v)}
+      >
+        <span className="tool-name">{item.name}</span>
+        <span className="tool-detail">{item.detail}</span>
+        {item.done && item.endDetail && <span className="tool-detail"> · {item.endDetail}</span>}
+        {!item.done && <span className="spinner" />}
+        {expandable && <span className="tool-expand-hint">{expanded ? '▴' : '▾'}</span>}
+      </button>
+      {expanded && item.expand && (
+        <div className="tool-expand">
+          {item.expand.path && <div className="preview-file-path tool-expand-path">{item.expand.path}</div>}
+          {item.expand.before && <div className="preview-diff-line remove">− {item.expand.before}</div>}
+          {item.expand.after && <div className="preview-diff-line add">+ {item.expand.after}</div>}
+          {item.expand.raw && <pre className="tool-expand-raw">{item.expand.raw}</pre>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ThinkingBlock({ text, open }: { text: string; open: boolean }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -321,7 +359,12 @@ function ThinkingBlock({ text, open }: { text: string; open: boolean }) {
   );
 }
 
-function Composer(props: { disabled: boolean; onSend: (text: string, images?: UserImage[]) => void }) {
+function Composer(props: {
+  disabled: boolean;
+  working: boolean;
+  onInterrupt: () => void;
+  onSend: (text: string, images?: UserImage[]) => void;
+}) {
   const [text, setText] = useState('');
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -350,6 +393,14 @@ function Composer(props: { disabled: boolean; onSend: (text: string, images?: Us
 
   return (
     <div className="composer">
+      {props.working && (
+        <div className="composer-hint">
+          Working… new messages join the conversation as it goes
+          <button className="stop-btn" onClick={props.onInterrupt}>
+            ■ Stop
+          </button>
+        </div>
+      )}
       {images.length > 0 && (
         <div className="previews">
           {images.map((img, i) => (

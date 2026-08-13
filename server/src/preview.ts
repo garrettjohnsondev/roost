@@ -28,6 +28,11 @@ const FILE_TOOL_NAMES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 
 export async function getClaudePreview(cwd: string, id: string): Promise<PreviewResult> {
   const msgs = await getSessionMessages(id, { dir: cwd });
+  return extractClaudePreview(msgs);
+}
+
+/** Pure extraction from an already-loaded message array — unit-testable without disk. */
+export function extractClaudePreview(msgs: Array<{ type: string; message: unknown }>): PreviewResult {
   const messages: PreviewMessage[] = [];
   const files: PreviewFile[] = [];
   const seenFiles = new Set<string>();
@@ -91,8 +96,11 @@ const PATCH_HEADER = /\*\*\* (Update|Add|Delete) File: ([^\s\\]+)/g;
 export function getCodexPreview(cwd: string, id: string): PreviewResult {
   const path = getCodexRolloutPath(cwd, id);
   if (!path) return { messages: [], files: [] };
+  return extractCodexPreview(tail(path, 400 * 1024));
+}
 
-  const chunk = tail(path, 400 * 1024);
+/** Pure extraction from a rollout-file tail chunk — unit-testable without disk. */
+export function extractCodexPreview(chunk: string): PreviewResult {
   const lines = chunk.split('\n').slice(1); // first line is likely truncated mid-record
 
   const messages: PreviewMessage[] = [];

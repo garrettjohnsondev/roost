@@ -99,6 +99,7 @@ export function SessionList(props: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<RecentProject | null>(null);
+  const [notifications, setNotifications] = useState(config.notifications);
 
   const agentConfig = config[agent];
 
@@ -346,6 +347,8 @@ export function SessionList(props: {
           onThemeChange={onThemeChange}
           projects={projects}
           onProjectsChange={setProjects}
+          notifications={notifications}
+          onNotificationsChange={setNotifications}
           onClose={() => setShowSettings(false)}
         />
       )}

@@ -1,15 +1,85 @@
 import { useState } from 'react';
 import { api } from './api';
 import type { Theme } from './theme';
+import type { NotificationConfig } from './types';
+
+function randomTopic(): string {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return 'pocket-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function NotificationSettings(props: {
+  notifications: NotificationConfig;
+  onChange: (n: NotificationConfig) => void;
+}) {
+  const { notifications, onChange } = props;
+  const [busy, setBusy] = useState(false);
+  const [testState, setTestState] = useState<string | null>(null);
+  const enabled = Boolean(notifications.topic);
+
+  async function toggle() {
+    setBusy(true);
+    try {
+      const topic = enabled ? '' : randomTopic();
+      const r = await api.setNotifications({ topic });
+      onChange(r.notifications);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function test() {
+    setTestState('sending…');
+    try {
+      await api.testNotification();
+      setTestState('sent — check your phone');
+    } catch (e: any) {
+      setTestState(String(e.message ?? e));
+    }
+  }
+
+  return (
+    <div className="field">
+      <label>Notifications</label>
+      <div className="segmented">
+        <button className={!enabled ? 'seg active' : 'seg'} disabled={busy} onClick={() => enabled && toggle()}>
+          Off
+        </button>
+        <button className={enabled ? 'seg active' : 'seg'} disabled={busy} onClick={() => !enabled && toggle()}>
+          On
+        </button>
+      </div>
+      {enabled && (
+        <div className="notify-setup">
+          <p className="section-hint notify-hint">
+            Get notified when an agent needs approval or finishes while you're away. Install the free{' '}
+            <a href="https://ntfy.sh/" target="_blank" rel="noreferrer">
+              ntfy
+            </a>{' '}
+            app and subscribe to this topic:
+          </p>
+          <div className="mono-note notify-topic">{notifications.topic}</div>
+          <button className="chip" onClick={test}>
+            Send test notification
+          </button>
+          {testState && <div className="section-hint notify-hint">{testState}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function GlobalSettings(props: {
   theme: Theme;
   onThemeChange: (t: Theme) => void;
   projects: string[];
   onProjectsChange: (projects: string[]) => void;
+  notifications: NotificationConfig;
+  onNotificationsChange: (n: NotificationConfig) => void;
   onClose: () => void;
 }) {
-  const { theme, onThemeChange, projects, onProjectsChange, onClose } = props;
+  const { theme, onThemeChange, projects, onProjectsChange, notifications, onNotificationsChange, onClose } = props;
   const [busy, setBusy] = useState<string | null>(null);
 
   async function remove(path: string) {
@@ -38,6 +108,8 @@ export function GlobalSettings(props: {
             </button>
           </div>
         </div>
+
+        <NotificationSettings notifications={notifications} onChange={onNotificationsChange} />
 
         <div className="field">
           <label>Projects</label>

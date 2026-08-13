@@ -78,11 +78,17 @@ export function UsagePanel() {
   const [loadedOnce, setLoadedOnce] = useState(false);
 
   useEffect(() => {
-    api
-      .usage()
-      .then((r) => setUsage(r.usage))
-      .catch(() => {})
-      .finally(() => setLoadedOnce(true));
+    const load = () =>
+      api
+        .usage()
+        .then((r) => setUsage(r.usage))
+        .catch(() => {})
+        .finally(() => setLoadedOnce(true));
+    void load();
+    // The server refreshes this cache for free from live sessions' rate-limit events,
+    // so poll the (local, cheap) cached value to pick those updates up.
+    const timer = setInterval(load, 60_000);
+    return () => clearInterval(timer);
   }, []);
 
   async function refresh() {
