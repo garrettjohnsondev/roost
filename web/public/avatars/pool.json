@@ -28,6 +28,188 @@
       "file": "/avatars/octopus.png",
       "color": "#be123c",
       "colorName": "rose"
+    },
+    {
+      "slug": "mountain-goat",
+      "label": "Mountain Goat",
+      "file": "/avatars/mountain-goat.png",
+      "color": "#15803d",
+      "colorName": "forest"
+    },
+    {
+      "slug": "raven",
+      "label": "Raven",
+      "file": "/avatars/raven.png",
+      "color": "#6d28d9",
+      "colorName": "violet"
+    },
+    {
+      "slug": "axolotl",
+      "label": "Axolotl",
+      "file": "/avatars/axolotl.png",
+      "color": "#334155",
+      "colorName": "slate"
+    },
+    {
+      "slug": "honeybee",
+      "label": "Honeybee",
+      "file": "/avatars/honeybee.png",
+      "color": "#0e7490",
+      "colorName": "cyan"
+    },
+    {
+      "slug": "lighthouse",
+      "label": "Lighthouse",
+      "file": "/avatars/lighthouse.png",
+      "color": "#c2410c",
+      "colorName": "orange"
+    },
+    {
+      "slug": "origami-crane",
+      "label": "Origami Crane",
+      "file": "/avatars/origami-crane.png",
+      "color": "#86198f",
+      "colorName": "plum"
+    },
+    {
+      "slug": "hedgehog",
+      "label": "Hedgehog",
+      "file": "/avatars/hedgehog.png",
+      "color": "#4d7c0f",
+      "colorName": "olive"
+    },
+    {
+      "slug": "narwhal",
+      "label": "Narwhal",
+      "file": "/avatars/narwhal.png",
+      "color": "#1e3a8a",
+      "colorName": "navy"
+    },
+    {
+      "slug": "chameleon",
+      "label": "Chameleon",
+      "file": "/avatars/chameleon.png",
+      "color": "#0f766e",
+      "colorName": "teal"
+    },
+    {
+      "slug": "compass-rose",
+      "label": "Compass Rose",
+      "file": "/avatars/compass-rose.png",
+      "color": "#4338ca",
+      "colorName": "indigo"
+    },
+    {
+      "slug": "paper-plane",
+      "label": "Paper Plane",
+      "file": "/avatars/paper-plane.png",
+      "color": "#b45309",
+      "colorName": "amber"
+    },
+    {
+      "slug": "acorn",
+      "label": "Acorn",
+      "file": "/avatars/acorn.png",
+      "color": "#be123c",
+      "colorName": "rose"
+    },
+    {
+      "slug": "hot-air-balloon",
+      "label": "Hot Air Balloon",
+      "file": "/avatars/hot-air-balloon.png",
+      "color": "#15803d",
+      "colorName": "forest"
+    },
+    {
+      "slug": "koi-fish",
+      "label": "Koi Fish",
+      "file": "/avatars/koi-fish.png",
+      "color": "#6d28d9",
+      "colorName": "violet"
+    },
+    {
+      "slug": "cactus",
+      "label": "Cactus",
+      "file": "/avatars/cactus.png",
+      "color": "#334155",
+      "colorName": "slate"
+    },
+    {
+      "slug": "satellite",
+      "label": "Satellite",
+      "file": "/avatars/satellite.png",
+      "color": "#0e7490",
+      "colorName": "cyan"
+    },
+    {
+      "slug": "mushroom",
+      "label": "Mushroom",
+      "file": "/avatars/mushroom.png",
+      "color": "#c2410c",
+      "colorName": "orange"
+    },
+    {
+      "slug": "anchor",
+      "label": "Anchor",
+      "file": "/avatars/anchor.png",
+      "color": "#86198f",
+      "colorName": "plum"
+    },
+    {
+      "slug": "firefly",
+      "label": "Firefly",
+      "file": "/avatars/firefly.png",
+      "color": "#4d7c0f",
+      "colorName": "olive"
+    },
+    {
+      "slug": "telescope",
+      "label": "Telescope",
+      "file": "/avatars/telescope.png",
+      "color": "#1e3a8a",
+      "colorName": "navy"
+    },
+    {
+      "slug": "pangolin",
+      "label": "Pangolin",
+      "file": "/avatars/pangolin.png",
+      "color": "#0f766e",
+      "colorName": "teal"
+    },
+    {
+      "slug": "sundial",
+      "label": "Sundial",
+      "file": "/avatars/sundial.png",
+      "color": "#4338ca",
+      "colorName": "indigo"
+    },
+    {
+      "slug": "jellyfish",
+      "label": "Jellyfish",
+      "file": "/avatars/jellyfish.png",
+      "color": "#b45309",
+      "colorName": "amber"
+    },
+    {
+      "slug": "kite",
+      "label": "Kite",
+      "file": "/avatars/kite.png",
+      "color": "#be123c",
+      "colorName": "rose"
+    },
+    {
+      "slug": "beacon",
+      "label": "Beacon",
+      "file": "/avatars/beacon.png",
+      "color": "#15803d",
+      "colorName": "forest"
+    },
+    {
+      "slug": "seal",
+      "label": "Seal",
+      "file": "/avatars/seal.png",
+      "color": "#6d28d9",
+      "colorName": "violet"
     }
   ],
   "palette": [
