@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { quotaStore } from './quota.js';
 import { modelRegistry, classify, auditRoutes } from './registry.js';
+import { generateAvatar, listCustom, avatarDir, AvatarGenError } from './avatars.js';
 import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
 import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
@@ -290,6 +291,24 @@ app.get('/api/usage', (_req, res) => {
 
 /** The crew roster: who each model is, what colour they wear. Defaults plus any
  *  user overrides, so the UI can render the editor against one list. */
+// Custom avatars live in the data dir, not the bundle.
+app.use('/avatars/custom', express.static(avatarDir()));
+
+app.get('/api/avatars', (_req, res) => {
+  res.json({ custom: listCustom().map((c) => ({ ...c, url: `/avatars/custom/${c.file}` })) });
+});
+
+app.post('/api/avatars/generate', async (req, res) => {
+  try {
+    const file = await generateAvatar(String(req.body?.subject ?? ''), String(req.body?.color ?? ''));
+    res.json({ ok: true, file, url: `/avatars/custom/${file}` });
+  } catch (e: any) {
+    // A bad request is the caller's fault; anything else is ours.
+    const bad = e instanceof AvatarGenError;
+    res.status(bad ? 400 : 500).json({ error: String(e?.message ?? e) });
+  }
+});
+
 app.get('/api/models', (_req, res) => {
   const reg = modelRegistry();
   const models = reg.all().map((m) => ({ ...m, suggested: classify(m) }));

@@ -315,10 +315,35 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
 /** Avatar + name + role badge. Persona is WHO (stable per suite+model), role is
  *  WHAT HAT they wear on this turn, so the same face appears as Planner here and
  *  Reviewer there. Falls back to a coloured monogram when no image is set. */
+/** A pool avatar arrives as a rooted path ('/avatars/owl.png'); a custom one
+ *  as a bare filename under the data dir. Falls back to the monogram, which is
+ *  also what every crew member has before anyone picks a face. */
+export function avatarUrl(avatar?: string): string | null {
+  if (!avatar) return null;
+  return avatar.startsWith('/') ? avatar : `/avatars/custom/${avatar}`;
+}
+
+function CrewAvatar({ crew }: { crew: CrewInfo }) {
+  const url = avatarUrl(crew.avatar);
+  const [failed, setFailed] = useState(false);
+  if (url && !failed) {
+    return (
+      <img
+        className="crew-avatar crew-avatar-img"
+        src={url}
+        alt=""
+        style={{ background: crew.color }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <span className="crew-avatar crew-monogram" style={{ background: crew.color }}>{crew.initial}</span>;
+}
+
 function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   return (
     <span className="crew-chip" title={`${crew.name} · ${crew.roleLabel} · ${crew.model || crew.agent}`}>
-      <span className="crew-avatar crew-monogram" style={{ background: crew.color }}>{crew.initial}</span>
+      <CrewAvatar crew={crew} />
       <span className="crew-name" style={{ color: crew.color }}>{crew.name}</span>
       <span className="crew-role">{crew.roleLabel}</span>
       {sub && <span className="crew-sub">{sub}</span>}

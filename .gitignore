@@ -5,3 +5,6 @@ dist/
 .env
 .pocket-state.json
 .pocket-data/
+
+# 1024px originals from the avatar generator; only the 128px versions ship.
+web/public/avatars/raw-*.png

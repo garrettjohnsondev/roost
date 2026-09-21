@@ -21,6 +21,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   config: () => request<PocketConfigResponse>('/api/config'),
   sessions: () => request<{ sessions: SessionMeta[] }>('/api/sessions'),
+  avatars: () => request<{ custom: Array<{ file: string; url: string; at: number }> }>('/api/avatars'),
+  generateAvatar: (subject: string, color: string) =>
+    request<{ ok: true; file: string; url: string }>('/api/avatars/generate', {
+      method: 'POST',
+      body: JSON.stringify({ subject, color }),
+    }),
   createSession: (body: { agent: string; cwd: string; model?: string; resume?: string; title?: string }) =>
     request<{ session: SessionMeta }>('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   browse: (path?: string) =>
