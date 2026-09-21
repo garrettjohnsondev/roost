@@ -12,13 +12,32 @@
  *
  *   node tools/gen-avatars.mjs [--batch 4] [--limit 12] [--model gpt-5.6-luna]
  */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, renameSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
+
+/** Codex drains stdin before it starts work, so an inherited or piped stdin
+ *  makes it hang indefinitely. execFile IGNORES a `stdio` option -- it is not
+ *  one of its supported keys -- so this must be spawn. Reintroducing that bug
+ *  cost an 8-minute silent hang that produced nothing. */
+function runCodex(args, { cwd, timeout }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('codex', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '', err = '';
+    child.stdout.on('data', (d) => { out += d; });
+    child.stderr.on('data', (d) => { err += d; });
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`timed out after ${timeout}ms`)); }, timeout);
+    child.on('error', (e) => { clearTimeout(timer); reject(e); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      code === 0 ? resolve({ stdout: out }) : reject(new Error(err.trim().slice(-600) || `codex exited ${code}`));
+    });
+  });
+}
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const OUT = join(ROOT, 'web', 'public', 'avatars');
@@ -86,7 +105,7 @@ for (let i = 0; i < todo.length; i += BATCH) {
     const argv = ['exec', '-s', 'workspace-write', '--skip-git-repo-check', '-C', OUT];
     if (MODEL) argv.push('-m', MODEL);
     argv.push(prompt);
-    const { stdout } = await run('codex', argv, { cwd: OUT, timeout: 15 * 60_000, maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+    const { stdout } = await runCodex(argv, { cwd: OUT, timeout: 20 * 60_000 });
     const used = /tokens used\s*\n?\s*([\d,]+)/i.exec(stdout)?.[1];
     if (used) console.log(`  turn cost: ${used} text tokens`);
   } catch (e) {

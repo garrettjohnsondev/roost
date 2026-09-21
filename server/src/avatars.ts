@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -6,6 +6,23 @@ import { promisify } from 'node:util';
 import { dataDir } from './config.js';
 
 const run = promisify(execFile);
+
+/** Codex drains stdin before working, so a piped stdin hangs it forever.
+ *  `execFile` silently ignores a `stdio` option, so this has to be spawn. */
+function runCodex(args: string[], cwd: string, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('codex', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let err = '';
+    child.stderr.on('data', (d) => { err += d; });
+    child.stdout.resume();
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('image generation timed out')); }, timeoutMs);
+    child.on('error', (e) => { clearTimeout(timer); reject(e); });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      code === 0 ? resolve() : reject(new Error(err.trim().slice(-400) || `codex exited ${code}`));
+    });
+  });
+}
 
 /** Custom avatars are generated against the REQUESTING USER's own Codex
  *  subscription, so the ~10-12k text tokens land on whoever asked for one.
@@ -60,10 +77,10 @@ export async function generateAvatar(subject: string, color: string, timeoutMs =
   const raw = `raw-${id}.png`;
   const out = `custom-${id}.png`;
 
-  await run('codex', [
+  await runCodex([
     'exec', '-s', 'workspace-write', '--skip-git-repo-check', '-C', dir,
     `${stylePrompt(clean, color)}\n\nSave it as ${raw} in the current directory.`,
-  ], { cwd: dir, timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024 });
+  ], dir, timeoutMs);
 
   if (!existsSync(join(dir, raw))) throw new AvatarGenError('generation produced no image');
   // Ship a 128px copy; the 1024 original is not worth storing per user.

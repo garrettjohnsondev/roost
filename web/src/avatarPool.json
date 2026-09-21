@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "avatars": [],
+  "palette": [
+    {
+      "name": "teal",
+      "hex": "#0f766e"
+    },
+    {
+      "name": "indigo",
+      "hex": "#4338ca"
+    },
+    {
+      "name": "amber",
+      "hex": "#b45309"
+    },
+    {
+      "name": "rose",
+      "hex": "#be123c"
+    },
+    {
+      "name": "forest",
+      "hex": "#15803d"
+    },
+    {
+      "name": "violet",
+      "hex": "#6d28d9"
+    },
+    {
+      "name": "slate",
+      "hex": "#334155"
+    },
+    {
+      "name": "cyan",
+      "hex": "#0e7490"
+    },
+    {
+      "name": "orange",
+      "hex": "#c2410c"
+    },
+    {
+      "name": "plum",
+      "hex": "#86198f"
+    },
+    {
+      "name": "olive",
+      "hex": "#4d7c0f"
+    },
+    {
+      "name": "navy",
+      "hex": "#1e3a8a"
+    }
+  ]
+}
