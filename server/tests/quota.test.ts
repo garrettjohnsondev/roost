@@ -1,0 +1,128 @@
+import { describe, expect, it, beforeEach, afterAll } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const tmp = mkdtempSync(join(tmpdir(), 'pocket-quota-'));
+process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
+writeFileSync(process.env.POCKET_CONFIG, '{}');
+
+const { QuotaStore, normalizePct } = await import('../src/quota.js');
+const { loadConfig } = await import('../src/config.js');
+const budget = loadConfig().budget;
+
+let store: InstanceType<typeof QuotaStore>;
+let n = 0;
+beforeEach(() => {
+  store = new QuotaStore(join(tmp, `d${n++}`));
+});
+afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+
+const hoursFromNow = (h: number) => Math.floor((Date.now() + h * 3_600_000) / 1000);
+
+describe('normalizePct', () => {
+  it('accepts both 0-1 and 0-100 scales', () => {
+    expect(normalizePct(0.83)).toBe(83);
+    expect(normalizePct(83)).toBe(83);
+    expect(normalizePct(null)).toBeNull();
+    expect(normalizePct('nope')).toBeNull();
+  });
+});
+
+describe('codex sparse updates', () => {
+  // The live Pocket bug: `c.codex = codexSnapshotToUsage(snap)` replaced the whole
+  // object, and account/rateLimits/updated is documented as a SPARSE rolling
+  // update whose nulls must NOT clear previously observed values.
+  it('a sparse push does not erase secondary or planType', () => {
+    store.noteCodexSnapshot(
+      { primary: { usedPercent: 10, windowDurationMins: 10080, resetsAt: hoursFromNow(100) }, secondary: { usedPercent: 40, windowDurationMins: 300, resetsAt: hoursFromNow(2) }, planType: 'prolite' },
+      { sparse: false },
+    );
+    store.noteCodexSnapshot({ primary: { usedPercent: 12, windowDurationMins: 10080, resetsAt: hoursFromNow(100) }, secondary: null, planType: null }, { sparse: true });
+
+    const keys = store.windows('codex').map((w) => w.key);
+    expect(keys).toContain('codex:secondary');
+    expect(store.agent('codex').planType).toBe('prolite');
+    expect(store.agent('codex').windows['codex:primary'].usedPercent).toBe(12);
+  });
+
+  it('reads resetsAt as epoch SECONDS, not resets_in_seconds', () => {
+    const at = hoursFromNow(3);
+    store.noteCodexSnapshot({ primary: { usedPercent: 5, windowDurationMins: 300, resetsAt: at } }, { sparse: false });
+    expect(store.agent('codex').windows['codex:primary'].resetsAt).toBe(at * 1000);
+  });
+});
+
+describe('headroom', () => {
+  // THE six-week bug: agent-sync did `if (w.resetsAt && now > w.resetsAt) continue`,
+  // so every expired window was skipped and an account with no live data read as
+  // having room. Expired must purge to 'unknown', which is never headroom.
+  it('an expired window purges to unknown — it is NOT room', () => {
+    store.noteCodexSnapshot({ primary: { usedPercent: 5, windowDurationMins: 300, resetsAt: hoursFromNow(-3) } }, { sparse: false });
+    const h = store.headroom('codex', budget);
+    expect(h.state).toBe('unknown');
+    expect(store.windows('codex')).toHaveLength(0);
+  });
+
+  it('no data at all is unknown, not room', () => {
+    expect(store.headroom('claude', budget).state).toBe('unknown');
+  });
+
+  it('ordinaryUsageAllowed=false means exhausted regardless of percentages', () => {
+    store.noteCodexSnapshot({ primary: { usedPercent: 2, windowDurationMins: 10080, resetsAt: hoursFromNow(50) } }, { sparse: false });
+    store.setCodexUsageAllowed(false);
+    expect(store.headroom('codex', budget).state).toBe('exhausted');
+  });
+
+  it('ordinaryUsageAllowed=null never reads as allowed', () => {
+    store.noteCodexSnapshot({ primary: { usedPercent: 2, windowDurationMins: 10080, resetsAt: hoursFromNow(50) } }, { sparse: false });
+    store.setCodexUsageAllowed(null);
+    expect(store.headroom('codex', budget).state).toBe('room'); // percentages still govern
+    expect(store.agent('codex').usageAllowed).toBeNull();
+  });
+
+  it('maps thresholds to tight/gated/exhausted', () => {
+    const at = (pct: number) => {
+      const s = new QuotaStore(join(tmp, `t${pct}`));
+      s.noteClaude({ rateLimitType: 'seven_day', utilization: pct, resetsAt: hoursFromNow(48), status: 'allowed' });
+      return s.headroom('claude', budget).state;
+    };
+    expect(at(10)).toBe('room');
+    expect(at(80)).toBe('tight');
+    expect(at(92)).toBe('gated');
+    expect(at(99)).toBe('exhausted');
+  });
+
+  it('keys Claude windows by rateLimitType so distinct windows never merge', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.2, resetsAt: hoursFromNow(1) });
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.9, resetsAt: hoursFromNow(80) });
+    const keys = store.windows('claude').map((w) => w.key).sort();
+    expect(keys).toEqual(['claude:five_hour', 'claude:seven_day']);
+  });
+});
+
+describe('surplus (use-it-or-lose-it)', () => {
+  it('flags a soon-resetting window with real headroom', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.3, resetsAt: hoursFromNow(1) });
+    const s = store.surplus('claude', budget);
+    expect(s).not.toBeNull();
+    expect(s!.headroomPct).toBe(70);
+    expect(s!.minutesLeft).toBeLessThanOrEqual(60);
+  });
+
+  it('stays silent when a LONGER-horizon window is tight — the weekly guard', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.3, resetsAt: hoursFromNow(1) });
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.88, resetsAt: hoursFromNow(80) });
+    expect(store.surplus('claude', budget)).toBeNull();
+  });
+
+  it('ignores windows that reset too far out to be use-it-or-lose-it', () => {
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.1, resetsAt: hoursFromNow(80) });
+    expect(store.surplus('claude', budget)).toBeNull();
+  });
+
+  it('ignores windows with nothing meaningful left', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.95, resetsAt: hoursFromNow(1) });
+    expect(store.surplus('claude', budget)).toBeNull();
+  });
+});

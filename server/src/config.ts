@@ -18,12 +18,38 @@ export interface NotificationConfig {
 export interface RouteTarget {
   model: string;
   effort?: string;
+  candidates?: RouteCandidate[];
 }
 
 export interface AutoRouteConfig {
   light: RouteTarget;
   standard: RouteTarget;
   heavy: RouteTarget;
+}
+
+/** A tier may name candidates across both suites; the router picks by live quota
+ *  headroom and price. Absent `candidates` keeps the original single-target behaviour. */
+export interface RouteCandidate {
+  agent: 'claude' | 'codex';
+  model: string;
+  effort?: string;
+}
+
+export interface BudgetConfig {
+  /** Window utilisation (%) at which the router starts stepping tiers down. */
+  reprioritizeAtPct: number;
+  /** Utilisation at which dispatches are gated and the user is warned. */
+  gateAtPct: number;
+  /** Utilisation at which new dispatches are refused outright. */
+  hardStopPct: number;
+  /** Quota observations older than this are 'stale' — which is NOT headroom. */
+  staleAfterMins: number;
+  /** Optional rolling-24h API-value ceiling across the whole agent tree. */
+  dailyUsd?: number | null;
+  /** Surplus mode: a window with this much unused headroom, resetting within
+   *  surplusWithinMins, is a use-it-or-lose-it opportunity worth upgrading for. */
+  surplusHeadroomPct: number;
+  surplusWithinMins: number;
 }
 
 export interface PocketConfig {
@@ -33,6 +59,7 @@ export interface PocketConfig {
   sessionIdleTimeoutHours: number;
   notifications: NotificationConfig;
   autoRoute: { claude: AutoRouteConfig; codex: AutoRouteConfig };
+  budget: BudgetConfig;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -54,6 +81,15 @@ const DEFAULTS: PocketConfig = {
       heavy: { model: 'gpt-5.6-sol', effort: 'xhigh' },
     },
   },
+  budget: {
+    reprioritizeAtPct: 75,
+    gateAtPct: 90,
+    hardStopPct: 98,
+    staleAfterMins: 90,
+    dailyUsd: null,
+    surplusHeadroomPct: 25,
+    surplusWithinMins: 360,
+  },
   claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
 };
@@ -66,6 +102,10 @@ const configPath = () => process.env.POCKET_CONFIG ?? join(repoRoot, 'pocket.con
 /** Session-state file lives next to the config so scratch/test configs get their own. */
 export const statePath = () => join(dirname(configPath()), '.pocket-state.json');
 
+/** Durable data (usage ledger, quota windows, prices) lives next to the config for
+ *  the same reason session state does: a POCKET_CONFIG-scoped test run gets its own. */
+export const dataDir = () => join(dirname(configPath()), '.pocket-data');
+
 export function loadConfig(): PocketConfig {
   try {
     const parsed = JSON.parse(readFileSync(configPath(), 'utf8'));
@@ -77,6 +117,7 @@ export function loadConfig(): PocketConfig {
         claude: { ...DEFAULTS.autoRoute.claude, ...parsed.autoRoute?.claude },
         codex: { ...DEFAULTS.autoRoute.codex, ...parsed.autoRoute?.codex },
       },
+      budget: { ...DEFAULTS.budget, ...parsed.budget },
       claude: { ...DEFAULTS.claude, ...parsed.claude },
       codex: { ...DEFAULTS.codex, ...parsed.codex },
     };

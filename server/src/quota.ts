@@ -1,0 +1,396 @@
+import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { dataDir, type BudgetConfig } from './config.js';
+import type { AgentKind } from './protocol.js';
+
+export type WindowKey = string; // 'claude:five_hour' | 'codex:primary' | ...
+
+export interface QuotaWindow {
+  key: WindowKey;
+  agent: AgentKind;
+  label: string;
+  /** null means UNKNOWN. It never means zero, and it never means headroom. */
+  usedPercent: number | null;
+  windowDurationMins: number | null;
+  /** ms epoch */
+  resetsAt: number | null;
+  status?: 'allowed' | 'allowed_warning' | 'rejected';
+  source: 'sdk-usage' | 'sdk-event' | 'codex-read' | 'codex-push' | 'manual';
+  observedAt: number;
+}
+
+export interface AgentQuota {
+  windows: Record<WindowKey, QuotaWindow>;
+  planType?: string;
+  /** Codex GetAccountRateLimitsResponse.ordinaryUsageAllowed. Its own docs say
+   *  "Null means unavailable; clients must not infer recovery from percentages
+   *  or reset times." So null must never read as yes. */
+  usageAllowed: boolean | null;
+  error?: string;
+  lastFullReadAt?: number;
+}
+
+export type HeadroomState = 'room' | 'tight' | 'gated' | 'exhausted' | 'unknown' | 'stale';
+
+export interface Headroom {
+  state: HeadroomState;
+  worstPercent: number | null;
+  worstWindow?: QuotaWindow;
+  ageMins: number | null;
+  reason: string;
+}
+
+/** A use-it-or-lose-it window: resetting soon with real headroom left, and no
+ *  longer-horizon window under pressure. */
+export interface Surplus {
+  agent: AgentKind;
+  window: QuotaWindow;
+  headroomPct: number;
+  minutesLeft: number;
+  reason: string;
+}
+
+const CLAUDE_WINDOW_LABELS: Record<string, string> = {
+  five_hour: '5-hour session',
+  seven_day: '7-day (all models)',
+  seven_day_opus: '7-day (Opus)',
+  seven_day_sonnet: '7-day (Sonnet)',
+  seven_day_oauth_apps: '7-day (apps)',
+  seven_day_overage_included: '7-day (overage)',
+  overage: 'Overage',
+};
+
+export function formatWindow(mins: number | null | undefined): string {
+  if (!mins) return 'window';
+  if (mins % (24 * 60) === 0) return `${mins / (24 * 60)}d`;
+  if (mins % 60 === 0) return `${mins / 60}h`;
+  return `${mins}m`;
+}
+
+/** The SDK does not document whether utilization is 0-1 or 0-100, and the
+ *  structured usage response IS documented 0-100. Accept both; anything <= 1 is
+ *  treated as a fraction. Warned once so a real 1%-used window is noticed. */
+let ambiguousPctWarned = false;
+export function normalizePct(v: unknown): number | null {
+  if (typeof v !== 'number' || Number.isNaN(v)) return null;
+  if (v > 1) return Math.min(100, Math.round(v));
+  if (v > 0 && !ambiguousPctWarned) {
+    ambiguousPctWarned = true;
+    console.warn(`[pocket] rate-limit utilization ${v} is <= 1 — treating as a fraction (=> ${Math.round(v * 100)}%). If windows read too low, the scale changed.`);
+  }
+  return Math.min(100, Math.round(v * 100));
+}
+
+function emptyAgent(): AgentQuota {
+  return { windows: {}, usageAllowed: null };
+}
+
+export class QuotaStore {
+  private claude: AgentQuota = emptyAgent();
+  private codex: AgentQuota = emptyAgent();
+  private saveTimer: NodeJS.Timeout | null = null;
+  private historyBuf: string[] = [];
+
+  constructor(private readonly dir = dataDir()) {
+    this.load();
+  }
+
+  private file() {
+    return join(this.dir, 'windows.json');
+  }
+  private historyFile() {
+    return join(this.dir, 'quota-history.jsonl');
+  }
+
+  agent(kind: AgentKind): AgentQuota {
+    return kind === 'claude' ? this.claude : this.codex;
+  }
+
+  // ---------- ingestion ----------
+
+  /** From a live session's SDK rate_limit_event. Keyed on rateLimitType, NOT on
+   *  the display label — label collisions silently merged distinct windows. */
+  noteClaude(info: any): void {
+    const type = info?.rateLimitType ?? 'unknown';
+    this.upsert('claude', `claude:${type}`, {
+      label: CLAUDE_WINDOW_LABELS[type] ?? type,
+      usedPercent: normalizePct(info?.utilization),
+      windowDurationMins: type === 'five_hour' ? 300 : type.startsWith('seven_day') ? 10080 : null,
+      resetsAt: typeof info?.resetsAt === 'number' ? info.resetsAt * 1000 : null,
+      status: info?.status,
+      source: 'sdk-event',
+    });
+  }
+
+  /** From the SDK's structured usage control request. Percentages here are
+   *  documented 0-100 and resets are ISO 8601. */
+  noteClaudeUsageRead(resp: any): void {
+    const limits = resp?.rate_limits;
+    if (limits && typeof limits === 'object') {
+      for (const [type, w] of Object.entries<any>(limits)) {
+        if (!w || type === 'model_scoped' || type === 'extra_usage') continue;
+        this.upsert('claude', `claude:${type}`, {
+          label: CLAUDE_WINDOW_LABELS[type] ?? type,
+          usedPercent: normalizePct(w.utilization),
+          windowDurationMins: type === 'five_hour' ? 300 : type.startsWith('seven_day') ? 10080 : null,
+          resetsAt: w.resets_at ? Date.parse(w.resets_at) || null : null,
+          source: 'sdk-usage',
+        });
+      }
+      for (const w of limits.model_scoped ?? []) {
+        if (!w?.display_name) continue;
+        this.upsert('claude', `claude:model_scoped:${w.display_name}`, {
+          label: `${w.display_name}`,
+          usedPercent: normalizePct(w.utilization),
+          windowDurationMins: null,
+          resetsAt: w.resets_at ? Date.parse(w.resets_at) || null : null,
+          source: 'sdk-usage',
+        });
+      }
+    }
+    if (resp?.subscription_type) this.claude.planType = String(resp.subscription_type);
+    this.claude.usageAllowed = resp?.rate_limits_available ? true : null;
+    this.claude.lastFullReadAt = Date.now();
+    this.claude.error = undefined;
+    this.persist();
+  }
+
+  /** Codex snapshot. `account/rateLimits/updated` is documented as a SPARSE
+   *  rolling update whose null fields must NOT clear previously observed values,
+   *  so a sparse push merges and only a full read may clear. */
+  noteCodexSnapshot(snap: any, opts: { sparse: boolean }): void {
+    if (!snap) return;
+    const put = (slot: 'primary' | 'secondary', w: any) => {
+      if (!w) {
+        if (!opts.sparse) delete this.codex.windows[`codex:${slot}`];
+        return;
+      }
+      this.upsert('codex', `codex:${slot}`, {
+        label: `${slot === 'primary' ? 'Primary' : 'Secondary'} (${formatWindow(w.windowDurationMins)})`,
+        usedPercent: normalizePct(w.usedPercent),
+        windowDurationMins: typeof w.windowDurationMins === 'number' ? w.windowDurationMins : null,
+        resetsAt: typeof w.resetsAt === 'number' ? w.resetsAt * 1000 : null,
+        source: opts.sparse ? 'codex-push' : 'codex-read',
+      });
+    };
+    put('primary', snap.primary);
+    put('secondary', snap.secondary);
+    if (snap.planType != null) this.codex.planType = String(snap.planType);
+    if (!opts.sparse) this.codex.lastFullReadAt = Date.now();
+    this.codex.error = undefined;
+    this.persist();
+  }
+
+  setCodexUsageAllowed(v: boolean | null): void {
+    this.codex.usageAllowed = v;
+    this.persist();
+  }
+
+  setError(agent: AgentKind, error: string | undefined): void {
+    this.agent(agent).error = error;
+    this.persist();
+  }
+
+  private upsert(agent: AgentKind, key: WindowKey, patch: Partial<QuotaWindow> & { label: string; source: QuotaWindow['source'] }): void {
+    const bucket = this.agent(agent);
+    const prev = bucket.windows[key];
+    const next: QuotaWindow = {
+      key,
+      agent,
+      label: patch.label,
+      // A sparse update that omits a value must not erase what we already knew.
+      usedPercent: patch.usedPercent ?? prev?.usedPercent ?? null,
+      windowDurationMins: patch.windowDurationMins ?? prev?.windowDurationMins ?? null,
+      resetsAt: patch.resetsAt ?? prev?.resetsAt ?? null,
+      status: patch.status ?? prev?.status,
+      source: patch.source,
+      observedAt: Date.now(),
+    };
+    bucket.windows[key] = next;
+    if (next.usedPercent != null && next.usedPercent !== prev?.usedPercent) {
+      this.appendHistory({ at: next.observedAt, agent, key, usedPercent: next.usedPercent });
+    }
+    this.persist();
+  }
+
+  // ---------- reading ----------
+
+  /** Expired windows are PURGED, not skipped. agent-sync skipped them
+   *  (`if (resetsAt && now > resetsAt) continue`), which made a stale window read
+   *  as "no pressure" and left quota gating inert for six weeks. */
+  private live(agent: AgentKind): QuotaWindow[] {
+    const bucket = this.agent(agent);
+    const now = Date.now();
+    for (const [key, w] of Object.entries(bucket.windows)) {
+      if (w.resetsAt && now > w.resetsAt) delete bucket.windows[key];
+    }
+    return Object.values(bucket.windows);
+  }
+
+  windows(agent: AgentKind): QuotaWindow[] {
+    return this.live(agent).sort((a, b) => (b.usedPercent ?? -1) - (a.usedPercent ?? -1));
+  }
+
+  headroom(agent: AgentKind, budget: BudgetConfig): Headroom {
+    const bucket = this.agent(agent);
+    const wins = this.live(agent);
+    const known = wins.filter((w) => w.usedPercent != null);
+    const oldest = wins.length ? Math.min(...wins.map((w) => w.observedAt)) : null;
+    const ageMins = oldest == null ? null : Math.round((Date.now() - oldest) / 60000);
+
+    if (!known.length) {
+      return { state: 'unknown', worstPercent: null, ageMins, reason: wins.length ? 'no usage percentages reported' : 'no live quota data' };
+    }
+
+    const worst = known.reduce((a, b) => ((a.usedPercent ?? 0) >= (b.usedPercent ?? 0) ? a : b));
+    const pct = worst.usedPercent!;
+
+    if (bucket.usageAllowed === false) {
+      return { state: 'exhausted', worstPercent: pct, worstWindow: worst, ageMins, reason: 'provider reports ordinary usage not allowed' };
+    }
+    if (known.some((w) => w.status === 'rejected') || pct >= budget.hardStopPct) {
+      return { state: 'exhausted', worstPercent: pct, worstWindow: worst, ageMins, reason: `${worst.label} at ${pct}%` };
+    }
+    if (ageMins != null && ageMins > budget.staleAfterMins) {
+      return { state: 'stale', worstPercent: pct, worstWindow: worst, ageMins, reason: `last observed ${ageMins}m ago` };
+    }
+    if (pct >= budget.gateAtPct) return { state: 'gated', worstPercent: pct, worstWindow: worst, ageMins, reason: `${worst.label} at ${pct}%` };
+    if (pct >= budget.reprioritizeAtPct) return { state: 'tight', worstPercent: pct, worstWindow: worst, ageMins, reason: `${worst.label} at ${pct}%` };
+    return { state: 'room', worstPercent: pct, worstWindow: worst, ageMins, reason: `${worst.label} at ${pct}%` };
+  }
+
+  /** Use-it-or-lose-it. A window resetting soon with real unused headroom is
+   *  free capacity that vanishes — but only if no LONGER-horizon window is under
+   *  pressure, otherwise "spending" it just eats next week's budget. */
+  surplus(agent: AgentKind, budget: BudgetConfig): Surplus | null {
+    const wins = this.live(agent).filter((w) => w.usedPercent != null && w.resetsAt);
+    let best: Surplus | null = null;
+    for (const w of wins) {
+      const minutesLeft = Math.round((w.resetsAt! - Date.now()) / 60000);
+      if (minutesLeft <= 0 || minutesLeft > budget.surplusWithinMins) continue;
+      const headroomPct = 100 - w.usedPercent!;
+      if (headroomPct < budget.surplusHeadroomPct) continue;
+
+      const longerTight = wins.some(
+        (o) =>
+          o.key !== w.key &&
+          (o.windowDurationMins ?? 0) > (w.windowDurationMins ?? 0) &&
+          o.usedPercent != null &&
+          o.usedPercent >= budget.reprioritizeAtPct,
+      );
+      if (longerTight) continue;
+
+      const cand: Surplus = {
+        agent,
+        window: w,
+        headroomPct,
+        minutesLeft,
+        reason: `${headroomPct}% of ${w.label} is unused and resets in ${formatWindow(minutesLeft)}`,
+      };
+      if (!best || cand.headroomPct > best.headroomPct) best = cand;
+    }
+    return best;
+  }
+
+  /** %/hour from observed samples inside the current window. null when there
+   *  isn't enough signal — never a fabricated zero. */
+  burnPctPerHour(agent: AgentKind, key: WindowKey): number | null {
+    const samples = this.readHistory().filter((h) => h.agent === agent && h.key === key);
+    if (samples.length < 2) return null;
+    const spanMs = samples[samples.length - 1].at - samples[0].at;
+    if (spanMs < 10 * 60_000) return null;
+    const n = samples.length;
+    const meanX = samples.reduce((s, p) => s + p.at, 0) / n;
+    const meanY = samples.reduce((s, p) => s + p.usedPercent, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (const p of samples) {
+      num += (p.at - meanX) * (p.usedPercent - meanY);
+      den += (p.at - meanX) ** 2;
+    }
+    if (den === 0) return null;
+    const perMs = num / den;
+    const perHour = perMs * 3_600_000;
+    return perHour > 0 ? +perHour.toFixed(2) : null;
+  }
+
+  projectedExhaustionAt(agent: AgentKind, key: WindowKey): number | null {
+    const slope = this.burnPctPerHour(agent, key);
+    const w = this.agent(agent).windows[key];
+    if (!slope || !w || w.usedPercent == null) return null;
+    const hoursLeft = (100 - w.usedPercent) / slope;
+    return Date.now() + hoursLeft * 3_600_000;
+  }
+
+  // ---------- persistence ----------
+
+  private appendHistory(row: { at: number; agent: AgentKind; key: string; usedPercent: number }): void {
+    this.historyBuf.push(JSON.stringify(row));
+    try {
+      mkdirSync(this.dir, { recursive: true });
+      appendFileSync(this.historyFile(), this.historyBuf.join('\n') + '\n');
+      this.historyBuf = [];
+    } catch {
+      /* best effort; keep buffering */
+    }
+  }
+
+  private readHistory(): Array<{ at: number; agent: AgentKind; key: string; usedPercent: number }> {
+    try {
+      if (!existsSync(this.historyFile())) return [];
+      return readFileSync(this.historyFile(), 'utf8')
+        .split('\n')
+        .filter(Boolean)
+        .slice(-20_000)
+        .map((l) => {
+          try {
+            return JSON.parse(l);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  private persist(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => {
+      try {
+        mkdirSync(this.dir, { recursive: true });
+        const tmp = this.file() + '.tmp';
+        writeFileSync(tmp, JSON.stringify({ version: 1, claude: this.claude, codex: this.codex }, null, 2));
+        renameSync(tmp, this.file());
+      } catch {
+        /* persistence is best effort */
+      }
+    }, 2000);
+    this.saveTimer.unref?.();
+  }
+
+  private load(): void {
+    try {
+      if (!existsSync(this.file())) return;
+      const parsed = JSON.parse(readFileSync(this.file(), 'utf8'));
+      if (parsed?.claude) this.claude = { ...emptyAgent(), ...parsed.claude };
+      if (parsed?.codex) this.codex = { ...emptyAgent(), ...parsed.codex };
+      // Purge anything that reset while we were down, so a restart can never
+      // resurrect a six-week-old window as apparent headroom.
+      this.live('claude');
+      this.live('codex');
+    } catch {
+      /* start empty */
+    }
+  }
+}
+
+let singleton: QuotaStore | null = null;
+export function quotaStore(): QuotaStore {
+  if (!singleton) singleton = new QuotaStore();
+  return singleton;
+}
+export function __resetQuotaStoreForTests(): void {
+  singleton = null;
+}
