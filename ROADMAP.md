@@ -147,6 +147,37 @@ Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCri
 ### ⬜ Phase 5 — Verification gate
 Acceptance criteria travel **with the task**, not only the plan — E2EDevBench's Designer failure was executors treating a plan as authority over requirements. The gate is a **script the harness runs**; the executor must not author or edit it. Anti-fabrication is structural, not instructional: a synthetic "screenshot" fails on unique-colour count and file size, and no two frames in a set may be pixel-identical. *(Learned the hard way — a builder in agent-sync fabricated eleven PNGs of vector diagrams and nearly passed a stage with them.)*
 
+### 🟨 Phase 7 — Model registry and auto-update *(core done)*
+
+**The goal, in the user's words:** *"new Opus 5.5 gets released and current model is 5.4. I don't want to have to come here to Visual Studio Code and code for it."*
+
+**The roster is data, not code.** The app must never rewrite its own source — that is unauditable and unrevertable. A registry refreshed from supported protocol calls needs no code change for a new model, ever.
+
+Both vendors expose a live roster, and both hand us succession directly:
+
+| | Claude | Codex |
+|---|---|---|
+| Listing | `query.supportedModels()` → `ModelInfo[]` | `model/list` JSON-RPC → `data[]` |
+| Succession signal | `resolvedModel` drift under a stable alias (`opus` → `claude-opus-5` → `-5-5`) | `upgrade` — the vendor names the successor outright |
+| Effort rungs | `supportedEffortLevels` | `supportedReasoningEfforts[]` + `defaultReasoningEffort` |
+| Vendor default | — | `isDefault` |
+
+**What the first live probe found (2026-09-21, codex 0.154.0) — all three configured Codex tiers were wrong:**
+
+| Configured | Reality |
+|---|---|
+| `light: gpt-5.4-mini` | **absent from `model/list`** — deleted, not hidden |
+| `standard: gpt-5.5` | **`upgrade: gpt-5.6-sol`** — vendor-flagged superseded |
+| `heavy: gpt-5.6-sol` | valid, but `gpt-6-astra` is `isDefault` and "our most capable" |
+
+The hardcoded `EFFORT_LADDER` was fiction at both ends: **no** Codex model exposes `minimal`, and four of five support `max` and `ultra`, two rungs above where the ladder stopped. This is the argument for the phase — the config rotted silently and nothing said a word.
+
+Done: `registry.ts` — `ModelCard` normalization for both vendors, `classify()` (tier from vendor description, `null` rather than a guess), `clampEffort()`, `diffRegistry()` (added / vanished / superseded / resolved-moved / efforts-changed / default-moved), `auditRoutes()`, persisted to `models.json`. 21 tests, built from the verbatim live payload.
+
+Pending: fetch on startup and on a timer; ntfy on change; crew persona continuity across a succession (Sol stays Sol); UI review card for an unclassified model; routing reads `efforts` instead of `EFFORT_LADDER`.
+
+**Succession is auto-adopted; a new family is not.** Same family, higher version ⇒ same tier, same persona, adopt silently. An unrecognized model surfaces for one-tap assignment and is never routed to unreviewed — routing an unvetted model is how a weekly window disappears by surprise.
+
 ### ⬜ Phase 6 — UI
 Unified fuel gauge across every subscription: all windows both providers, burn rate, projected exhaustion, **per-role and per-persona spend** with the orchestrator's own turns broken out. Context meter per agent. Crew badges on every turn. Honesty rules enforced by types.
 
