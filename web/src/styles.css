@@ -1729,3 +1729,52 @@ button {
   color: var(--text-dim);
   word-break: break-all;
 }
+
+/* ---------- crew identity ----------
+   Persona is WHO (stable per suite+model); role is the hat worn on this turn.
+   The monogram is the fallback when no custom avatar image is set. */
+.crew-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.crew-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+.crew-monogram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.crew-name {
+  font-weight: 650;
+  white-space: nowrap;
+}
+.crew-role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--chip-bg, rgba(127, 127, 127, 0.16));
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+.crew-sub {
+  font-size: 11px;
+  color: var(--muted, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

@@ -5,7 +5,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage } from './types';
+import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage, CrewInfo } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -312,6 +312,20 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
   );
 }
 
+/** Avatar + name + role badge. Persona is WHO (stable per suite+model), role is
+ *  WHAT HAT they wear on this turn, so the same face appears as Planner here and
+ *  Reviewer there. Falls back to a coloured monogram when no image is set. */
+function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
+  return (
+    <span className="crew-chip" title={`${crew.name} · ${crew.roleLabel} · ${crew.model || crew.agent}`}>
+      <span className="crew-avatar crew-monogram" style={{ background: crew.color }}>{crew.initial}</span>
+      <span className="crew-name" style={{ color: crew.color }}>{crew.name}</span>
+      <span className="crew-role">{crew.roleLabel}</span>
+      {sub && <span className="crew-sub">{sub}</span>}
+    </span>
+  );
+}
+
 function Message({ item }: { item: ChatItem }) {
   switch (item.kind) {
     case 'user':
@@ -350,8 +364,14 @@ function Message({ item }: { item: ChatItem }) {
       return (
         <div className={`consult-msg ${item.phase}`}>
           <div className="consult-msg-head">
-            <span className={`agent-dot ${item.agent}`} />
-            {item.phase === 'plan' ? 'Plan' : 'Critique'} · {item.agent}
+            {item.crew ? (
+              <CrewChip crew={item.crew} sub={item.crew.model} />
+            ) : (
+              <>
+                <span className={`agent-dot ${item.agent}`} />
+                {item.phase === 'plan' ? 'Plan' : 'Critique'} · {item.agent}
+              </>
+            )}
             {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
           </div>
           <Markdown text={item.text} />

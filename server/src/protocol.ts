@@ -35,6 +35,8 @@ export interface ToolExpand {
 }
 
 export interface SessionMeta {
+  /** Who the live agent is right now, for the header and assistant bubbles. */
+  crew?: CrewInfo;
   id: string;
   agent: AgentKind;
   cwd: string;
@@ -55,6 +57,23 @@ export interface SessionMeta {
   /** Set only when this session was created via resume — the id it was resumed from.
    *  Distinct from agentSessionId, which every session eventually gets (fresh or not). */
   resumedFrom?: string;
+}
+
+export interface CrewInfo {
+  /** Who: stable per (suite, model). */
+  name: string;
+  /** What hat they are wearing on this turn. */
+  role: string;
+  roleLabel: string;
+  tier: 'flagship' | 'worker';
+  /** Brand colour for the chip and the monogram avatar. */
+  color: string;
+  /** Letter shown when no custom avatar image is set. */
+  initial: string;
+  /** Optional custom image filename under <dataDir>/avatars/. */
+  avatar?: string;
+  agent: AgentKind;
+  model: string;
 }
 
 export interface ContextInfo {
@@ -90,7 +109,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
-  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; ts: number }
+  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; crew?: CrewInfo; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }

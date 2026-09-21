@@ -10,6 +10,7 @@ import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js'
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier } from './router.js';
 import { callLedger } from './ledger.js';
+import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
 import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startConsultStep, type ConsultRun } from './consult.js';
 
@@ -47,7 +48,7 @@ export class Session {
   private autoRoute: AutoRouteConfig;
   private lastTier?: Tier;
   /** Which hat the live agent is wearing, so ledger rows attribute correctly. */
-  private currentRole: string = 'chat';
+  private currentRole: CrewRole = 'chat';
   private consultRunning = false;
   private activeConsult?: ConsultRun;
   private consultCancelled = false;
@@ -123,7 +124,7 @@ export class Session {
           agent: d.agent,
           model: d.model,
           role: this.currentRole,
-          persona: undefined,
+          persona: crewMember(d.agent, d.model, this.currentRole as CrewRole).name,
           tier: this.lastTier,
           inTok: d.inTok,
           outTok: d.outTok,
@@ -150,6 +151,7 @@ export class Session {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       state: this.lastStatus,
+      crew: crewMember(this.agent, this.autoMode ? this.routedModel ?? this.model : this.model, this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
       agentSessionId: this.agentSessionId,
@@ -339,12 +341,12 @@ export class Session {
         .map((e: any) => `${e.type === 'user_message' ? 'User' : 'Agent'}: ${truncate(e.text, 300)}`)
         .join('\n');
 
-      this.pushEvent({ type: 'status', state: 'working', message: `Consult: ${this.agent} is drafting a plan…`, ts: now() });
+      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, this.standardModelFor(this.agent), 'planner').name} is drafting a plan…`, ts: now() });
       this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), this.standardModelFor(this.agent), 'plan');
       const plan = await this.activeConsult.promise;
-      this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, text: plan, ts: now() });
+      this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, crew: crewMember(this.agent, this.standardModelFor(this.agent), 'planner'), text: plan, ts: now() });
 
-      this.pushEvent({ type: 'status', state: 'working', message: `Consult: ${other} is reviewing the plan…`, ts: now() });
+      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, this.standardModelFor(other), 'reviewer').name} is reviewing the plan…`, ts: now() });
       let critique: string;
       try {
         this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), this.standardModelFor(other), 'critique');
@@ -354,7 +356,7 @@ export class Session {
         // A dead reviewer shouldn't cost the user a good plan — degrade to plan-only.
         critique = `(Critique unavailable — ${truncate(String(err?.message ?? err), 200)}. Proceeding uses the plan as-is.)`;
       }
-      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, text: critique, ts: now() });
+      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, this.standardModelFor(other), 'reviewer'), text: critique, ts: now() });
 
       this.pendingConsult = { task, plan, critique };
       if (this.sockets.size === 0) {

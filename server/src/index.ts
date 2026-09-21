@@ -13,6 +13,7 @@ import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resu
 import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
+import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona } from './crew.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 const config = loadConfig();
@@ -282,6 +283,33 @@ app.post('/api/notifications/test', (_req, res) => {
 
 app.get('/api/usage', (_req, res) => {
   res.json({ usage: getCachedUsage() });
+});
+
+/** The crew roster: who each model is, what colour they wear. Defaults plus any
+ *  user overrides, so the UI can render the editor against one list. */
+app.get('/api/crew', (_req, res) => {
+  res.json({ crew: allPersonas(), overrides: loadOverrides() });
+});
+
+app.post('/api/crew', (req, res) => {
+  const rows = req.body?.overrides;
+  if (!Array.isArray(rows)) return res.status(400).json({ error: 'overrides[] required' });
+  const clean: Persona[] = [];
+  for (const r of rows) {
+    if (!r || typeof r.name !== 'string' || typeof r.match !== 'string') continue;
+    if (!/^#[0-9a-fA-F]{6}$/.test(String(r.color ?? ''))) continue;
+    clean.push({
+      match: r.match,
+      suite: r.suite === 'codex' ? 'codex' : r.suite === 'claude' ? 'claude' : undefined,
+      name: r.name.slice(0, 40),
+      tier: r.tier === 'flagship' ? 'flagship' : 'worker',
+      color: r.color,
+      avatar: typeof r.avatar === 'string' ? r.avatar.slice(0, 200) : undefined,
+    });
+  }
+  saveOverrides(clean);
+  resetCrewCache();
+  res.json({ ok: true, crew: allPersonas() });
 });
 
 app.post('/api/usage/refresh', async (_req, res) => {
