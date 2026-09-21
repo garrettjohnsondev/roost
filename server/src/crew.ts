@@ -45,20 +45,33 @@ export interface CrewMember extends Persona {
   initial: string;
 }
 
-/** Order matters — first match wins, so narrower ids come first. 'mini' must
- *  precede the gpt-* flagship patterns or gpt-5.4-mini would read as Sol. */
+/** Order matters — first match wins, so narrower ids come first.
+ *
+ *  Naming rule: a model that HAS a name of its own keeps it (Fable, Sol, Luna,
+ *  Terra, Astra) — that way a newly released model gets an obvious persona and
+ *  nothing is silently absorbed into another character. Unnamed//generic models
+ *  wear the cast's names (Sunny, Larry, Bolt, Rex, Ace).
+ *
+ *  The bug this ordering fixes: a generic /gpt-5/ pattern swallowed
+ *  gpt-5.6-luna, gpt-5.6-terra AND gpt-5.5, so three distinct models all
+ *  rendered as Sol. */
 const DEFAULTS: Persona[] = [
+  // --- Claude, named ---
   { match: 'fable', suite: 'claude', name: 'Fable', tier: 'flagship', color: '#5b45c7' },
   { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72' },
   { match: 'haiku', suite: 'claude', name: 'Larry', tier: 'worker', color: '#205a1d' },
   { match: 'sonnet', suite: 'claude', name: 'Sunny', tier: 'worker', color: '#673eb4' },
+
+  // --- Codex, named models keep their own names ---
   { match: 'mini', suite: 'codex', name: 'Bolt', tier: 'worker', color: '#c7850b' },
   { match: 'nano', suite: 'codex', name: 'Bolt', tier: 'worker', color: '#c7850b' },
-  { match: 'codex', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
+  { match: 'luna', suite: 'codex', name: 'Luna', tier: 'worker', color: '#5b7c99' },
+  { match: 'terra', suite: 'codex', name: 'Terra', tier: 'worker', color: '#2d6a4f' },
+  { match: 'astra', suite: 'codex', name: 'Astra', tier: 'flagship', color: '#b3452f' },
   { match: 'sol', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
-  { match: 'astra', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
-  { match: 'gpt-6', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
-  { match: 'gpt-5', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
+  { match: 'codex', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608' },
+  { match: 'gpt-5.5', suite: 'codex', name: 'Rex', tier: 'worker', color: '#1543a5' },
+
   // Suite defaults, last.
   { match: '', suite: 'codex', name: 'Rex', tier: 'worker', color: '#1543a5' },
   { match: '', suite: 'claude', name: 'Ace', tier: 'worker', color: '#0f766e' },

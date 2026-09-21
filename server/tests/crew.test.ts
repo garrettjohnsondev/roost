@@ -26,10 +26,21 @@ describe('personaFor', () => {
     expect(personaFor('codex', 'gpt-5.4-mini').name).toBe('Bolt');
   });
 
+  // A generic /gpt-5/ pattern used to swallow all three of these into Sol.
+  it('gives every named model its own identity', () => {
+    expect(personaFor('codex', 'gpt-5.6-luna').name).toBe('Luna');
+    expect(personaFor('codex', 'gpt-5.6-terra').name).toBe('Terra');
+    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Astra');
+    expect(personaFor('codex', 'gpt-5.5').name).toBe('Rex');
+    const names = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-5.6-sol'].map((m) => personaFor('codex', m).name);
+    expect(new Set(names).size).toBe(4); // no two models share a face
+  });
+
   // The model actually running on this machine, which appears in NEITHER of
   // pocket.config.json's two disagreeing model lists.
-  it('recognises gpt-6-astra as Sol rather than falling through to the default', () => {
-    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Sol');
+  it('recognises gpt-6-astra rather than falling through to the suite default', () => {
+    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Astra');
+    expect(personaFor('codex', 'gpt-6-astra').tier).toBe('flagship');
   });
 
   it('checks mini before the flagship patterns so gpt-5.4-mini is not Sol', () => {
@@ -96,7 +107,7 @@ describe('rosterBlock', () => {
     const block = rosterBlock({ claudeModels: ['haiku', 'sonnet'], codexAvailable: true, codexModels: ['gpt-6-astra'] });
     expect(block).toMatch(/Larry — claude haiku/);
     expect(block).toMatch(/Sunny — claude sonnet/);
-    expect(block).toMatch(/Sol — codex gpt-6-astra/);
+    expect(block).toMatch(/Astra — codex gpt-6-astra/);
   });
 
   it('omits codex entirely when it is not available', () => {
