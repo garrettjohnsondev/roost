@@ -19,20 +19,34 @@ export interface EffortDecision {
   steppedFrom?: string;
 }
 
+/** Changing top-level effort mid-conversation INVALIDATES THE PROMPT CACHE on
+ *  every model without the per-message output-config beta. Cache reads bill at
+ *  ~1/10 of input, so an effort router that flips per message can easily spend
+ *  more on cache misses than it saves on thinking. Effort changes are therefore
+ *  gated by hysteresis (see shouldApplyEffort) and preferred at boundaries where
+ *  there is no warm cache to lose: a new session, or a fresh subagent dispatch.
+ *  Anthropic also warns the steer is unreliable mid-flight — earlier replies were
+ *  written at the previous level and the model stays consistent with them. */
+
 /** Ordered weakest → strongest. Codex starts a rung lower than Claude. */
 export const EFFORT_LADDER: Record<AgentKind, string[]> = {
   claude: ['low', 'medium', 'high', 'xhigh', 'max'],
   codex: ['minimal', 'low', 'medium', 'high', 'xhigh'],
 };
 
-/** Per-agent because the ladders are NOT aligned: Codex has an extra `minimal`
- *  rung below `low`, so a shared index would land heavy on `high` for Codex and
- *  `xhigh` for Claude. These indices keep the semantics equal on both sides —
- *  light = floor, standard = medium, heavy = xhigh — matching what the existing
- *  autoRoute defaults already ask for. */
-const BASE_BY_TIER: Record<AgentKind, Record<Tier, number>> = {
-  claude: { light: 0, standard: 1, heavy: 3 }, // low / medium / xhigh
-  codex: { light: 0, standard: 2, heavy: 4 }, // minimal / medium / xhigh
+/** Fallback only. The real base comes from the user's own
+ *  autoRoute[agent][tier].effort, so routing tunes their configuration rather
+ *  than overriding it — and so the two ladders (Codex carries an extra
+ *  `minimal` rung) can't drift apart through naive shared indexing.
+ *
+ *  These defaults stop at `high` rather than `xhigh` deliberately: Anthropic
+ *  warns `max` "can lead to overthinking" on structured work, and the
+ *  inverted-U result in "When More Thinking Hurts" (ACL Findings 2026) finds
+ *  extended reasoning abandoning previously correct answers. Bias up for hard
+ *  tasks, but do not top out by default. */
+const FALLBACK_BASE: Record<AgentKind, Record<Tier, string>> = {
+  claude: { light: 'low', standard: 'medium', heavy: 'high' },
+  codex: { light: 'minimal', standard: 'medium', heavy: 'high' },
 };
 
 function clampIndex(i: number, ladder: string[]): number {
@@ -58,6 +72,9 @@ export function chooseEffort(opts: {
   adaptive?: boolean;
   /** Explicit user choice always wins; routing never overrides a person. */
   override?: string | null;
+  /** The configured effort for this tier (autoRoute[agent][tier].effort).
+   *  Routing modulates the user's setting rather than replacing it. */
+  configured?: string | null;
 }): EffortDecision {
   const ladder = EFFORT_LADDER[opts.agent];
 
@@ -70,7 +87,9 @@ export function chooseEffort(opts: {
     return { effort: '', reason: 'model chooses its own thinking budget', clamped: false, adaptive: true };
   }
 
-  let idx = BASE_BY_TIER[opts.agent][opts.tier] ?? 1;
+  const baseEffort = opts.configured || FALLBACK_BASE[opts.agent][opts.tier];
+  let idx = ladder.indexOf(baseEffort);
+  if (idx < 0) idx = ladder.indexOf(FALLBACK_BASE[opts.agent][opts.tier]);
   const notes: string[] = [`${opts.tier} task`];
 
   if (opts.kind === 'mechanical') {
@@ -135,4 +154,53 @@ export function classifyKind(text: string): TaskKind {
   if (mech && !reason) return 'mechanical';
   if (reason && !mech) return 'reasoning';
   return 'mixed';
+}
+
+
+export interface EffortChange {
+  apply: boolean;
+  reason: string;
+}
+
+/** Should a proposed effort actually be pushed to a LIVE session?
+ *
+ *  Three guards, in order of importance:
+ *   1. A fresh session or dispatch has no warm cache — always safe, always apply.
+ *   2. Mid-session, only move for a change big enough to be worth a cache miss
+ *      (more than one rung), because a one-rung nudge rarely pays for the reset.
+ *   3. Never oscillate: if we already moved this session and the proposal walks
+ *      it back, hold. Flapping is the worst case — it pays the cache cost every
+ *      turn and buys nothing.
+ *
+ *  A model with per-message effort support has no cache penalty, so it skips
+ *  straight to apply. */
+export function shouldApplyEffort(opts: {
+  current: string | null;
+  proposed: string;
+  agent: AgentKind;
+  /** No warm cache yet — a new session or a one-shot dispatch. */
+  fresh?: boolean;
+  /** Model supports per-message effort without invalidating the cache. */
+  perMessageEffort?: boolean;
+  /** How many times effort has already moved in this session. */
+  changesSoFar?: number;
+}): EffortChange {
+  if (!opts.current) return { apply: true, reason: 'no effort set yet' };
+  if (opts.proposed === opts.current) return { apply: false, reason: 'unchanged' };
+  if (opts.fresh) return { apply: true, reason: 'fresh context — no cache to lose' };
+  if (opts.perMessageEffort) return { apply: true, reason: 'model supports per-message effort — cache preserved' };
+
+  const ladder = EFFORT_LADDER[opts.agent];
+  const from = ladder.indexOf(opts.current);
+  const to = ladder.indexOf(opts.proposed);
+  if (from < 0 || to < 0) return { apply: true, reason: 'unknown level — applying' };
+
+  const distance = Math.abs(to - from);
+  if (distance < 2) {
+    return { apply: false, reason: `held at ${opts.current}: a one-rung change does not pay for a prompt-cache reset` };
+  }
+  if ((opts.changesSoFar ?? 0) >= 2) {
+    return { apply: false, reason: `held at ${opts.current}: effort already moved ${opts.changesSoFar} times this session — flapping costs cache every turn` };
+  }
+  return { apply: true, reason: `${opts.current} → ${opts.proposed} is a ${distance}-rung change, worth the cache reset` };
 }

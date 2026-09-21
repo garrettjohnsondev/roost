@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteCodexRateLimits } from '../usage.js';
 import { codexDelta, type CodexRaw } from '../usageDelta.js';
+import { fromCodexTokenUsage, withAdvice } from '../context.js';
 import { truncate } from '../util.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
@@ -215,6 +216,10 @@ export class CodexAdapter implements AgentAdapter {
         const lastTotal = (last.inputTokens ?? last.input_tokens ?? 0) + (last.outputTokens ?? last.output_tokens ?? 0);
 
         this.emitCallDelta(total, last, params?.turnId);
+
+        // Context pressure from data already in hand — no extra call.
+        const ctx = withAdvice(fromCodexTokenUsage(last, this.contextWindow));
+        if (ctx) this.emit({ type: 'context', context: ctx, ts: now() });
 
         this.emit({
           type: 'usage',

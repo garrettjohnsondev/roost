@@ -3,6 +3,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteClaudeRateLimit } from '../usage.js';
 import { claudeDeltas } from '../usageDelta.js';
+import { fromClaudeContextUsage, withAdvice } from '../context.js';
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 
@@ -176,8 +177,24 @@ export class ClaudeAdapter implements AgentAdapter {
           ts: now(),
         });
         this.emit({ type: 'status', state: 'idle', ts: now() });
+        void this.reportContext();
         break;
       }
+    }
+  }
+
+  /** getContextUsage is a STABLE SDK call (unlike the usage one) and
+   *  detail:'summary' answers from the last response plus local estimates --
+   *  no per-category token-count requests -- so it is cheap enough to run after
+   *  every turn. Failures are silent: a missing meter must never break a chat. */
+  private async reportContext(): Promise<void> {
+    try {
+      if (typeof this.q?.getContextUsage !== 'function') return;
+      const resp = await this.q.getContextUsage({ detail: 'summary' });
+      const ctx = withAdvice(fromClaudeContextUsage(resp));
+      if (ctx) this.emit({ type: 'context', context: ctx, ts: now() });
+    } catch {
+      /* the meter is advisory */
     }
   }
 

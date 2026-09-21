@@ -57,6 +57,20 @@ export interface SessionMeta {
   resumedFrom?: string;
 }
 
+export interface ContextInfo {
+  agent: AgentKind;
+  /** null means unknown — render "no data", never a bar at 0%. */
+  usedTokens: number | null;
+  maxTokens: number | null;
+  percent: number | null;
+  pressure: 'clear' | 'filling' | 'degrading' | 'critical' | 'unknown';
+  overLimit?: { tokensOver: number; kind: 'hard_limit' | 'compaction_window' };
+  categories?: Array<{ name: string; tokens: number; kind?: string }>;
+  /** Cheapest-first suggestion: dispatch a subagent, compact, or hand off. */
+  advice?: { action: 'dispatch' | 'compact' | 'handoff'; reason: string } | null;
+  observedAt: number;
+}
+
 export interface UsageInfo {
   inputTokens: number;
   outputTokens: number;
@@ -78,6 +92,7 @@ export type ServerEvent =
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
   | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
+  | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
   | { type: 'error'; message: string; ts: number };
 
