@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteCodexRateLimits } from '../usage.js';
+import { codexDelta, type CodexRaw } from '../usageDelta.js';
 import { truncate } from '../util.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
-import type { AgentAdapter, AgentAdapterOptions, PendingApproval } from './types.js';
+import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 
 const EXPAND_SNIPPET = 4000;
 
@@ -31,6 +32,14 @@ export class CodexAdapter implements AgentAdapter {
   private approvals: ApprovalSetting;
   private contextWindow: number | null = null;
   private disposed = false;
+  /** tokenUsage.total is THREAD-cumulative. agent-sync recorded it verbatim as a
+   *  per-call figure and logged single turns at 15-18M tokens; the delta against
+   *  the previous notification is the only honest per-call number. */
+  private lastTotal: CodexRaw | null = null;
+  /** The model actually running this thread, resolved from thread/start. A record
+   *  must never carry model:'' -- that is what made every Codex call price as
+   *  Sonnet through agent-sync's catch-all row. */
+  private resolvedModel = '';
 
   constructor(private opts: AgentAdapterOptions) {
     this.model = opts.model;
@@ -79,9 +88,36 @@ export class CodexAdapter implements AgentAdapter {
     this.opts.onAgentSessionId(this.threadId);
     if (result?.model) {
       if (!this.model) this.model = result.model;
+      this.resolvedModel = String(result.model);
       this.opts.onModelResolved?.(result.model);
     }
     this.emit({ type: 'status', state: 'idle', ts: now() });
+  }
+
+  /** Cumulative -> per-call, via the shared delta math in usageDelta.ts. */
+  private emitCallDelta(total: any, last: any, turnId?: string): void {
+    if (!this.opts.onCall) return;
+    const { delta, next } = codexDelta(this.lastTotal, total, last);
+    this.lastTotal = next;
+    if (!delta) return;
+    const model = this.model || this.resolvedModel;
+    if (!model) return; // never record an unattributable call
+
+    this.opts.onCall({
+      agent: 'codex',
+      model,
+      inTok: delta.inTok,
+      outTok: delta.outTok,
+      cacheReadTok: delta.cacheReadTok,
+      cacheWriteTok: delta.cacheWriteTok,
+      reasoningTok: delta.reasoningTok || undefined,
+      // The app-server reports no dollars; the ledger prices from the model id
+      // and returns null when no rate row exists.
+      costUsd: null,
+      costBasis: 'unknown',
+      turnId,
+      agentSessionId: this.threadId ?? undefined,
+    });
   }
 
   private async onServerRequest(method: string, params: any): Promise<any> {
@@ -170,12 +206,16 @@ export class CodexAdapter implements AgentAdapter {
         noteCodexRateLimits(params?.rateLimits);
         break;
       case 'thread/tokenUsage/updated': {
-        const total = params?.tokenUsage?.total ?? {};
+        const usage = params?.tokenUsage ?? {};
+        const total = usage.total ?? {};
         const input = total.inputTokens ?? total.input_tokens ?? 0;
         const output = total.outputTokens ?? total.output_tokens ?? 0;
-        if (params?.tokenUsage?.modelContextWindow) this.contextWindow = params.tokenUsage.modelContextWindow;
-        const last = params?.tokenUsage?.last ?? {};
+        if (usage.modelContextWindow) this.contextWindow = usage.modelContextWindow;
+        const last = usage.last ?? {};
         const lastTotal = (last.inputTokens ?? last.input_tokens ?? 0) + (last.outputTokens ?? last.output_tokens ?? 0);
+
+        this.emitCallDelta(total, last, params?.turnId);
+
         this.emit({
           type: 'usage',
           usage: {

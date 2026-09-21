@@ -1,4 +1,23 @@
-import type { ApprovalSetting, ServerEvent, UserImage } from '../protocol.js';
+import type { AgentKind, ApprovalSetting, ServerEvent, UserImage } from '../protocol.js';
+
+/** One agent turn's ACTUAL consumption, already deltaed against whatever the
+ *  engine reports cumulatively. Adapters must never pass a running total here:
+ *  agent-sync logged Codex's thread-cumulative counter as per-call and recorded
+ *  single turns at 15-18M tokens. */
+export interface CallDelta {
+  agent: AgentKind;
+  model: string;
+  inTok: number;
+  outTok: number;
+  cacheReadTok: number;
+  cacheWriteTok: number;
+  reasoningTok?: number;
+  /** Engine-reported dollars when authoritative; null when unknown, never 0. */
+  costUsd: number | null;
+  costBasis: 'sdk' | 'unknown';
+  turnId?: string;
+  agentSessionId?: string;
+}
 
 export interface AgentAdapterOptions {
   cwd: string;
@@ -12,6 +31,9 @@ export interface AgentAdapterOptions {
   onAgentSessionId: (id: string) => void;
   /** Called when the agent reports the actual model it is running. */
   onModelResolved?: (model: string) => void;
+  /** Per-call usage, already deltaed. Optional so one-shot consult/probe runs
+   *  can opt in without restructuring. */
+  onCall?: (delta: CallDelta) => void;
 }
 
 export interface AgentAdapter {

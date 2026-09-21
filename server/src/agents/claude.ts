@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteClaudeRateLimit } from '../usage.js';
+import { claudeDeltas } from '../usageDelta.js';
 import { AsyncQueue, truncate } from '../util.js';
-import type { AgentAdapter, AgentAdapterOptions, PendingApproval } from './types.js';
+import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 
 const EXPAND_SNIPPET = 4000;
 
@@ -42,6 +43,14 @@ export class ClaudeAdapter implements AgentAdapter {
   private pending = new Map<string, PendingApproval>();
   private approvals: ApprovalSetting;
   private disposed = false;
+  /** Last seen cumulative modelUsage, per model key. The SDK documents
+   *  total_cost_usd and modelUsage as RUNNING TOTALS in streaming-input
+   *  sessions ("read the latest result rather than summing across results"),
+   *  so per-call truth is the diff between consecutive results. */
+  private lastModelUsage = new Map<string, any>();
+  private sessionCostUsd = 0;
+  private sessionInTok = 0;
+  private sessionOutTok = 0;
 
   constructor(private opts: AgentAdapterOptions) {
     this.approvals = opts.approvals;
@@ -154,19 +163,42 @@ export class ClaudeAdapter implements AgentAdapter {
         break;
       }
       case 'result': {
-        const usage = m.usage ?? {};
+        this.emitCallDeltas(m);
         this.emit({
           type: 'usage',
           usage: {
-            inputTokens: (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0),
-            outputTokens: usage.output_tokens ?? 0,
-            costUsd: m.total_cost_usd,
+            inputTokens: this.sessionInTok,
+            outputTokens: this.sessionOutTok,
+            // Summed from per-call deltas rather than read off m.total_cost_usd,
+            // so the chat bar and the ledger can never disagree.
+            costUsd: this.sessionCostUsd || undefined,
           },
           ts: now(),
         });
         this.emit({ type: 'status', state: 'idle', ts: now() });
         break;
       }
+    }
+  }
+
+  /** Cumulative -> per-call, via the shared delta math in usageDelta.ts. */
+  private emitCallDeltas(m: any): void {
+    for (const d of claudeDeltas(this.lastModelUsage, m?.modelUsage)) {
+      this.sessionCostUsd = +(this.sessionCostUsd + (d.priced ? d.costUsd : 0)).toFixed(6);
+      this.sessionInTok += d.inTok + d.cacheReadTok + d.cacheWriteTok;
+      this.sessionOutTok += d.outTok;
+      this.opts.onCall?.({
+        agent: 'claude',
+        model: d.model,
+        inTok: d.inTok,
+        outTok: d.outTok,
+        cacheReadTok: d.cacheReadTok,
+        cacheWriteTok: d.cacheWriteTok,
+        reasoningTok: d.reasoningTok || undefined,
+        costUsd: d.priced ? +d.costUsd.toFixed(6) : null,
+        costBasis: d.priced ? 'sdk' : 'unknown',
+        agentSessionId: m?.session_id,
+      });
     }
   }
 

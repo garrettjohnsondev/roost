@@ -109,16 +109,25 @@ export interface RecentProject {
 }
 
 export interface UsageWindow {
+  key: string;
   label: string;
-  usedPercent?: number;
-  resetsAt?: number;
+  /** null means UNKNOWN. It is never zero and never headroom — render the words
+   *  "no data" and no bar, never a green bar at 0%. */
+  usedPercent: number | null;
+  resetsAt: number | null;
+  windowDurationMins: number | null;
   status?: string;
+  observedAt: number;
+  source: string;
 }
 
 export interface AgentUsage {
   windows: UsageWindow[];
   planType?: string;
+  /** null means the provider did not say. It must never render as "allowed". */
+  usageAllowed: boolean | null;
   error?: string;
+  headroom?: 'room' | 'tight' | 'gated' | 'exhausted' | 'unknown' | 'stale';
 }
 
 export interface UsageSnapshot {
