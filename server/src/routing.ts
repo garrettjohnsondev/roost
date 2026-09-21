@@ -29,10 +29,53 @@ export interface EffortDecision {
  *  written at the previous level and the model stays consistent with them. */
 
 /** Ordered weakest → strongest. Codex starts a rung lower than Claude. */
+/** Canonical ordering of every rung either vendor has ever exposed. Used ONLY
+ *  to sort; membership always comes from the live roster. */
+export const EFFORT_ORDER = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+/** Fallback ladders for when the registry has not been fetched yet.
+ *
+ *  These were hardcoded and WRONG: `minimal` was listed as Codex's bottom rung
+ *  and no Codex model has ever exposed it, while four of five reach `max` and
+ *  `ultra`, two rungs above where this stopped. The live roster
+ *  (`ModelCard.efforts`) is authoritative; this is only a cold-start guess. */
 export const EFFORT_LADDER: Record<AgentKind, string[]> = {
   claude: ['low', 'medium', 'high', 'xhigh', 'max'],
-  codex: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+  codex: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
 };
+
+/** Position of `effort` on `ladder`, or the nearest rung if it is absent.
+ *
+ *  Plain indexOf returned -1 for a level the model lacks, which collapsed to
+ *  the BOTTOM rung -- so asking for `xhigh` on a low/medium model produced
+ *  `low` instead of `medium`. Distance is measured in canonical-order space so
+ *  the nearest rung means what it says. */
+function nearestIndex(ladder: string[], effort: string): number {
+  const exact = ladder.indexOf(effort);
+  if (exact >= 0) return exact;
+  const target = EFFORT_ORDER.indexOf(effort);
+  if (target < 0 || !ladder.length) return 0;
+  let best = 0;
+  for (let i = 1; i < ladder.length; i++) {
+    const d = Math.abs(EFFORT_ORDER.indexOf(ladder[i]) - target);
+    if (d < Math.abs(EFFORT_ORDER.indexOf(ladder[best]) - target)) best = i;
+  }
+  return best;
+}
+
+/** The rungs actually available, newest vendor data first.
+ *
+ *  Previously the supported list was filtered THROUGH the hardcoded ladder, so
+ *  a rung the ladder did not know about was unreachable even when the vendor
+ *  offered it -- `ultra` could never be selected. */
+export function ladderFor(agent: AgentKind, supported?: string[] | null): string[] {
+  if (supported && supported.length) {
+    const known = supported.filter((e) => EFFORT_ORDER.includes(e));
+    const sorted = [...known].sort((a, b) => EFFORT_ORDER.indexOf(a) - EFFORT_ORDER.indexOf(b));
+    if (sorted.length) return sorted;
+  }
+  return EFFORT_LADDER[agent];
+}
 
 /** Fallback only. The real base comes from the user's own
  *  autoRoute[agent][tier].effort, so routing tunes their configuration rather
@@ -76,7 +119,7 @@ export function chooseEffort(opts: {
    *  Routing modulates the user's setting rather than replacing it. */
   configured?: string | null;
 }): EffortDecision {
-  const ladder = EFFORT_LADDER[opts.agent];
+  const ladder = ladderFor(opts.agent, opts.supported);
 
   if (opts.override) {
     return { effort: opts.override, reason: 'set by you', clamped: false, adaptive: false };
@@ -88,8 +131,11 @@ export function chooseEffort(opts: {
   }
 
   const baseEffort = opts.configured || FALLBACK_BASE[opts.agent][opts.tier];
-  let idx = ladder.indexOf(baseEffort);
-  if (idx < 0) idx = ladder.indexOf(FALLBACK_BASE[opts.agent][opts.tier]);
+  let idx = nearestIndex(ladder, baseEffort);
+  // The requested level is unavailable on this model. Recorded even though the
+  // ladder now IS the model's rungs, because the person configured that level
+  // and deserves to be told it never applied.
+  const baseUnsupported = Boolean(opts.supported?.length) && !ladder.includes(baseEffort);
   const notes: string[] = [`${opts.tier} task`];
 
   if (opts.kind === 'mechanical') {
@@ -119,21 +165,26 @@ export function chooseEffort(opts: {
 
   idx = clampIndex(idx, ladder);
   let effort = ladder[idx];
-  let clamped = false;
+  let clamped = baseUnsupported;
+  if (baseUnsupported) notes.push(`${baseEffort} unsupported by this model`);
 
   // Never request a level the model does not implement: the SDK silently
   // downgrades, which would make the UI claim an effort that never applied.
-  if (opts.supported && opts.supported.length) {
-    if (!opts.supported.includes(effort)) {
-      const allowed = ladder.filter((l) => opts.supported!.includes(l));
-      if (allowed.length) {
-        const target = ladder.indexOf(effort);
-        effort = allowed.reduce((best, cur) =>
-          Math.abs(ladder.indexOf(cur) - target) < Math.abs(ladder.indexOf(best) - target) ? cur : best,
-        );
-        clamped = true;
-        notes.push(`clamped to ${effort} — model does not support the requested level`);
-      }
+  // `ladder` is already the model's own rungs when the roster is known, so this
+  // only fires on a cold start where the fallback guessed a level the model
+  // lacks. The SDKs silently downgrade, which would make the UI claim an effort
+  // that never applied.
+  if (opts.supported && opts.supported.length && !opts.supported.includes(effort)) {
+    const allowed = opts.supported
+      .filter((e) => EFFORT_ORDER.includes(e))
+      .sort((a, b) => EFFORT_ORDER.indexOf(a) - EFFORT_ORDER.indexOf(b));
+    if (allowed.length) {
+      const target = EFFORT_ORDER.indexOf(effort);
+      effort = allowed.reduce((best, cur) =>
+        Math.abs(EFFORT_ORDER.indexOf(cur) - target) < Math.abs(EFFORT_ORDER.indexOf(best) - target) ? cur : best,
+      );
+      clamped = true;
+      notes.push(`clamped to ${effort} — model does not support the requested level`);
     }
   }
 
@@ -190,7 +241,7 @@ export function shouldApplyEffort(opts: {
   if (opts.fresh) return { apply: true, reason: 'fresh context — no cache to lose' };
   if (opts.perMessageEffort) return { apply: true, reason: 'model supports per-message effort — cache preserved' };
 
-  const ladder = EFFORT_LADDER[opts.agent];
+  const ladder = ladderFor(opts.agent, (opts as any).supported);
   const from = ladder.indexOf(opts.current);
   const to = ladder.indexOf(opts.proposed);
   if (from < 0 || to < 0) return { apply: true, reason: 'unknown level — applying' };

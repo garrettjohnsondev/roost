@@ -73,8 +73,8 @@ describe('chooseEffort', () => {
     expect(d.reason).toBe('set by you');
   });
 
-  it('uses the codex ladder for codex, which starts a rung lower', () => {
-    expect(chooseEffort({ ...base, agent: 'codex', tier: 'light' }).effort).toBe('minimal');
+  it('uses the codex ladder for codex, whose real bottom rung is low', () => {
+    expect(chooseEffort({ ...base, agent: 'codex', tier: 'light' }).effort).toBe('low');
     expect(chooseEffort({ ...base, agent: 'codex', tier: 'heavy' }).effort).toBe('high');
   });
 });
@@ -133,5 +133,47 @@ describe('shouldApplyEffort — protecting the prompt cache', () => {
     const d = shouldApplyEffort({ ...base, current: 'low', proposed: 'xhigh', changesSoFar: 2 });
     expect(d.apply).toBe(false);
     expect(d.reason).toMatch(/flapping/);
+  });
+});
+
+describe('effort rungs come from the live roster, not a hardcoded ladder', () => {
+  const base = { tier: 'heavy' as const, kind: 'reasoning' as const, agent: 'codex' as const, headroom: 'room' as const };
+  // What codex 0.154.0 actually reports for gpt-6-astra.
+  const ASTRA = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+
+  it('can reach ultra, which the old ladder made unreachable', () => {
+    // The supported list used to be filtered THROUGH the hardcoded ladder, so
+    // any rung the ladder lacked could never be selected however high we aimed.
+    const d = chooseEffort({ ...base, configured: 'ultra', supported: ASTRA });
+    expect(d.effort).toBe('ultra');
+    expect(d.clamped).toBe(false);
+  });
+
+  it('can step up into max on a surplus window', () => {
+    const d = chooseEffort({ ...base, configured: 'high', supported: ASTRA, surplus: true });
+    expect(['xhigh', 'max']).toContain(d.effort);
+  });
+
+  it('never selects minimal, a rung no Codex model exposes', () => {
+    for (const tier of ['light', 'standard', 'heavy'] as const) {
+      const d = chooseEffort({ ...base, tier, kind: 'mechanical', supported: ASTRA });
+      expect(d.effort).not.toBe('minimal');
+      expect(ASTRA).toContain(d.effort);
+    }
+  });
+
+  it('respects a model with a lower ceiling than its siblings', () => {
+    // Luna tops out at max; ultra must clamp rather than silently downgrade.
+    const luna = ['low', 'medium', 'high', 'xhigh', 'max'];
+    const d = chooseEffort({ ...base, configured: 'ultra', supported: luna });
+    expect(d.effort).toBe('max');
+    expect(d.clamped).toBe(true);
+    expect(d.reason).toMatch(/unsupported/);
+  });
+
+  it('falls back sanely before the roster has been fetched', () => {
+    const d = chooseEffort({ ...base, configured: 'high', supported: null });
+    expect(d.effort).toBeTruthy();
+    expect(d.clamped).toBe(false);
   });
 });
