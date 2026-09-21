@@ -183,7 +183,7 @@ The pool is still a **build-time asset**, but for different and better reasons t
 
 Two details worth keeping: the background colour is **specified in the prompt, not sampled back out of the PNG**, so every chip colour is exact by construction; and the light model drifted to shaded cartoon when asked for flat vector, so the generator uses the default model and passes a **verbatim style clause**, shared with the runtime generator so a custom avatar does not look pasted in beside the pool.
 
-### 🟨 Phase 2 — Dispatch primitive *(core done)*
+### ✅ Phase 2 — Dispatch primitive *(done)*
 
 `runAgentTask()` in `agents/dispatch.ts` — one throwaway agent, clean context, cancel handle, ledger attribution. Generalizes `startConsultStep`, which was hardcoded read-only and plan/critique-only.
 
@@ -195,7 +195,27 @@ Two details worth keeping: the background colour is **specified in the prompt, n
 
 Two things the live run caught that unit tests could not. Codex usage arrives on its **own `thread/tokenUsage/updated` notification**, not on `turn/completed` — reading it off the completion params produced no ledger entry at all, silently. And the first real dispatch showed `in=14,088` against `cacheRead=13,056`: the subagent re-paying its system prompt, confirming risk 4 — **dispatch saves context reliably and tokens only sometimes.**
 
-Pending: `.md` agent definitions in `<project>/.pocket/agents/` (frontmatter: model, capability, role, persona, system prompt), portable with `.claude/agents/`; and the built-in set (`explore`, `review`, `test`, `plan`).
+#### How agents are classified — and why there is no PM/Architect/UX roster
+
+Asked directly whether each role needs its own skills and memory, the evidence says no, and says it loudly. **E2EDevBench added a Designer agent to a working pipeline and the score fell 43.0% → 32.8%**, with executors deferring to the specialist's plan over the actual requirements. Meanwhile **SWE-agent gained 3.8% → 12.5% from tool design alone** — larger than any orchestration gain measured on coding.
+
+So an agent is strong because of **what it is given, what it may touch, what shape it must return, and what checks its output** — never because it was told it is a senior architect. The model already knows how to architect; it does not know *this project's* constraints.
+
+Three layers, and only the third carries behaviour:
+
+| Layer | Example | Purpose |
+|---|---|---|
+| **Persona** — who | Sol, Larry, Astra | Legibility; narration reads "Sending Larry in" |
+| **Role** — what hat this turn | planner, reviewer, executor | Badge and routing |
+| **Definition** — the contract | capability, context slice, return shape, gate | **Where strength lives** |
+
+Definitions are therefore named for **tasks, not jobs**: `explore`, `plan`, `review`, `ui-review`, `test-runner`, `implement`. Each carries a `hat` (`scout`, `architect`, `designer`, `QA`, `lead dev`) that is **display only** — the crew still reads as a team, without the measured harm of making job titles load-bearing. An unrecognised capability **fails closed** to `read-only`.
+
+**Project knowledge lives in one file, sliced per dispatch.** `<project>/.pocket/project.md`, split on H2 headings; each definition names the sections it receives. Generic role knowledge is what the specialist experiments showed adds nothing — what is genuinely missing from a model's context is *this* project's conventions, commands, done-definition, constraints and tokens. Slicing matters as much as content: a test runner has no use for design tokens, and handing every agent the whole file is how context rot starts.
+
+**Acceptance criteria travel with the task and are stated to outrank the plan**, because E2EDevBench's failure was executors treating a plan as authority over requirements.
+
+**Dogfooded:** with Pocket's own `project.md`, a `review` dispatch on `` `${used ?? 0}%` `` was correctly rejected for conflating missing data with zero — **by Haiku**, the cheapest model available, because it was handed the criterion rather than a job title.
 
 ### ⬜ Phase 3 — The conference
 Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCriticPrompt` / `composeProceedPrompt` already exist and are close to right. Three changes: **plan to a file**; **starve the reviewer** (plan + criteria only, plus an anti-noise instruction — a reviewer asked for gaps will invent them); **reconcile step** where the primary filters findings against requirements.
