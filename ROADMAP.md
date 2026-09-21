@@ -183,13 +183,19 @@ The pool is still a **build-time asset**, but for different and better reasons t
 
 Two details worth keeping: the background colour is **specified in the prompt, not sampled back out of the PNG**, so every chip colour is exact by construction; and the light model drifted to shaded cartoon when asked for flat vector, so the generator uses the default model and passes a **verbatim style clause**, shared with the runtime generator so a custom avatar does not look pasted in beside the pool.
 
-### ⬜ Phase 2 — Dispatch primitive
-Generalise `consult.ts`'s `startConsultStep` into `runAgentTask({ type, agent, model, effort, prompt, cwd, capability, background?, resumeFrom? })` — the contract Claude Code and Grok Build independently converged on.
+### 🟨 Phase 2 — Dispatch primitive *(core done)*
 
-- **Agent types as `.md` files with frontmatter** in `<project>/.pocket/agents/` (same shape as `.claude/agents/`, portable).
-- **Capability modes, not tool allowlists**: `read-only | read-write | execute | all`. Stronger and simpler than the Bash-prefix allowlist that bit us in agent-sync.
-- Built-ins: `explore` (read-only, cheap), `review` (read-only, frontier), `test` (execute-only), `plan` (read-only, frontier).
-- **Treat the other vendor's output as untrusted input** — scan for control-tag and turn-marker imitation at the Claude↔Codex seam, as Claude Code does for subagent output.
+`runAgentTask()` in `agents/dispatch.ts` — one throwaway agent, clean context, cancel handle, ledger attribution. Generalizes `startConsultStep`, which was hardcoded read-only and plan/critique-only.
+
+**Capability modes, not tool allowlists.** `read-only | read-write | execute | all`, each mapping onto the vendor's own enforcement: Claude's `canUseTool` gate, Codex's sandbox. agent-sync gated on Bash command prefixes, which is leakier (prefix matching is a parsing problem) and weaker (says nothing about file writes). Writing and executing are **separate** capabilities, so a planner can edit without running and a test runner can run without rewriting what it tests. **`danger-full-access` is unreachable from a dispatch** — nothing the orchestrator decides alone should escape the workspace.
+
+**Dispatched output is untrusted input.** `sanitize.ts` defangs control tags, turn markers, tool-call envelopes and foreign chat templates before the text enters another model's context. Neutralized rather than stripped, so a human reading the transcript still sees what was said. This does not require the other agent to be malicious — a reviewer quoting a file containing these markers is enough.
+
+**Verified live, both vendors:** Claude and Codex each read the repo and answered correctly; a write attempt under `read-only` returned `BLOCKED` and created no file; per-call ledger deltas captured on both sides.
+
+Two things the live run caught that unit tests could not. Codex usage arrives on its **own `thread/tokenUsage/updated` notification**, not on `turn/completed` — reading it off the completion params produced no ledger entry at all, silently. And the first real dispatch showed `in=14,088` against `cacheRead=13,056`: the subagent re-paying its system prompt, confirming risk 4 — **dispatch saves context reliably and tokens only sometimes.**
+
+Pending: `.md` agent definitions in `<project>/.pocket/agents/` (frontmatter: model, capability, role, persona, system prompt), portable with `.claude/agents/`; and the built-in set (`explore`, `review`, `test`, `plan`).
 
 ### ⬜ Phase 3 — The conference
 Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCriticPrompt` / `composeProceedPrompt` already exist and are close to right. Three changes: **plan to a file**; **starve the reviewer** (plan + criteria only, plus an anti-noise instruction — a reviewer asked for gaps will invent them); **reconcile step** where the primary filters findings against requirements.
