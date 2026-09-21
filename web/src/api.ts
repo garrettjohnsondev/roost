@@ -7,6 +7,7 @@ import type {
   ServerEvent,
   SessionMeta,
   UsageSnapshot,
+  Persona,
 } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -21,6 +22,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   config: () => request<PocketConfigResponse>('/api/config'),
   sessions: () => request<{ sessions: SessionMeta[] }>('/api/sessions'),
+  crew: () => request<{ crew: Persona[]; overrides: Persona[] }>('/api/crew'),
+  saveCrew: (overrides: Persona[]) =>
+    request<{ ok: true; crew: Persona[] }>('/api/crew', { method: 'POST', body: JSON.stringify({ overrides }) }),
   avatars: () => request<{ custom: Array<{ file: string; url: string; at: number }> }>('/api/avatars'),
   generateAvatar: (subject: string, color: string) =>
     request<{ ok: true; file: string; url: string }>('/api/avatars/generate', {

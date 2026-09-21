@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CrewEditor } from './CrewEditor';
 import { api } from './api';
 import type { Theme } from './theme';
 import type { NotificationConfig } from './types';
@@ -92,6 +93,8 @@ export function GlobalSettings(props: {
     }
   }
 
+  const [crewOpen, setCrewOpen] = useState(false);
+
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -110,6 +113,19 @@ export function GlobalSettings(props: {
         </div>
 
         <NotificationSettings notifications={notifications} onChange={onNotificationsChange} />
+
+        <div className="field">
+          <label>Crew</label>
+          {crewOpen ? (
+            <CrewEditor onClose={() => setCrewOpen(false)} />
+          ) : (
+            <>
+              <button className="ghost" onClick={() => setCrewOpen(true)}>Customize crew</button>
+              <p className="section-hint">Name each agent, pick a face and a colour. Identity follows the
+                model, so a crew member keeps their face when a new version ships.</p>
+            </>
+          )}
+        </div>
 
         <div className="field">
           <label>Projects</label>

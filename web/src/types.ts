@@ -111,6 +111,17 @@ export interface RecentProject {
   lastResumeId: string;
 }
 
+/** A crew member's identity, as stored and edited. Mirrors server Persona. */
+export interface Persona {
+  /** Case-insensitive substring matched against the model id. '' = suite default. */
+  match: string;
+  suite?: AgentKind;
+  name: string;
+  tier: 'flagship' | 'worker';
+  color: string;
+  avatar?: string;
+}
+
 export interface CrewInfo {
   /** Who: stable per (suite, model). */
   name: string;

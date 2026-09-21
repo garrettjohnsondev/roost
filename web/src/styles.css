@@ -1816,3 +1816,20 @@ button {
 .avatar-gen { display: flex; gap: 8px; align-items: center; }
 .avatar-gen input { flex: 1; min-width: 0; }
 .avatar-note { font-size: 12px; opacity: 0.7; line-height: 1.4; }
+
+.crew-editor { display: flex; flex-direction: column; gap: 10px; }
+.crew-row { display: flex; align-items: center; gap: 10px; }
+.crew-row-face {
+  width: 40px; height: 40px; flex: 0 0 40px;
+  border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  overflow: hidden; color: #fff; font-weight: 600;
+}
+.crew-row-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.crew-row-main { flex: 1; min-width: 0; }
+.crew-row-name { width: 100%; }
+.crew-row-sub { font-size: 12px; opacity: 0.6; }
+.crew-picker-host {
+  border-top: 1px solid var(--line, #2a2a2a);
+  padding-top: 10px; display: flex; flex-direction: column; gap: 10px;
+}
+.crew-actions { display: flex; gap: 8px; justify-content: flex-end; }
