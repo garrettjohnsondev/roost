@@ -7,6 +7,8 @@ import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { quotaStore } from './quota.js';
+import { modelRegistry, classify, auditRoutes } from './registry.js';
+import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
 import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification } from './notify.js';
@@ -288,6 +290,27 @@ app.get('/api/usage', (_req, res) => {
 
 /** The crew roster: who each model is, what colour they wear. Defaults plus any
  *  user overrides, so the UI can render the editor against one list. */
+app.get('/api/models', (_req, res) => {
+  const reg = modelRegistry();
+  const models = reg.all().map((m) => ({ ...m, suggested: classify(m) }));
+  res.json({
+    fetchedAt: reg.fetchedAt(),
+    models,
+    // Configured routes that point at something deleted, superseded, or at an
+    // effort level the model does not actually have.
+    issues: auditRoutes(config.autoRoute as any, reg.all()),
+  });
+});
+
+app.post('/api/models/refresh', async (_req, res) => {
+  try {
+    const changes = await refreshRegistry(config.projects[0] ?? process.cwd());
+    res.json({ ok: true, changes });
+  } catch (e: any) {
+    res.status(500).json({ error: String(e?.message ?? e) });
+  }
+});
+
 app.get('/api/crew', (_req, res) => {
   res.json({ crew: allPersonas(), overrides: loadOverrides() });
 });
@@ -406,4 +429,6 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   console.log(`[pocket] projects: ${config.projects.join(', ')}`);
   if (!token) console.log('[pocket] no POCKET_TOKEN set — keep this server tailnet-only');
   printTailscaleUrl(config.port);
+  // Zero-token on both sides, so this costs nothing but keeps the roster live.
+  startRegistryRefresh(config.projects[0] ?? process.cwd());
 });

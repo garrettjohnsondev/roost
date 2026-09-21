@@ -158,3 +158,62 @@ describe('detecting a new release', () => {
     });
   });
 });
+
+/** Verbatim from `supportedModels()` on 2026-09-21. */
+const CLAUDE_LIVE = [
+  { value: 'default', resolvedModel: 'claude-opus-5[1m]', displayName: 'Default (recommended)',
+    description: 'Opus 5 with 1M context · Best for everyday, complex tasks',
+    supportsEffort: true, supportsAdaptiveThinking: true,
+    supportedEffortLevels: ['low','medium','high','xhigh','max'] },
+  { value: 'opus[1m]', resolvedModel: 'claude-opus-5[1m]', displayName: 'Opus (1M context)',
+    description: 'Opus 5 with 1M context · Best for everyday, complex tasks',
+    supportsEffort: true, supportsAdaptiveThinking: true,
+    supportedEffortLevels: ['low','medium','high','xhigh','max'] },
+  { value: 'claude-fable-5-1[1m]', resolvedModel: 'claude-fable-5-1', displayName: 'Fable',
+    description: 'Fable 5.1 · Most capable for your hardest and longest-running tasks',
+    supportsEffort: true, supportsAdaptiveThinking: true,
+    supportedEffortLevels: ['low','medium','high','xhigh','max'] },
+  { value: 'sonnet', resolvedModel: 'claude-sonnet-5', displayName: 'Sonnet',
+    description: 'Sonnet 5 · Efficient for routine tasks',
+    supportsEffort: true, supportsAdaptiveThinking: true,
+    supportedEffortLevels: ['low','medium','high','xhigh','max'] },
+  { value: 'haiku', resolvedModel: 'claude-haiku-4-5-20251001', displayName: 'Haiku',
+    description: 'Haiku 4.5 · Fastest for quick answers' },
+];
+
+describe('claude roster', () => {
+  const cc = fromClaudeModelInfo(CLAUDE_LIVE);
+  const c = (id: string) => cc.find((x) => x.id === id)!;
+
+  it('tiers each model the way its own description reads', () => {
+    // "Best for everyday, complex tasks" -- `everyday` must not win over
+    // `complex tasks`, which is what filed Opus as standard the first time.
+    expect(classify(c('opus[1m]')).tier).toBe('heavy');
+    expect(classify(c('claude-fable-5-1[1m]')).tier).toBe('heavy');
+    expect(classify(c('sonnet')).tier).toBe('standard');
+    expect(classify(c('haiku')).tier).toBe('light');
+  });
+
+  it('captures adaptive thinking, so routing need not guess a budget', () => {
+    expect(c('sonnet').adaptiveThinking).toBe(true);
+    expect(c('haiku').adaptiveThinking).toBe(false);
+    expect(c('haiku').supportsEffort).toBe(false);
+  });
+
+  it('does not report a working alias as deleted', () => {
+    // The roster offers `opus[1m]`; a config saying `opus` is still valid.
+    const issues = auditRoutes(
+      { claude: { heavy: { model: 'opus', effort: 'xhigh' }, light: { model: 'haiku' } } },
+      cc,
+    );
+    expect(issues.filter((i) => i.problem.includes('no longer exists'))).toEqual([]);
+  });
+
+  it('still catches an effort level a model genuinely lacks', () => {
+    const issues = auditRoutes({ claude: { light: { model: 'haiku', effort: 'xhigh' } } }, cc);
+    expect(issues).toEqual([]); // haiku declares no levels at all -- nothing to contradict
+    const issues2 = auditRoutes({ claude: { heavy: { model: 'opus', effort: 'ultra' } } }, cc);
+    expect(issues2[0].problem).toMatch(/not supported/);
+    expect(issues2[0].suggestion).toBe('max');
+  });
+});

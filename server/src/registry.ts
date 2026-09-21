@@ -26,6 +26,10 @@ export interface ModelCard {
   /** Codex `upgrade`: the vendor naming this model's successor outright. */
   supersededBy: string | null;
   hidden: boolean;
+  /** Capability flags, so routing never has to assume. `adaptiveThinking`
+   *  means the model picks its own budget -- prefer that over any fixed guess. */
+  supportsEffort: boolean;
+  adaptiveThinking: boolean;
   seenAt: number;
 }
 
@@ -57,14 +61,16 @@ export function classify(card: ModelCard): Classification {
   const d = `${card.displayName} ${card.description}`.toLowerCase();
   const ceiling = effortCeiling(card);
 
-  if (/most capable|most intelligent|complex, demanding|frontier/.test(d)) {
+  // Checked heavy-first, because the vendors overlap: Opus reads "Best for
+  // everyday, complex tasks" and matching `everyday` first filed it standard.
+  if (/most capable|most intelligent|complex, demanding|complex tasks|hardest|longest-running|frontier/.test(d)) {
     return { tier: 'heavy', why: 'vendor describes it as most capable' };
   }
-  if (/fast and affordable|affordable|fastest|lightweight/.test(d) || /\b(mini|nano|haiku)\b/.test(d)) {
-    return { tier: 'light', why: 'vendor describes it as fast/affordable' };
+  if (/fast and affordable|affordable|fastest|quick answers|lightweight/.test(d) || /\b(mini|nano|haiku)\b/.test(d)) {
+    return { tier: 'light', why: 'vendor describes it as fast/cheap' };
   }
-  if (/balanced|workhorse|everyday|general/.test(d)) {
-    return { tier: 'standard', why: 'vendor describes it as everyday/balanced' };
+  if (/balanced|workhorse|everyday|efficient|routine|general/.test(d)) {
+    return { tier: 'standard', why: 'vendor describes it as everyday/routine' };
   }
   // Fall back to the effort ceiling only as a tiebreak, never as the sole
   // reason -- a high ceiling means "can think hard", not "is the best model".
@@ -72,6 +78,15 @@ export function classify(card: ModelCard): Classification {
     return { tier: 'heavy', why: 'vendor default with the top effort ceiling' };
   }
   return { tier: null, why: 'no confident match -- needs review' };
+}
+
+/** Claude decorates ids with a context-variant suffix -- the roster offers
+ *  `opus[1m]` while a config reasonably says `opus`. Treating those as
+ *  different models would report a working route as deleted. */
+export function matchesId(card: ModelCard, id: string): boolean {
+  const strip = (v: string) => v.replace(/\[[^\]]*\]$/, '');
+  if (card.id === id || card.resolvedId === id) return true;
+  return strip(card.id) === strip(id) || strip(card.resolvedId ?? '') === strip(id);
 }
 
 const EFFORT_ORDER = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
@@ -159,7 +174,7 @@ export function auditRoutes(
     for (const [tier, cfg] of Object.entries(tiers ?? {})) {
       const id = cfg?.model;
       if (!id) continue;
-      const card = models.find((m) => m.agent === agent && (m.id === id || m.resolvedId === id));
+      const card = models.find((m) => m.agent === agent && matchesId(m, id));
       if (!card) {
         const alt = models.filter((m) => m.agent === agent && classify(m).tier === tier)[0];
         out.push({ agent, tier, model: id, problem: 'model no longer exists', suggestion: alt?.id ?? null });
@@ -168,7 +183,9 @@ export function auditRoutes(
       if (card.supersededBy) {
         out.push({ agent, tier, model: id, problem: `superseded by ${card.supersededBy}`, suggestion: card.supersededBy });
       }
-      if (cfg.effort && !card.efforts.includes(cfg.effort)) {
+      // An empty `efforts` list means the vendor declared nothing -- absence of
+      // data is not evidence the level is unsupported, so make no claim.
+      if (cfg.effort && card.efforts.length && !card.efforts.includes(cfg.effort)) {
         out.push({
           agent, tier, model: id,
           problem: `effort '${cfg.effort}' not supported (has ${card.efforts.join('/')})`,
@@ -197,6 +214,8 @@ export function fromCodexModelList(rows: any[]): ModelCard[] {
     isVendorDefault: m.isDefault === true,
     supersededBy: m.upgrade ? String(m.upgrade) : null,
     hidden: m.hidden === true,
+    supportsEffort: Array.isArray(m.supportedReasoningEfforts) && m.supportedReasoningEfforts.length > 0,
+    adaptiveThinking: false,
     seenAt: now,
   })).filter((m) => m.id);
 }
@@ -214,6 +233,8 @@ export function fromClaudeModelInfo(rows: any[]): ModelCard[] {
     isVendorDefault: false,
     supersededBy: null,
     hidden: false,
+    supportsEffort: m.supportsEffort === true,
+    adaptiveThinking: m.supportsAdaptiveThinking === true,
     seenAt: now,
   })).filter((m) => m.id);
 }
@@ -246,7 +267,7 @@ export class ModelRegistry {
   }
 
   get(agent: AgentKind, id: string): ModelCard | null {
-    return this.reg.models.find((m) => m.agent === agent && (m.id === id || m.resolvedId === id)) ?? null;
+    return this.reg.models.find((m) => m.agent === agent && matchesId(m, id)) ?? null;
   }
 
   /** Replace one agent's roster, returning what changed. Other agents are left
