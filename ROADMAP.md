@@ -98,6 +98,8 @@ Not because "debate makes it smarter" — that's contested at matched compute. B
 6. **Unknown is never headroom.** The single most expensive bug in agent-sync's history. See §7.
 7. **No number renders that the data can't support.** `null` is a first-class state everywhere: `usedPercent`, `costUsd`, `SavingsReport`. Any `?? 0` on a cost, percent or savings figure is a bug.
 
+8. **No free-model tier. Rejected 2026-09-21, after research, by Garrett.** The idea was free models for the first planning/triage pass, a free tier for users, and auto-degrade to free at the limit ceiling. It dies on **privacy, not rate limits**. Most free endpoints are paid for with your prompts: Gemini's free tier states human reviewers may read input and warns against submitting confidential data; Mistral's free tier requires opting into training; and OpenRouter returns **404 on every `:free` model if you disable prompt logging** — free access is *conditional* on letting them train. For private repos the safe set collapses to Groq (contractual no-training + self-serve ZDR, but ~8K TPM), Cloudflare Workers AI, and local Ollama — too narrow to plan with. The quality evidence points the same way: free models are adequate for triage, classification and labelling, never for patch generation. **Do not revive this without a no-training provider that can hold a real planning context.** Related dead ends: `cheahjs/free-llm-api-resources` (~29.4k★) is **deleted — 404**, mirrors are stale; GitHub Models was **fully retired 2026-07-30**; `zukixa/cool-ai-stuff` routes through paywall-circumventing reverse proxies. If a free path is ever wanted, use **LiteLLM**'s `fallbacks` + `allowed_fails` + `cooldown_time` rather than building rotation, and resolve model ids at runtime — every hardcoded free list in the wild is already stale.
+
 ---
 
 ## 6. Phases
@@ -165,6 +167,7 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 | 7 | **Blind iteration invented phantom windows.** Iterating `rate_limits` treated `spend`, `extra_usage`, `seven_day_breakdown` and null codename keys as windows. | Only rows with a numeric percent are windows. `limits[]` is the authoritative array. |
 | 8 | **Non-hermetic test** — pricing read `~/.agent-sync/prices.json` from `$HOME`, so assertions depended on the machine. | `POCKET_LEGACY_PRICES` makes the legacy path explicit and disableable. |
 | 9 | **Filed `personas.js` as fiction to drop.** It is the crew feature. | Ported as `crew.ts` (Phase 1). |
+| 10 | **Planned a free-model planning tier** before checking what free costs. The constraint isn't rate limits, it's that free tiers are paid for in prompts — and this harness runs on private repos. | Dropped entirely. See decision 8. |
 
 ---
 
