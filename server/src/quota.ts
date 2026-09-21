@@ -122,13 +122,44 @@ export class QuotaStore {
     });
   }
 
-  /** From the SDK's structured usage control request. Percentages here are
-   *  documented 0-100 and resets are ISO 8601. */
+  /** From the SDK's structured usage control request.
+   *
+   *  The authoritative payload is `rate_limits.limits[]`, each entry shaped
+   *  { kind, group, percent, severity, resets_at, scope, is_active } — `percent`
+   *  is already 0-100, so this path has none of the 0-1/0-100 ambiguity that
+   *  makes the rate_limit_event `utilization` field a guess. The sibling keys
+   *  (spend, extra_usage, seven_day_breakdown, member_dashboard_available, and a
+   *  raft of null codename entries) are NOT windows and must not be iterated
+   *  blindly — doing so invented phantom "no data" rows. */
   noteClaudeUsageRead(resp: any): void {
     const limits = resp?.rate_limits;
-    if (limits && typeof limits === 'object') {
+    const rows: any[] = Array.isArray(limits?.limits) ? limits.limits : [];
+
+    for (const row of rows) {
+      if (!row || typeof row.percent !== 'number') continue;
+      const kind = String(row.kind ?? 'unknown');
+      const scoped = row.scope?.model?.display_name;
+      const key = scoped ? `claude:${kind}:${scoped}` : `claude:${kind}`;
+      const label =
+        kind === 'session' ? '5-hour session'
+          : kind === 'weekly_all' ? '7-day (all models)'
+            : scoped ? `7-day (${scoped})`
+              : CLAUDE_WINDOW_LABELS[kind] ?? kind;
+      this.upsert('claude', key, {
+        label,
+        usedPercent: normalizePct(row.percent),
+        windowDurationMins: row.group === 'session' ? 300 : row.group === 'weekly' ? 10080 : null,
+        resetsAt: row.resets_at ? Date.parse(row.resets_at) || null : null,
+        status: row.severity === 'normal' ? 'allowed' : row.severity ? 'allowed_warning' : undefined,
+        source: 'sdk-usage',
+      });
+    }
+
+    // Fallback for SDK shapes that predate limits[]: the flat five_hour /
+    // seven_day* keys. Only objects carrying a utilization are windows.
+    if (!rows.length && limits && typeof limits === 'object') {
       for (const [type, w] of Object.entries<any>(limits)) {
-        if (!w || type === 'model_scoped' || type === 'extra_usage') continue;
+        if (!w || typeof w !== 'object' || typeof w.utilization !== 'number') continue;
         this.upsert('claude', `claude:${type}`, {
           label: CLAUDE_WINDOW_LABELS[type] ?? type,
           usedPercent: normalizePct(w.utilization),
@@ -137,19 +168,10 @@ export class QuotaStore {
           source: 'sdk-usage',
         });
       }
-      for (const w of limits.model_scoped ?? []) {
-        if (!w?.display_name) continue;
-        this.upsert('claude', `claude:model_scoped:${w.display_name}`, {
-          label: `${w.display_name}`,
-          usedPercent: normalizePct(w.utilization),
-          windowDurationMins: null,
-          resetsAt: w.resets_at ? Date.parse(w.resets_at) || null : null,
-          source: 'sdk-usage',
-        });
-      }
     }
+
     if (resp?.subscription_type) this.claude.planType = String(resp.subscription_type);
-    this.claude.usageAllowed = resp?.rate_limits_available ? true : null;
+    this.claude.usageAllowed = resp?.rate_limits_available === true ? true : null;
     this.claude.lastFullReadAt = Date.now();
     this.claude.error = undefined;
     this.persist();

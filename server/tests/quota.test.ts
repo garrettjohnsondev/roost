@@ -126,3 +126,57 @@ describe('surplus (use-it-or-lose-it)', () => {
     expect(store.surplus('claude', budget)).toBeNull();
   });
 });
+
+describe('claude structured usage read', () => {
+  // Captured verbatim from a live SDK usage control request (Max plan). The
+  // sibling keys are deliberately included: an earlier implementation iterated
+  // rate_limits blindly and invented phantom "no data" windows out of `spend`,
+  // `extra_usage`, `seven_day_breakdown` and a raft of null codename entries.
+  const LIVE = {
+    subscription_type: 'max',
+    rate_limits_available: true,
+    rate_limits: {
+      cinder_cove: null,
+      nimbus_quill: null,
+      extra_usage: { is_enabled: false, monthly_limit: 10000, used_credits: 0, utilization: 0 },
+      spend: { used: { amount_minor: 0 }, limit: { amount_minor: 10000 } },
+      member_dashboard_available: false,
+      seven_day_breakdown: { as_of: '2026-09-21T17:38:35Z', rows: [] },
+      limits: [
+        { kind: 'session', group: 'session', percent: 23, severity: 'normal', resets_at: '2026-09-21T21:30:00.400221+00:00', scope: null, is_active: true },
+        { kind: 'weekly_all', group: 'weekly', percent: 3, severity: 'normal', resets_at: '2026-09-25T01:00:00.400240+00:00', scope: null, is_active: false },
+        { kind: 'weekly_scoped', group: 'weekly', percent: 0, severity: 'normal', resets_at: '2026-09-25T01:00:00+00:00', scope: { model: { id: null, display_name: 'Fable' } }, is_active: false },
+      ],
+      model_scoped: [{ display_name: 'Fable', utilization: 0, resets_at: '2026-09-25T01:00:00+00:00' }],
+    },
+  };
+
+  it('reads exactly the three real windows and no phantoms', () => {
+    store.noteClaudeUsageRead(LIVE);
+    const wins = store.windows('claude');
+    expect(wins.map((w) => w.label).sort()).toEqual(['5-hour session', '7-day (Fable)', '7-day (all models)']);
+    expect(wins.find((w) => w.label === '5-hour session')!.usedPercent).toBe(23);
+    expect(wins.find((w) => w.label === '7-day (all models)')!.usedPercent).toBe(3);
+  });
+
+  it('takes percent as 0-100 without rescaling it', () => {
+    store.noteClaudeUsageRead(LIVE);
+    // 23 must not become 2300 or 0.23 — this path has no scale ambiguity.
+    expect(store.windows('claude').find((w) => w.label === '5-hour session')!.usedPercent).toBe(23);
+  });
+
+  it('carries plan type and window durations', () => {
+    store.noteClaudeUsageRead(LIVE);
+    expect(store.agent('claude').planType).toBe('max');
+    const wins = store.windows('claude');
+    expect(wins.find((w) => w.label === '5-hour session')!.windowDurationMins).toBe(300);
+    expect(wins.find((w) => w.label === '7-day (all models)')!.windowDurationMins).toBe(10080);
+  });
+
+  it('falls back to flat five_hour/seven_day keys when limits[] is absent', () => {
+    store.noteClaudeUsageRead({ rate_limits: { five_hour: { utilization: 55, resets_at: '2026-09-25T01:00:00+00:00' }, spend: { used: 1 } } });
+    const wins = store.windows('claude');
+    expect(wins).toHaveLength(1);
+    expect(wins[0].usedPercent).toBe(55);
+  });
+});

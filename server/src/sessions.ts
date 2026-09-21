@@ -3,12 +3,14 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import type { WebSocket } from 'ws';
 import { now, type AgentKind, type ApprovalSetting, type ClientMessage, type ServerEvent, type SessionMeta } from './protocol.js';
 import { truncate } from './util.js';
-import type { AgentAdapter } from './agents/types.js';
+import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
 import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier } from './router.js';
+import { callLedger } from './ledger.js';
+import { estimateCost } from './pricing.js';
 import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startConsultStep, type ConsultRun } from './consult.js';
 
 const TRANSCRIPT_CAP = 5000;
@@ -44,6 +46,8 @@ export class Session {
   private onChange?: () => void;
   private autoRoute: AutoRouteConfig;
   private lastTier?: Tier;
+  /** Which hat the live agent is wearing, so ledger rows attribute correctly. */
+  private currentRole: string = 'chat';
   private consultRunning = false;
   private activeConsult?: ConsultRun;
   private consultCancelled = false;
@@ -101,6 +105,34 @@ export class Session {
         if (this.autoMode) this.routedModel = model;
         else this.model = model;
         this.broadcastMeta();
+      },
+      // Per-call usage lands in the durable ledger. Engines that report their own
+      // dollars (Claude) are taken as authoritative; ones that don't (Codex) are
+      // priced from the model id, which yields null rather than a guess when no
+      // rate row exists for it.
+      onCall: (d: CallDelta) => {
+        const priced =
+          d.costUsd != null
+            ? { usd: d.costUsd, basis: d.costBasis }
+            : estimateCost(d.model, { inTok: d.inTok, outTok: d.outTok, cacheReadTok: d.cacheReadTok, cacheWriteTok: d.cacheWriteTok });
+        callLedger().record({
+          at: Date.now(),
+          sessionId: this.id,
+          agentSessionId: d.agentSessionId,
+          turnId: d.turnId,
+          agent: d.agent,
+          model: d.model,
+          role: this.currentRole,
+          persona: undefined,
+          tier: this.lastTier,
+          inTok: d.inTok,
+          outTok: d.outTok,
+          cacheReadTok: d.cacheReadTok,
+          cacheWriteTok: d.cacheWriteTok,
+          reasoningTok: d.reasoningTok,
+          costUsd: priced.usd,
+          costBasis: priced.basis,
+        });
       },
     };
     this.adapter = agent === 'claude' ? new ClaudeAdapter(adapterOptions) : new CodexAdapter(adapterOptions);
