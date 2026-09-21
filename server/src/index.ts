@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
 import { quotaStore } from './quota.js';
 import { modelRegistry, classify, auditRoutes } from './registry.js';
+import { capabilitiesFrom, reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
 import { generateAvatar, listCustom, avatarDir, AvatarGenError } from './avatars.js';
 import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
 import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
@@ -312,13 +313,24 @@ app.post('/api/avatars/generate', async (req, res) => {
 app.get('/api/models', (_req, res) => {
   const reg = modelRegistry();
   const models = reg.all().map((m) => ({ ...m, suggested: classify(m) }));
+  const caps = capabilitiesFrom(reg.all());
   res.json({
     fetchedAt: reg.fetchedAt(),
     models,
     // Configured routes that point at something deleted, superseded, or at an
     // effort level the model does not actually have.
     issues: auditRoutes(config.autoRoute as any, reg.all()),
+    // What this user can actually do. A vendor absent here is one they are not
+    // signed in to -- the UI must hide those features rather than grey them out
+    // and imply the harness is broken.
+    capabilities: { ...caps, reviewLabel: REVIEW_STRENGTH_LABEL[caps.reviewStrength] },
   });
+});
+
+app.get('/api/review-plan', (req, res) => {
+  const agent = req.query.agent === 'codex' ? 'codex' : 'claude';
+  const choice = reviewerFor({ agent, model: String(req.query.model ?? '') }, modelRegistry().all());
+  res.json({ ...choice, label: REVIEW_STRENGTH_LABEL[choice.strength] });
 });
 
 app.post('/api/models/refresh', async (_req, res) => {

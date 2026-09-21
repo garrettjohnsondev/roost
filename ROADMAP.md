@@ -95,14 +95,62 @@ Not because "debate makes it smarter" — that's contested at matched compute. B
 3. **Size-gate the ceremony.** Below **10+ files or 3+ independent pieces** (Anthropic's published threshold), skip the conference. On a coherent mid-size Rails build, solo Opus scored **97 in 18m for $4** while every mixed config tied or lost, slower and dearer — and the orchestrator's own turns added **~$11 across 14 dispatches**.
 4. **Delegation propensity is miscalibrated in both directions.** Given a free choice, models in one study delegated *zero* times; Opus 5 over-delegates enough that Anthropic prompts it down. **Gate on measured size, never on the model's self-assessment.**
 5. **Both sides must be frontier.** Cognition's asymmetric "smart friend" failed: the weaker primary set the quality ceiling and couldn't tell when to escalate. Never make a cheap model the primary with a frontier advisor.
-6. **Unknown is never headroom.** The single most expensive bug in agent-sync's history. See §7.
+6. **Unknown is never headroom.** The single most expensive bug in agent-sync's history. See §8.
 7. **No number renders that the data can't support.** `null` is a first-class state everywhere: `usedPercent`, `costUsd`, `SavingsReport`. Any `?? 0` on a cost, percent or savings figure is a bug.
 
 8. **No free-model tier. Rejected 2026-09-21, after research, by Garrett.** The idea was free models for the first planning/triage pass, a free tier for users, and auto-degrade to free at the limit ceiling. It dies on **privacy, not rate limits**. Most free endpoints are paid for with your prompts: Gemini's free tier states human reviewers may read input and warns against submitting confidential data; Mistral's free tier requires opting into training; and OpenRouter returns **404 on every `:free` model if you disable prompt logging** — free access is *conditional* on letting them train. For private repos the safe set collapses to Groq (contractual no-training + self-serve ZDR, but ~8K TPM), Cloudflare Workers AI, and local Ollama — too narrow to plan with. The quality evidence points the same way: free models are adequate for triage, classification and labelling, never for patch generation. **Do not revive this without a no-training provider that can hold a real planning context.** Related dead ends: `cheahjs/free-llm-api-resources` (~29.4k★) is **deleted — 404**, mirrors are stale; GitHub Models was **fully retired 2026-07-30**; `zukixa/cool-ai-stuff` routes through paywall-circumventing reverse proxies. If a free path is ever wanted, use **LiteLLM**'s `fallbacks` + `allowed_fails` + `cooldown_time` rather than building rotation, and resolve model ids at runtime — every hardcoded free list in the wild is already stale.
 
+9. **One subscription is a first-class configuration.** Only cross-vendor review and cross-quota routing need both; verification, effort routing, context metering, dispatch and the fuel gauge all work alone — and the fuel gauge matters *more* without a fallback window. See §6.
+
 ---
 
-## 6. Phases
+## 6. Operating on one subscription
+
+**A single-subscription user is a first-class configuration, not a degraded one.** Everything above is written in terms of two flagships talking, which reads as though both are required. They are not, and being precise about this matters: most people have one subscription, not two.
+
+**Exactly two things need both vendors:**
+
+1. **Cross-vendor review** — a second vendor's model as genuinely independent external signal.
+2. **Cross-quota routing** — spending the other provider's window when yours is tight.
+
+**Everything else works untouched**, including the two most important things in this document:
+
+| Feature | One subscription? |
+|---|---|
+| **Verification gate** (§4's highest-evidence item) | ✅ Unaffected — a harness-run script does not care who wrote the code |
+| **Effort routing** (the novel item, §10) | ✅ Unaffected — entirely within one vendor |
+| Honest fuel gauge, burn rate, surplus detection | ✅ **Matters *more*** — with no second window to fall back on |
+| Context metering and the dispatch→compact→handoff ladder | ✅ Unaffected |
+| Tier routing (light/standard/heavy) | ✅ Unaffected — each vendor ships 4–5 distinct models |
+| Model registry and auto-update (Phase 7) | ✅ Unaffected |
+| Crew identity, avatars, roles | ✅ Unaffected |
+| Subagent dispatch — where the token savings actually live | ✅ Unaffected |
+| Size-gated ceremony, plan-as-file | ✅ Unaffected |
+
+Read against §4's own uncomfortable summary, this is a better story than it first appears: **the single-subscription user loses the least-evidenced feature (the conference) and keeps the best-evidenced one (verification).**
+
+### Review without a second vendor
+
+The mechanism in §4 is **fresh context**, not vendor diversity. [Cross-Context Review](https://arxiv.org/html/2603.12123) measured *same-model* fresh-context review beating self-review (F1 28.6% vs 24.6%), and found that including the author's prompt made it **worse than self-review**. Vendor diversity strengthens the signal; it is not what creates it.
+
+So `reviewerFor(planner)` picks, in order:
+
+1. **The other vendor** — strongest. Independent training, independent blind spots.
+2. **A different model, same vendor** — Opus plans, Fable reviews; Sol plans, Astra reviews. Both vendors now ship 4–5 genuinely distinct models, so this is real diversity inside one subscription.
+3. **Same model, fresh context, plan and criteria only** — weakest. Shares every blind spot with the author.
+
+**Label the strength in the UI; never present tier 3 as equivalent to tier 1.** Same-family models share training lineage, so they share failure modes — a reviewer that cannot see the author's mistake is worth less than one that can, and pretending otherwise is the "smart friend" error in §5.4 wearing a different hat.
+
+### What changes elsewhere
+
+- **Detection is already free.** `refreshRegistry()` fetches both rosters with `Promise.allSettled`; a vendor that fails to answer is a vendor the user does not have. No extra probe, no extra prompt for credentials.
+- **Never offer what isn't there.** One fuel gauge, not two greyed ones. No cross-vendor review promised in the UI. An absent vendor is absent, not "unknown" — this is the one place where missing data has an unambiguous meaning.
+- **Scarcity routing degrades to tier and effort only.** With nowhere to route, §7's ladder still steps *down* within the vendor; it simply cannot step *across*. `policy.ts` already distinguishes these — `hardstop` requires that there be nowhere to route, which is exactly the single-subscription condition.
+- **Surplus still applies**, and is arguably the bigger win: burning an about-to-reset window at a higher tier is pure profit when there is no second account to spend instead.
+
+---
+
+## 7. Phases
 
 ### ✅ Phase 0 — Truth *(done)*
 `pricing.ts` (no catch-all row) · `ledger.ts` (per-call, role + persona attribution, `savings()` returns null) · `quota.ts` (expired windows **purge to unknown**, Codex snapshots merge) · `policy.ts` (75/90/98) · per-call delta capture at both adapters · `usage.ts` as a facade · zero-token structured Claude usage read.
@@ -122,10 +170,18 @@ Three windows, and conflating them is how long sessions rot:
 
 Metered via Claude `getContextUsage({detail:'summary'})` (a **stable** API) and Codex `modelContextWindow` + per-turn breakdown (free). Thresholds deliberately tighter than any auto-compact trigger. Advice escalates cheapest-first: **dispatch → compact → handoff**.
 
-### ⬜ Phase 1 — The crew
-Port `agent sync/server/personas.js` → `crew.ts`. It already maps `(suite, model) → {name, tier}` (Fable, Ollie, Sunny, Larry, Sol, Bolt, Rex, Ace), supports user overrides, and `rosterBlock()` injects names into prompts so narration reads *"Sending Larry in to build the UI."*
+### ✅ Phase 1 — The crew *(done)*
+`personas.js` → `crew.ts`, mapping `(suite, model) → {name, tier, colour}` with user overrides, plus **`role`** as a field distinct from `tier` (`planner | reviewer | executor | explorer | tester | dispatcher`) — persona is *who*, role is *what hat*. `rosterBlock()` injects names into prompts so narration reads *"Sending Larry in to build the UI."* Every chat turn shows avatar + name + role badge + model id.
 
-Add: **`role`** as a field distinct from `tier` (`planner | reviewer | executor | explorer | tester | dispatcher`) — persona is *who*, role is *what hat*. **Avatars** by downscaling the existing cast art (`assets/characters`, `assets/build/gate`) to 128px webp, a few hundred KB; the 672 MB of cinematic plates stays behind. Name, avatar and colour editable per persona. **Every chat turn shows avatar + name + role badge + model id.**
+**Identity keys on `(suite, model-match)`, never on session** — so a crew member keeps their face when the vendor ships a new version underneath them. Sol stays Sol from 5.6 to 5.7. That is the same succession property Phase 7 detects, and it is why the two phases reinforce rather than collide.
+
+**Avatars are generated, not ported.** The original plan — downscale the agent-sync cast art to webp — was replaced on 2026-09-21 for two measured reasons. First, Codex ships a built-in `image_gen` tool requiring **no `OPENAI_API_KEY`**: it runs off the subscription, verified end to end. Second, `sips` reports success on webp export but **writes no file**, so the pool ships as 128px PNG (~24 KB each) unless a real encoder is added as a dependency.
+
+**The cost split is the design constraint.** Images ride the unlimited image quota; the *turn driving them does not*. Measured: **11,866 text tokens for one image, 41,465 for four** — batching saves only ~13%, because each `image_gen` call and its result carry their own weight. So it is **~10–12k text tokens per avatar** however it is arranged.
+
+Hence: the pool is a **build-time asset**. `tools/gen-avatars.mjs` is run by a maintainer, the output is committed, and picking a face costs a user nothing. Generating per user would spend *their* weekly window, take minutes, and require them to have Codex at all. Runtime generation (`POST /api/avatars/generate`) stays available for users who do, with the token cost stated beside the button.
+
+Two details worth keeping: the background colour is **specified in the prompt, not sampled back out of the PNG**, so every chip colour is exact by construction; and the light model drifted to shaded cartoon when asked for flat vector, so the generator uses the default model and passes a **verbatim style clause**, shared with the runtime generator so a custom avatar does not look pasted in beside the pool.
 
 ### ⬜ Phase 2 — Dispatch primitive
 Generalise `consult.ts`'s `startConsultStep` into `runAgentTask({ type, agent, model, effort, prompt, cwd, capability, background?, resumeFrom? })` — the contract Claude Code and Grok Build independently converged on.
@@ -183,7 +239,7 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 
 ---
 
-## 7. Corrections log
+## 8. Corrections log
 
 *Mistakes made and fixed. Kept so they aren't repeated.*
 
@@ -204,7 +260,7 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 
 ---
 
-## 8. Open risks and unverified claims
+## 9. Open risks and unverified claims
 
 1. **`SDKRateLimitInfo.utilization` scale is undocumented** (0–1 vs 0–100); Pocket assumes 0–1. `normalizePct` accepts both and warns once in the ambiguous band. *Note: the structured `limits[]` path reports `percent` as plain 0–100, so it has no ambiguity — prefer it.*
 2. **Codex `inputTokens` vs `cachedInputTokens` inclusivity is unstated** — up to 10× cost impact. Isolated in `codexInputSplit.ts` with a one-time warning if the exclusive branch is ever taken. *Live evidence so far says inclusive.*
@@ -217,7 +273,7 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 
 ---
 
-## 9. On the effort-routing novelty claim
+## 10. On the effort-routing novelty claim
 
 Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
@@ -232,7 +288,7 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 ---
 
-## 10. Provenance — what came from `agent sync`
+## 11. Provenance — what came from `agent sync`
 
 **Ported as code:** `personas.js` → `crew.ts` · pricing / policy / opportunity mechanisms from `usage.js` · cast avatars · `worktrees.js` *only if* the tournament pattern is ever added.
 
