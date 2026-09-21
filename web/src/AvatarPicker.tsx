@@ -113,9 +113,9 @@ export function AvatarPicker({
         </button>
       </div>
       <div className="avatar-note">
-        Generating uses your own Codex subscription — the image itself is unlimited, but the turn
-        costs roughly 10–12k tokens against your weekly window and takes a minute or two.
-        Picking from the pool above is free and instant.
+        Generating uses your own Codex subscription and takes a minute or two. Measured cost is
+        small — about a dozen images moved a weekly window by one percentage point — so this is
+        not something you need to ration. Picking from the pool above is still instant.
       </div>
       {err && <div className="avatar-note" style={{ color: 'var(--err, #f87171)' }}>{err}</div>}
     </div>
