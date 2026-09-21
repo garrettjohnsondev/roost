@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { loadConfig, repoRoot, saveConfig } from './config.js';
+import { quotaStore } from './quota.js';
 import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification } from './notify.js';
@@ -377,6 +378,27 @@ function printTailscaleUrl(port: number) {
     });
   };
   tryNext(0);
+}
+
+// A pending quota save is unref'd, so without this the most recent
+// observation is lost on every exit -- and load() purges on restart, so the
+// fuel gauge came back blank exactly when you'd open the app to look at it.
+let flushed = false;
+const flushState = () => {
+  if (flushed) return;
+  flushed = true;
+  try {
+    quotaStore().flush();
+  } catch {
+    /* shutdown is best effort */
+  }
+};
+process.on('beforeExit', flushState);
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(sig, () => {
+    flushState();
+    process.exit(0);
+  });
 }
 
 httpServer.listen(config.port, '0.0.0.0', () => {

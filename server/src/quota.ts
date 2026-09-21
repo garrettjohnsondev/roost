@@ -50,6 +50,8 @@ export interface Surplus {
   reason: string;
 }
 
+const USAGE_AUTHORITY_MS = 10 * 60_000;
+
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: '5-hour session',
   seven_day: '7-day (all models)',
@@ -59,6 +61,38 @@ const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   seven_day_overage_included: '7-day (overage)',
   overage: 'Overage',
 };
+
+/** Claude reports the SAME limits under two vocabularies. The streaming
+ *  `rate_limit_event` keys on `rateLimitType` (five_hour, seven_day,
+ *  seven_day_<model>, plus raw model codenames like `nimbus_quill`); the
+ *  structured usage read keys on `kind` (session, weekly_all, weekly_scoped).
+ *  Stored verbatim, three real windows became seven — and the two seven-day
+ *  rows disagreed (3% vs 4%), so `headroom()` gated on whichever landed last.
+ *  One limit must be one key, whichever path observed it. */
+export function canonicalClaudeKey(
+  kind: unknown,
+  scopedModel?: string | null,
+): { key: WindowKey; label: string; durationMins: number | null } {
+  const k = String(kind ?? 'unknown');
+  if (scopedModel) {
+    return { key: `claude:weekly_scoped:${scopedModel}`, label: `7-day (${scopedModel})`, durationMins: 10080 };
+  }
+  if (k === 'five_hour' || k === 'session') {
+    return { key: 'claude:session', label: '5-hour session', durationMins: 300 };
+  }
+  if (k === 'seven_day' || k === 'weekly_all') {
+    return { key: 'claude:weekly_all', label: '7-day (all models)', durationMins: 10080 };
+  }
+  const m = /^seven_day_(.+)$/.exec(k);
+  if (m) {
+    const name = m[1].replace(/^./, (c) => c.toUpperCase());
+    return { key: `claude:weekly_scoped:${name}`, label: `7-day (${name})`, durationMins: 10080 };
+  }
+  // An unrecognized kind carrying a real percentage is still a real limit, and
+  // dropping it would over-report headroom. Keep it, but namespaced and
+  // labelled as unrecognized so it can never be mistaken for a known window.
+  return { key: `claude:other:${k}`, label: `Unrecognized limit (${k})`, durationMins: null };
+}
 
 export function formatWindow(mins: number | null | undefined): string {
   if (!mins) return 'window';
@@ -111,11 +145,16 @@ export class QuotaStore {
   /** From a live session's SDK rate_limit_event. Keyed on rateLimitType, NOT on
    *  the display label — label collisions silently merged distinct windows. */
   noteClaude(info: any): void {
-    const type = info?.rateLimitType ?? 'unknown';
-    this.upsert('claude', `claude:${type}`, {
-      label: CLAUDE_WINDOW_LABELS[type] ?? type,
+    const { key, label, durationMins } = canonicalClaudeKey(info?.rateLimitType);
+    // The usage read's `percent` is unambiguously 0-100; this event's
+    // `utilization` is a 0-1/0-100 guess. Never let the guess overwrite a
+    // recent authoritative read of the same window.
+    const prev = this.claude.windows[key];
+    if (prev?.source === 'sdk-usage' && Date.now() - prev.observedAt < USAGE_AUTHORITY_MS) return;
+    this.upsert('claude', key, {
+      label,
       usedPercent: normalizePct(info?.utilization),
-      windowDurationMins: type === 'five_hour' ? 300 : type.startsWith('seven_day') ? 10080 : null,
+      windowDurationMins: durationMins,
       resetsAt: typeof info?.resetsAt === 'number' ? info.resetsAt * 1000 : null,
       status: info?.status,
       source: 'sdk-event',
@@ -137,18 +176,12 @@ export class QuotaStore {
 
     for (const row of rows) {
       if (!row || typeof row.percent !== 'number') continue;
-      const kind = String(row.kind ?? 'unknown');
-      const scoped = row.scope?.model?.display_name;
-      const key = scoped ? `claude:${kind}:${scoped}` : `claude:${kind}`;
-      const label =
-        kind === 'session' ? '5-hour session'
-          : kind === 'weekly_all' ? '7-day (all models)'
-            : scoped ? `7-day (${scoped})`
-              : CLAUDE_WINDOW_LABELS[kind] ?? kind;
+      const { key, label, durationMins } = canonicalClaudeKey(row.kind, row.scope?.model?.display_name);
       this.upsert('claude', key, {
         label,
         usedPercent: normalizePct(row.percent),
-        windowDurationMins: row.group === 'session' ? 300 : row.group === 'weekly' ? 10080 : null,
+        windowDurationMins:
+          row.group === 'session' ? 300 : row.group === 'weekly' ? 10080 : durationMins,
         resetsAt: row.resets_at ? Date.parse(row.resets_at) || null : null,
         status: row.severity === 'normal' ? 'allowed' : row.severity ? 'allowed_warning' : undefined,
         source: 'sdk-usage',
@@ -160,10 +193,11 @@ export class QuotaStore {
     if (!rows.length && limits && typeof limits === 'object') {
       for (const [type, w] of Object.entries<any>(limits)) {
         if (!w || typeof w !== 'object' || typeof w.utilization !== 'number') continue;
-        this.upsert('claude', `claude:${type}`, {
-          label: CLAUDE_WINDOW_LABELS[type] ?? type,
+        const canon = canonicalClaudeKey(type);
+        this.upsert('claude', canon.key, {
+          label: canon.label,
           usedPercent: normalizePct(w.utilization),
-          windowDurationMins: type === 'five_hour' ? 300 : type.startsWith('seven_day') ? 10080 : null,
+          windowDurationMins: canon.durationMins,
           resetsAt: w.resets_at ? Date.parse(w.resets_at) || null : null,
           source: 'sdk-usage',
         });
@@ -379,17 +413,29 @@ export class QuotaStore {
 
   private persist(): void {
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => {
-      try {
-        mkdirSync(this.dir, { recursive: true });
-        const tmp = this.file() + '.tmp';
-        writeFileSync(tmp, JSON.stringify({ version: 1, claude: this.claude, codex: this.codex }, null, 2));
-        renameSync(tmp, this.file());
-      } catch {
-        /* persistence is best effort */
-      }
-    }, 2000);
+    this.saveTimer = setTimeout(() => this.writeNow(), 2000);
+    // unref'd so a pending save never holds the process open -- which is
+    // exactly why shutdown MUST call flush(). Without it the last observation
+    // before exit was silently dropped, and since load() purges on restart,
+    // Claude quota came back up as `unknown` every single time.
     this.saveTimer.unref?.();
+  }
+
+  /** Write pending state synchronously. Call on shutdown. */
+  flush(): void {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.writeNow();
+  }
+
+  private writeNow(): void {
+    try {
+      mkdirSync(this.dir, { recursive: true });
+      const tmp = this.file() + '.tmp';
+      writeFileSync(tmp, JSON.stringify({ version: 1, claude: this.claude, codex: this.codex }, null, 2));
+      renameSync(tmp, this.file());
+    } catch {
+      /* persistence is best effort */
+    }
   }
 
   private load(): void {

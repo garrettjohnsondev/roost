@@ -93,11 +93,14 @@ describe('headroom', () => {
     expect(at(99)).toBe('exhausted');
   });
 
-  it('keys Claude windows by rateLimitType so distinct windows never merge', () => {
+  it('keys Claude windows canonically so distinct windows never merge', () => {
     store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.2, resetsAt: hoursFromNow(1) });
     store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.9, resetsAt: hoursFromNow(80) });
     const keys = store.windows('claude').map((w) => w.key).sort();
-    expect(keys).toEqual(['claude:five_hour', 'claude:seven_day']);
+    // Canonical names, not the event path's raw rateLimitType -- the usage
+    // read describes these same two windows as session/weekly_all, and keying
+    // on the raw type stored each limit twice.
+    expect(keys).toEqual(['claude:session', 'claude:weekly_all']);
   });
 });
 
@@ -178,5 +181,80 @@ describe('claude structured usage read', () => {
     const wins = store.windows('claude');
     expect(wins).toHaveLength(1);
     expect(wins[0].usedPercent).toBe(55);
+  });
+});
+
+describe('claude window canonicalization', () => {
+  // The exact eight rows observed in .pocket-data/quota-history.jsonl on
+  // 2026-09-21: the streaming event path and the structured usage read each
+  // described the same three limits in their own vocabulary.
+  const events = [
+    { rateLimitType: 'five_hour', utilization: 0.23, status: 'allowed' },
+    { rateLimitType: 'seven_day', utilization: 0.03 },
+    { rateLimitType: 'nimbus_quill', utilization: 0 },
+  ];
+  const usageRead = {
+    rate_limits: {
+      limits: [
+        { kind: 'session', group: 'session', percent: 23, severity: 'normal' },
+        { kind: 'weekly_all', group: 'weekly', percent: 4, severity: 'normal' },
+        {
+          kind: 'weekly_scoped', group: 'weekly', percent: 0, severity: 'normal',
+          scope: { model: { display_name: 'Fable' } },
+        },
+      ],
+    },
+    rate_limits_available: true,
+  };
+
+  it('collapses both vocabularies onto one key per real limit', () => {
+    for (const e of events) store.noteClaude(e);
+    store.noteClaudeUsageRead(usageRead);
+    const keys = store.windows('claude').map((w) => w.key).sort();
+    // Three real limits, plus the unrecognized codename kept namespaced.
+    expect(keys).toEqual([
+      'claude:other:nimbus_quill',
+      'claude:session',
+      'claude:weekly_all',
+      'claude:weekly_scoped:Fable',
+    ]);
+  });
+
+  it('never stores five_hour and session as separate windows', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.23 });
+    store.noteClaudeUsageRead(usageRead);
+    const sessions = store.windows('claude').filter((w) => w.windowDurationMins === 300);
+    expect(sessions).toHaveLength(1);
+  });
+
+  it('lets the authoritative usage read win the 3%-vs-4% disagreement', () => {
+    store.noteClaudeUsageRead(usageRead);
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.03 });
+    const weekly = store.windows('claude').find((w) => w.key === 'claude:weekly_all');
+    expect(weekly?.usedPercent).toBe(4);
+    expect(weekly?.source).toBe('sdk-usage');
+  });
+
+  it('keeps an unrecognized limit rather than over-reporting headroom', () => {
+    store.noteClaude({ rateLimitType: 'brand_new_window', utilization: 0.97 });
+    const w = store.windows('claude').find((x) => x.key === 'claude:other:brand_new_window');
+    expect(w?.usedPercent).toBe(97);
+    expect(w?.label).toMatch(/Unrecognized/);
+  });
+});
+
+describe('flush on shutdown', () => {
+  it('writes the latest observation synchronously', async () => {
+    const dir = join(tmp, 'flush-test');
+    const a = new QuotaStore(dir);
+    a.noteClaudeUsageRead({
+      rate_limits: { limits: [{ kind: 'session', group: 'session', percent: 55 }] },
+      rate_limits_available: true,
+    });
+    a.flush();
+    // A fresh store reading the same directory must see it -- previously the
+    // unref'd 2s debounce meant exit dropped this entirely.
+    const b = new QuotaStore(dir);
+    expect(b.windows('claude').find((w) => w.key === 'claude:session')?.usedPercent).toBe(55);
   });
 });
