@@ -63,13 +63,30 @@ app.use('/api', (req, res, next) => {
 app.get('/api/config', async (_req, res) => {
   const live = await getLiveModels(config.projects[0] ?? repoRoot);
   const fallback = (models: string[]): ModelOption[] => models.map((m) => ({ id: m, label: m }));
+
+  // Deduplicate models by id to prevent duplicate pills
+  const dedup = (models: ModelOption[]): ModelOption[] => {
+    const seen = new Set<string>();
+    return models.filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+  };
+
   res.json({
     projects: config.projects,
     primaryVolume: primaryVolume(),
     sessionIdleTimeoutHours: config.sessionIdleTimeoutHours,
     notifications: config.notifications,
-    claude: { ...config.claude, models: live.claude.length ? live.claude : fallback(config.claude.models) },
-    codex: { ...config.codex, models: live.codex.length ? live.codex : fallback(config.codex.models) },
+    claude: {
+      ...config.claude,
+      models: dedup(live.claude.length ? live.claude : fallback(config.claude.models))
+    },
+    codex: {
+      ...config.codex,
+      models: dedup(live.codex.length ? live.codex : fallback(config.codex.models))
+    },
   });
 });
 

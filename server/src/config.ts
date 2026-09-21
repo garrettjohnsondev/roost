@@ -54,7 +54,7 @@ const DEFAULTS: PocketConfig = {
       heavy: { model: 'gpt-5.6-sol', effort: 'xhigh' },
     },
   },
-  claude: { models: ['sonnet', 'opus', 'haiku'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
+  claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
 };
 
