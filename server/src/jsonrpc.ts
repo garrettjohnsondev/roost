@@ -32,7 +32,10 @@ export class JsonRpcProcess {
   private decoder = new StringDecoder('utf8');
 
   constructor(command: string, args: string[], cwd: string, private handlers: JsonRpcHandlers) {
-    this.child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    // The agent subprocess has no business holding Pocket's own auth secret.
+    const env = { ...process.env };
+    delete env.POCKET_TOKEN;
+    this.child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
     this.child.stdout.on('data', (chunk: Buffer) => this.onStdoutData(chunk));
     this.child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString();

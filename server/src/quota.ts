@@ -52,6 +52,10 @@ export interface Surplus {
 
 const USAGE_AUTHORITY_MS = 10 * 60_000;
 
+/** Siblings of the window keys that carry a `utilization` but are not
+ *  rate-limit windows. Iterated blindly, extra_usage became a phantom window. */
+const NOT_WINDOWS = new Set(['extra_usage', 'spend', 'seven_day_breakdown', 'model_scoped', 'member_dashboard_available']);
+
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: '5-hour session',
   seven_day: '7-day (all models)',
@@ -206,6 +210,7 @@ export class QuotaStore {
     if (!rows.length && limits && typeof limits === 'object') {
       for (const [type, w] of Object.entries<any>(limits)) {
         if (!w || typeof w !== 'object' || typeof w.utilization !== 'number') continue;
+        if (NOT_WINDOWS.has(type)) continue;
         const canon = canonicalClaudeKey(type);
         this.upsert('claude', canon.key, {
           label: canon.label,

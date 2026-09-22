@@ -1,6 +1,6 @@
 import { shouldApplyEffort } from './routing.js';
 import { randomUUID } from 'node:crypto';
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import type { WebSocket } from 'ws';
 import { now, type AgentKind, type ApprovalSetting, type ClientMessage, type ServerEvent, type SessionMeta } from './protocol.js';
 import { truncate } from './util.js';
@@ -494,10 +494,20 @@ export class SessionManager {
    *  (with the recap card standing in for the in-memory transcript that didn't survive). */
   restore(): void {
     let entries: PersistedSession[];
+    if (!existsSync(statePath())) return; // no state file yet
     try {
       entries = JSON.parse(readFileSync(statePath(), 'utf8')).sessions ?? [];
-    } catch {
-      return; // no state file yet
+    } catch (err: any) {
+      // A file that exists but cannot be parsed is not "no state yet". Say so,
+      // and keep it for inspection instead of overwriting it on the next save.
+      const aside = `${statePath()}.corrupt-${Date.now()}`;
+      try {
+        renameSync(statePath(), aside);
+      } catch {
+        /* leave it in place */
+      }
+      console.error(`[pocket] session state at ${statePath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}`);
+      return;
     }
     const hours = this.config.sessionIdleTimeoutHours;
     const cutoff = hours && hours > 0 ? now() - hours * 60 * 60 * 1000 : 0;

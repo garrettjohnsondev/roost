@@ -312,7 +312,8 @@ app.get('/api/usage', (_req, res) => {
 /** The crew roster: who each model is, what colour they wear. Defaults plus any
  *  user overrides, so the UI can render the editor against one list. */
 // Custom avatars live in the data dir, not the bundle.
-app.use('/avatars/custom', express.static(avatarDir()));
+// Same auth as /api: this directory is written by the generator on request.
+app.use('/avatars/custom', (req, res, next) => (authorized(req) ? next() : res.status(401).end()), express.static(avatarDir()));
 
 app.get('/api/avatars', (_req, res) => {
   res.json({ custom: listCustom().map((c) => ({ ...c, url: `/avatars/custom/${c.file}` })) });
@@ -432,11 +433,33 @@ wss.on('connection', (ws: WebSocket, req) => {
     } catch {
       return;
     }
+    // Shape check before anything downstream trusts it.
+    if (!msg || typeof msg !== 'object' || typeof (msg as any).type !== 'string') return;
     void session.handleClientMessage(msg).catch((err) => {
       session.reportError(String(err?.message ?? err));
     });
   });
 });
+
+// A dead-but-attached socket suppressed approval and "done" push
+// notifications, because a session with any socket assumes someone is
+// watching. Ping every 30 s and drop whatever does not answer.
+const alive = new WeakSet<WebSocket>();
+wss.on('connection', (ws: WebSocket) => {
+  alive.add(ws);
+  ws.on('pong', () => alive.add(ws));
+});
+const keepalive = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (!alive.has(ws)) {
+      ws.terminate();
+      continue;
+    }
+    alive.delete(ws);
+    ws.ping();
+  }
+}, 30_000);
+keepalive.unref();
 
 // Warm the model cache so the first phone load is instant.
 void getLiveModels(config.projects[0] ?? repoRoot);

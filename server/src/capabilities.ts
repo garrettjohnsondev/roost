@@ -1,5 +1,5 @@
 import type { AgentKind } from './protocol.js';
-import { classify, type ModelCard } from './registry.js';
+import { classify, matchesId, type ModelCard } from './registry.js';
 
 /** How independent the reviewer actually is from the author.
  *
@@ -73,7 +73,9 @@ export function reviewerFor(
   // 2. A different model from the same vendor. Both vendors ship 4-5 distinct
   //    models, so this is real diversity inside one subscription.
   const sameSide = usable(models, planner.agent);
-  const different = sameSide.find((m) => m.id !== planner.model && m.resolvedId !== planner.model);
+  // matchesId strips the context suffix: 'opus[1m]' IS 'opus', not a second
+  // opinion. Comparing raw ids offered the planner's own model as its reviewer.
+  const different = sameSide.find((m) => !matchesId(m, planner.model));
   if (different) {
     return {
       agent: planner.agent, model: different.id, strength: 'cross-model',

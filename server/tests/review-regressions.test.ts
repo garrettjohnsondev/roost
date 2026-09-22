@@ -127,3 +127,35 @@ describe('savings are all-or-nothing', () => {
     expect(ledger.savings({ sinceTs: 0, sessionId: 's1' }, cfg)).toBeNull();
   });
 });
+
+describe('reviewerFor treats an alias and its suffixed form as one model', () => {
+  it('never offers opus[1m] as a second opinion on opus', async () => {
+    const { fromClaudeModelInfo } = await import('../src/registry.js');
+    const { reviewerFor } = await import('../src/capabilities.js');
+    const roster = fromClaudeModelInfo([
+      { value: 'opus[1m]', resolvedModel: 'claude-opus-5[1m]', displayName: 'Opus (1M)',
+        description: 'Opus 5 · Best for everyday, complex tasks', supportedEffortLevels: ['high'] },
+      { value: 'claude-fable-5-1[1m]', resolvedModel: 'claude-fable-5-1', displayName: 'Fable',
+        description: 'Fable 5.1 · Most capable for your hardest and longest-running tasks', supportedEffortLevels: ['high'] },
+    ]);
+    // Comparing raw ids offered the planner's own model back as its reviewer.
+    const r = reviewerFor({ agent: 'claude', model: 'opus' }, roster);
+    expect(r.strength).toBe('cross-model');
+    expect(r.model).toBe('claude-fable-5-1[1m]');
+  });
+});
+
+describe('the flat-key usage fallback ignores non-window siblings', () => {
+  it('does not turn extra_usage into a window', () => {
+    store.noteClaudeUsageRead({
+      rate_limits: {
+        five_hour: { utilization: 12, resets_at: new Date(Date.now() + 3600_000).toISOString() },
+        extra_usage: { is_enabled: false, monthly_limit: 10000, used_credits: 0, utilization: 0 },
+      },
+      rate_limits_available: true,
+    });
+    const keys = store.windows('claude').map((w) => w.key);
+    expect(keys).toContain('claude:session');
+    expect(keys.some((k) => k.includes('extra_usage'))).toBe(false);
+  });
+});
