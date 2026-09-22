@@ -19,6 +19,7 @@ export type ClientMessage =
   | { type: 'consult_proceed' }
   | { type: 'consult_dismiss' }
   | { type: 'set_boost'; on: boolean }
+  | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'interrupt' };
 
 export interface ToolExpand {
@@ -35,6 +36,43 @@ export interface SurplusInfo {
   label: string;
   minutesLeft: number;
   headroomPct: number;
+}
+
+/** One gate command the harness ran: command, exit code and output. Evidence,
+ *  never a claim. */
+export interface EvidenceRecord {
+  command: string;
+  cwd: string;
+  exitCode: number | null;
+  signal?: string | null;
+  stdoutTail: string;
+  stderrTail: string;
+  ms: number;
+  startedAt: number;
+  timedOut: boolean;
+}
+
+export interface ImageCheck {
+  path: string;
+  ok: boolean;
+  reason: string;
+  bytes: number | null;
+  uniqueColours: number | null;
+  sha?: string;
+}
+
+export interface VerifyReport {
+  taskId?: string;
+  passed: boolean;
+  /** The gate definitions changed during the task -- the result cannot be trusted. */
+  tampered: boolean;
+  gates: EvidenceRecord[];
+  images: ImageCheck[];
+  review?: { agent: AgentKind; model: string; strength: string; text: string };
+  fingerprint: string;
+  summary: string;
+  startedAt: number;
+  ms: number;
 }
 
 export interface SessionMeta {
@@ -84,6 +122,7 @@ export type ServerEvent =
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
   | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
+  | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
@@ -241,6 +280,7 @@ export interface GitStatusResult {
 export type ChatItem =
   | { kind: 'user'; text: string; imageCount: number; ts: number }
   | { kind: 'assistant'; text: string; complete: boolean; ts: number; crew?: CrewInfo }
+  | { kind: 'verify'; report: VerifyReport; ts: number }
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }

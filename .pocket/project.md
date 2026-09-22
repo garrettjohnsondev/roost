@@ -40,6 +40,11 @@ Never scrape a CLI when a supported protocol exists. Codex is reached through
 
 `danger-full-access` must never be selectable by an automated dispatch.
 
+## gates
+
+- npm run typecheck
+- npm test -w server
+
 ## design-tokens
 
 Crew colours live in `server/src/crew.ts`. The avatar pool palette is twelve

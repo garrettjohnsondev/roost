@@ -30,7 +30,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **3** | The conference — plan → review → reconcile | ⬜ |
 | **4** | Quota-aware model routing + budget ceiling | 🟨 routing, gate, boost and task ceiling shipped; window-weight estimator pending |
 | **4d** | Modes — chat / auto / plan / build | ⬜ |
-| **5** | Verification gate | ⬜ |
+| **5** | Verification gate | ✅ **Done** — gates, evidence, tamper check, image checks, diff reviewer |
 | **7** | Model registry and auto-update | 🟨 core done, live on both vendors |
 | **6** | UI — fuel gauge, crew editor, context meter | 🟨 honest fuel gauge + crew editor shipped; context meter pending |
 
@@ -233,8 +233,20 @@ Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCri
 ### ⬜ Phase 4d — Modes
 **Chat** (one agent, no ceremony) · **Auto** (triage → tier → model *and* effort) · **Plan** (read-only: Claude `permissionMode:'plan'`, Codex `sandbox:'read-only'`) · **Build** (the full conference). Per-session, switchable mid-session, persisted.
 
-### ⬜ Phase 5 — Verification gate
-Acceptance criteria travel **with the task**, not only the plan — E2EDevBench's Designer failure was executors treating a plan as authority over requirements. The gate is a **script the harness runs**; the executor must not author or edit it. Anti-fabrication is structural, not instructional: a synthetic "screenshot" fails on unique-colour count and file size, and no two frames in a set may be pixel-identical. *(Learned the hard way — a builder in agent-sync fabricated eleven PNGs of vector diagrams and nearly passed a stage with them.)*
+### ✅ Phase 5 — Verification gate *(done)*
+`verify.ts`. Three rules, all **structural**, none of them instructions to the model:
+
+1. **The gate is a script the harness runs**, read from maintainer-authored sources — the project file's `## gates` or explicit checks. Agent output is never a command. The gates are **fingerprinted when the session begins**; an executor that edits them mid-task produces a report marked `tampered`, which fails regardless of what the commands then say.
+2. **Evidence is command + exit code + output.** "The tests pass" is a claim; `npm test` exiting 0 with its output attached is evidence. Every run is appended to `.pocket-data/evidence/<task>.jsonl` and to the decisions log.
+3. **Anti-fabrication is measured.** A "screenshot" with fewer than 64 distinct colours is a flat rectangle, not a screenshot; two frames that are pixel-identical fail each other; an image that cannot be decoded is *unchecked*, never passed. This is the August lesson, mechanised.
+
+**No gates means not verified** — a report with nothing to check is `passed: false`, because "nothing failed" is not the same as "it works".
+
+**The diff reviewer runs last**, in a fresh context, on the diff and the acceptance criteria only — never the executor's reasoning — and picks the most independent reviewer available (§6), labelling its strength. Its findings go to the human; the accept/reject decision rests on the gates or the person, never on two models agreeing.
+
+**In the UI:** "Run gates" and "Gates + review diff" on every session; the report renders with the badge, each command's exit code and output tail, image verdicts, and the review.
+
+**Dogfooded** on Pocket's own `## gates` (`npm run typecheck`, `npm test -w server`).
 
 ### 🟨 Phase 7 — Model registry and auto-update *(core done)*
 

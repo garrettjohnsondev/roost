@@ -1,3 +1,5 @@
+import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
+import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
@@ -74,6 +76,9 @@ export class Session {
   /** "Use the good models" while a surplus window is live. */
   private boost = false;
   private lastSuggestion?: string;
+  /** The project's gates as they were when this session began. An agent that
+   *  edits them mid-session is caught at verification time. */
+  private gateFingerprintAtStart: string | null = null;
   routedModel?: string;
   model: string;
   effort: string;
@@ -111,6 +116,12 @@ export class Session {
     this.sizeGate = config.consult?.sizeGate ?? true;
     this.budget = config.budget;
     this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
+    try {
+      const gates = gatesFrom(loadProjectKnowledge(this.cwd));
+      this.gateFingerprintAtStart = gates.length ? gateFingerprint(gates) : null;
+    } catch {
+      this.gateFingerprintAtStart = null;
+    }
     const adapterOptions = {
       cwd,
       // In auto mode the concrete model is chosen per-message by the router; start the
@@ -406,6 +417,25 @@ export class Session {
           `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`,
         );
         this.broadcastMeta();
+        break;
+      }
+      case 'verify': {
+        // The harness runs the project's gates and posts what happened --
+        // exit codes and output, not the agent's opinion of its own work.
+        this.pushEvent({ type: 'status', state: 'working', message: msg.review ? 'Running gates, then reviewing the diff…' : 'Running the project gates…', ts: now() });
+        try {
+          const report = await verifyTask({
+            cwd: this.cwd,
+            taskId: this.id,
+            fingerprintAtStart: this.gateFingerprintAtStart,
+            review: msg.review ? { executorAgent: this.agent, criteria: typeof msg.criteria === 'string' ? msg.criteria : undefined } : undefined,
+          });
+          this.pushEvent({ type: 'verify', report, ts: now() });
+        } catch (err: any) {
+          this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);
+        } finally {
+          this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+        }
         break;
       }
       case 'set_boost':

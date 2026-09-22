@@ -114,6 +114,13 @@ Things that must not change, and why.
 ## design-tokens
 
 Colours, spacing and type scale, and where they are defined.
+
+## gates
+
+Commands the harness runs to verify work. One per line. The agent never
+runs or edits these; the harness does, and records exit code and output.
+
+- npm test
 `;
 
 export function writeProjectTemplate(projectDir: string): string {

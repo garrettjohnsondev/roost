@@ -139,6 +139,14 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         />
       )}
 
+      <div className="verify-bar">
+        <button className="chip" disabled={session.status === 'working'} title="Run the project's gates and record command, exit code and output" onClick={() => session.send({ type: 'verify' })}>
+          ✓ Run gates
+        </button>
+        <button className="chip" disabled={session.status === 'working'} title="Gates, then a fresh-context review of the diff against the criteria" onClick={() => session.send({ type: 'verify', review: true })}>
+          ✓ Gates + review diff
+        </button>
+      </div>
       {session.meta?.surplus && !session.meta.boost && (
         <div className="surplus-bar">
           <span>
@@ -414,6 +422,36 @@ function Message({ item }: { item: ChatItem }) {
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
+    case 'verify': {
+      const r = item.report;
+      return (
+        <div className={`verify-msg ${r.passed ? 'pass' : 'fail'}`}>
+          <div className="verify-head">
+            <span className="verify-badge">{r.passed ? 'PASSED' : 'FAILED'}</span> {r.summary}
+          </div>
+          {r.tampered && <div className="verify-tamper">Gate definitions changed during this session — this result cannot be trusted.</div>}
+          {r.gates.map((g, i) => (
+            <details key={i} className="verify-gate" open={g.exitCode !== 0}>
+              <summary>
+                <code>{g.command}</code> · exit {g.exitCode ?? '—'}{g.timedOut ? ' · timed out' : ''} · {Math.round(g.ms / 1000)}s
+              </summary>
+              <pre className="verify-out">{(g.exitCode === 0 ? g.stdoutTail : g.stderrTail || g.stdoutTail).slice(-1500) || '(no output)'}</pre>
+            </details>
+          ))}
+          {r.images.map((c, i) => (
+            <div key={i} className={`verify-image ${c.ok ? 'ok' : 'bad'}`}>
+              {c.ok ? '✓' : '✗'} <code>{c.path}</code> · {c.reason}
+            </div>
+          ))}
+          {r.review && (
+            <div className="verify-review">
+              <div className="review-strength">{r.review.strength}</div>
+              <Markdown text={r.review.text} />
+            </div>
+          )}
+        </div>
+      );
+    }
     case 'consult': {
       const verdict = item.phase === 'critique' ? item.text.match(/VERDICT:\s*(SOLID|NEEDS CHANGES)/i)?.[1]?.toUpperCase() : undefined;
       return (
