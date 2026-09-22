@@ -114,3 +114,29 @@ describe('rosterBlock', () => {
     expect(rosterBlock({ claudeModels: ['haiku'], codexAvailable: false })).not.toMatch(/codex/);
   });
 });
+
+describe('the crew arrives wearing faces', () => {
+  it('gives every persona an avatar from the shipped pool', async () => {
+    const { allPersonas } = await import('../src/crew.js');
+    const { readFileSync } = await import('node:fs');
+    const pool = JSON.parse(readFileSync(new URL('../../web/public/avatars/pool.json', import.meta.url), 'utf8'));
+    const files = new Set(pool.avatars.map((a: any) => a.file));
+    const crew = allPersonas();
+    // 30 avatars were generated, deployed and served -- and assigned to
+    // nobody, so all fourteen chips rendered as monogram letters.
+    expect(crew.length).toBeGreaterThan(0);
+    for (const p of crew) {
+      expect(p.avatar, `${p.name} has no avatar`).toBeTruthy();
+      expect(files.has(p.avatar!), `${p.name}'s avatar ${p.avatar} is not in the pool`).toBe(true);
+    }
+  });
+
+  it('gives personas that share a name the same face, and others distinct ones', async () => {
+    const { allPersonas } = await import('../src/crew.js');
+    const byName = new Map<string, Set<string>>();
+    for (const p of allPersonas()) byName.set(p.name, new Set([...(byName.get(p.name) ?? []), p.avatar!]));
+    for (const [name, faces] of byName) expect(faces.size, `${name} wears ${faces.size} different faces`).toBe(1);
+    const distinct = new Set([...byName.values()].map((s) => [...s][0]));
+    expect(distinct.size).toBe(byName.size);
+  });
+});
