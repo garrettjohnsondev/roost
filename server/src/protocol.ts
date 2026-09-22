@@ -14,6 +14,10 @@ export interface UserImage {
   data: string; // base64, no data: prefix
 }
 
+/** chat: one agent, no ceremony. auto: triage picks model and effort per message.
+ *  plan: read-only, every message yields a plan file. build: the full conference. */
+export type SessionMode = 'chat' | 'auto' | 'plan' | 'build';
+
 export type ClientMessage =
   | { type: 'user_message'; text: string; images?: UserImage[] }
   | { type: 'approval_response'; requestId: string; decision: 'allow' | 'allow-session' | 'deny' }
@@ -26,6 +30,7 @@ export type ClientMessage =
   | { type: 'consult_dismiss' }
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
+  | { type: 'set_mode'; mode: SessionMode }
   | { type: 'interrupt' };
 
 /** Expanded detail for a tool call, shown when the user taps its chip. */
@@ -100,6 +105,9 @@ export interface SessionMeta {
   routedModel?: string;
   /** True while a completed consult awaits the user's Proceed/Dismiss decision. */
   consultPending?: boolean;
+  mode: SessionMode;
+  /** The plan file for the pending consult, when there is one. */
+  planPath?: string;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.
@@ -160,7 +168,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
-  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
+  | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }

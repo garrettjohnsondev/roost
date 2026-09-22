@@ -183,3 +183,12 @@ describe('guards', () => {
     expect(loadConfig().guards.oneWriter).toBe('warn');
   });
 });
+
+describe('conference defaults', () => {
+  it('reviews once, never auto-proceeds, and verifies after Proceed', () => {
+    const c = loadConfig().consult;
+    expect(c.maxReviewRounds).toBe(1);
+    expect(c.autoProceed).toBe(false);
+    expect(c.verifyAfterProceed).toBe(true);
+  });
+});

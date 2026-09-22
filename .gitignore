@@ -8,3 +8,6 @@ dist/
 
 # 1024px originals from the avatar generator; only the 128px versions ship.
 web/public/avatars/raw-*.png
+
+# Per-task plan files written by build/plan mode; working artifacts, not source.
+.pocket/plans/

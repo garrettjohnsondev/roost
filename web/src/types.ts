@@ -8,6 +8,10 @@ export interface UserImage {
   data: string;
 }
 
+/** chat: one agent, no ceremony. auto: triage picks model and effort per message.
+ *  plan: read-only, every message yields a plan file. build: the full conference. */
+export type SessionMode = 'chat' | 'auto' | 'plan' | 'build';
+
 export type ClientMessage =
   | { type: 'user_message'; text: string; images?: UserImage[] }
   | { type: 'approval_response'; requestId: string; decision: 'allow' | 'allow-session' | 'deny' }
@@ -20,6 +24,7 @@ export type ClientMessage =
   | { type: 'consult_dismiss' }
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
+  | { type: 'set_mode'; mode: SessionMode }
   | { type: 'interrupt' };
 
 export interface ToolExpand {
@@ -90,6 +95,9 @@ export interface SessionMeta {
   state: 'idle' | 'working' | 'connecting' | 'error';
   routedModel?: string;
   consultPending?: boolean;
+  mode: SessionMode;
+  /** The plan file for the pending consult, when there is one. */
+  planPath?: string;
   agentSessionId?: string;
   resumedFrom?: string;
   /** "Use the good models" is on for this session. Clears when the surplus does. */
@@ -121,7 +129,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
-  | { type: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
+  | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
@@ -285,5 +293,5 @@ export type ChatItem =
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
   | { kind: 'routed'; model: string; tier: string; reason: string; ts: number }
-  | { kind: 'consult'; phase: 'plan' | 'critique'; agent: AgentKind; text: string; crew?: CrewInfo; ts: number; reviewStrength?: string }
+  | { kind: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; ts: number; reviewStrength?: string }
   | { kind: 'error'; text: string; ts: number };

@@ -5,7 +5,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage, CrewInfo } from './types';
+import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage, CrewInfo, SessionMode } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -192,7 +192,9 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
 
       {session.meta?.consultPending && (
         <div className="consult-bar">
-          <span className="consult-bar-text">Consult complete — proceed with the plan?</span>
+          <span className="consult-bar-text">
+            Consult complete{session.meta.planPath ? ` — plan at ${session.meta.planPath.split('/').slice(-3).join('/')}` : ''} — proceed?
+          </span>
           <div className="consult-bar-actions">
             <button className="chip" onClick={() => session.send({ type: 'consult_dismiss' })}>
               Dismiss
@@ -258,6 +260,28 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         <div className="sheet-backdrop" onClick={() => setShowSettings(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h3>Session settings</h3>
+            <div className="field">
+              <label>Mode</label>
+              <div className="chips">
+                {(
+                  [
+                    ['chat', 'Chat', 'One agent, no ceremony'],
+                    ['auto', 'Auto', 'Triage picks the model and effort per message'],
+                    ['plan', 'Plan', 'Read-only: every message becomes a plan file, nothing executes'],
+                    ['build', 'Build', 'Plan → cross-model review → reconcile → you approve → execute → verify'],
+                  ] as Array<[SessionMode, string, string]>
+                ).map(([value, label, title]) => (
+                  <button
+                    key={value}
+                    title={title}
+                    className={session.meta!.mode === value ? 'chip active' : 'chip'}
+                    onClick={() => session.send({ type: 'set_mode', mode: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="field">
               <label>Model</label>
               <div className="chips">
@@ -462,7 +486,7 @@ function Message({ item }: { item: ChatItem }) {
             ) : (
               <>
                 <span className={`agent-dot ${item.agent}`} />
-                {item.phase === 'plan' ? 'Plan' : 'Critique'} · {item.agent}
+                {item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : 'Critique'} · {item.agent}
               </>
             )}
             {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}

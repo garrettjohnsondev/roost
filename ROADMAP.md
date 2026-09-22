@@ -27,9 +27,9 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **4c** | Context metering (three windows) | ✅ **Done** (metering; UI pending) |
 | **1** | The crew — personas, roles, avatars | ✅ **Done** |
 | **2** | Dispatch primitive — `runAgentTask`, task-shaped definitions, sliced project file | ✅ **Done, verified live** |
-| **3** | The conference — plan → review → reconcile | ⬜ |
+| **3** | The conference — plan → review → reconcile → execute → verify | ✅ **Done** |
 | **4** | Quota-aware model routing + budget ceiling | 🟨 routing, gate, boost and task ceiling shipped; window-weight estimator pending |
-| **4d** | Modes — chat / auto / plan / build | ⬜ |
+| **4d** | Modes — chat / auto / plan / build | ✅ **Done** |
 | **5** | Verification gate | ✅ **Done** — gates, evidence, tamper check, image checks, diff reviewer |
 | **7** | Model registry and auto-update | 🟨 core done, live on both vendors |
 | **6** | UI — fuel gauge, crew editor, context meter | 🟨 honest fuel gauge + crew editor shipped; context meter pending |
@@ -220,8 +220,16 @@ Definitions are therefore named for **tasks, not jobs**: `explore`, `plan`, `rev
 
 **Dogfooded:** with Pocket's own `project.md`, a `review` dispatch on `` `${used ?? 0}%` `` was correctly rejected for conflating missing data with zero — **by Haiku**, the cheapest model available, because it was handed the criterion rather than a job title.
 
-### ⬜ Phase 3 — The conference
-Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCriticPrompt` / `composeProceedPrompt` already exist and are close to right. Three changes: **plan to a file**; **starve the reviewer** (plan + criteria only, plus an anti-noise instruction — a reviewer asked for gaps will invent them); **reconcile step** where the primary filters findings against requirements.
+### ✅ Phase 3 — The conference *(done)*
+The loop in §3, wired end to end in `runConsult`:
+
+1. **Plan** — the session's own model, read-only one-shot, required sections including **`## Acceptance criteria`**: 3–7 statements that can be *checked*, not restated steps. The plan is written to **`.pocket/plans/<taskId>.md`** and the criteria are extracted from it.
+2. **Review** — the most independent reviewer available (§6), **starved**: task, plan and criteria only, never the author's context. Asked for correctness problems and requirement gaps only; "no problems found" is a valid answer. Skipped by the size gate for small tasks.
+3. **Reconcile** — the author filters each finding against the task and the criteria, **ACCEPT** (amend) or **REJECT** (out of scope, contradicts criteria, taste), and writes the amended plan back to the file. Without this step review findings become scope creep. **Capped at `consult.maxReviewRounds`** (default 1, hard maximum 2): a second review runs only on `NEEDS CHANGES`.
+4. **Proceed** — the human, by default. `consult.autoProceed` exists for build mode and is off, because the accept/reject decision rests on a verifier or a person, never on two models agreeing. Execution gets the reconciled plan **and the criteria, stated to outrank it**.
+5. **Verify** — armed on Proceed, fired when the executor's turn ends: the project gates always, and in build mode the fresh-context diff reviewer with the criteria. The report lands in the transcript and, if nobody is watching, on the phone.
+
+Every stage logs a decision (`plan`, `reconcile`, `execute`, `verify`) with the task id, so the decisions view can answer whether the conference earns its keep.
 
 ### 🟨 Phase 4 — Quota-aware routing + ceiling *(routing, gate, boost shipped)*
 `route.ts` — `chooseRoute()`, pure. **Scarcity steps the tier down** (tight: one tier; gated: light only) and, for dispatch, **prefers the vendor with better *known* headroom**; **unknown and stale rank last and never win a move** — missing data is never a reason to move work. A chat session is bound to one adapter, so under pressure it gets a **suggestion** (notice + ntfy, once per state) rather than a switch. **Surplus + the user's boost toggle steps up** to the heavy tier, and boost holds (does not fire) when the window is under pressure. `chooseEffort` (Phase 4b) is now on the live path: thinking is trimmed before the model is downgraded and raised first under boost.
@@ -230,8 +238,8 @@ Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCri
 
 **Pending:** the percent-of-window-per-1k-token estimator (§10) — the measurement that makes "how much of the week does a Luna call cost" answerable — and cross-vendor *candidates* per tier in the shipped config (the router supports them; the config does not yet name any).
 
-### ⬜ Phase 4d — Modes
-**Chat** (one agent, no ceremony) · **Auto** (triage → tier → model *and* effort) · **Plan** (read-only: Claude `permissionMode:'plan'`, Codex `sandbox:'read-only'`) · **Build** (the full conference). Per-session, switchable mid-session, persisted.
+### ✅ Phase 4d — Modes *(done)*
+Per session, switchable, persisted: **chat** (one agent, no ceremony), **auto** (triage picks model and effort per message), **plan** (read-only — every message becomes a plan file; nothing executes; Proceed is still offered), **build** (the full conference, then the Proceed gate, then execute, then verify). Switching to auto or build puts the model on `auto`; switching back restores the last routed model.
 
 ### ✅ Phase 5 — Verification gate *(done)*
 `verify.ts`. Three rules, all **structural**, none of them instructions to the model:

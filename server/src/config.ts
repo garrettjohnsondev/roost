@@ -61,6 +61,15 @@ export interface ConsultConfig {
   /** Decision 3: skip the cross-model review when triage sizes a task small
    *  (fewer than ~10 files and fewer than 3 independent pieces). */
   sizeGate: boolean;
+  /** One review pass by default; two at most. Round 1 buys ~8 points, round 2
+   *  ~4.5, round 3 ~1.5 and rising noise. */
+  maxReviewRounds: number;
+  /** Build mode: execute without waiting for Proceed. Off by default -- the
+   *  accept/reject decision rests on a verifier or a human, not on two
+   *  models agreeing. */
+  autoProceed: boolean;
+  /** Run the project gates when the executor's turn ends after a Proceed. */
+  verifyAfterProceed: boolean;
 }
 
 export interface GuardsConfig {
@@ -114,7 +123,7 @@ const DEFAULTS: PocketConfig = {
     maxDispatchesPerTask: 40,
     maxTaskTokens: null,
   },
-  consult: { sizeGate: true },
+  consult: { sizeGate: true, maxReviewRounds: 1, autoProceed: false, verifyAfterProceed: true },
   guards: { oneWriter: 'warn' },
   claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] }, // no Codex model exposes 'minimal'

@@ -18,35 +18,73 @@ export function composePlannerPrompt(task: string, context: string): string {
     context ? `Recent conversation context:\n${context}\n` : '',
     `Task to plan:\n${task}`,
     '',
-    'Produce a concise implementation plan: the approach, files to touch, ordered steps, and risks/unknowns.',
-    'No code edits, no commands that modify state. Keep it under 400 words.',
+    'Produce a concise implementation plan with EXACTLY these sections, in this order:',
+    '## Approach — two or three sentences.',
+    '## Files — the files you will touch, one per line, each with why.',
+    '## Steps — ordered, each naming the file it touches.',
+    '## Acceptance criteria — 3 to 7 bullet points, each a statement that can be CHECKED (a command that passes, a behaviour that can be observed), not a restatement of the steps.',
+    '## Risks — unknowns and what would make this plan wrong.',
+    'Ground every step in code you actually read. If the task as stated cannot be met, say so under Risks.',
+    'No code edits, no commands that modify state. Keep it under 500 words.',
   ]
     .filter(Boolean)
     .join('\n');
 }
 
-export function composeCriticPrompt(task: string, plan: string): string {
+/** The reviewer is STARVED: task, plan and criteria only. Including the
+ *  author's reasoning made cross-context review worse than self-review. */
+export function composeCriticPrompt(task: string, plan: string, criteria: string[] = []): string {
   return [
-    "Another AI coding agent proposed a plan for this codebase. Review it critically (you may read files, change NOTHING).",
+    'Another AI coding agent proposed a plan for this codebase. Review it (you may read files, change NOTHING).',
     `The task:\n${task}`,
     '',
+    criteria.length ? `Acceptance criteria the plan must satisfy:\n${criteria.map((c) => `- ${c}`).join('\n')}\n` : '',
     `The proposed plan:\n${plan}`,
     '',
-    'Critique it: flag risks, missing steps, wrong assumptions, and simpler alternatives. Be specific and concise (under 250 words).',
+    'Report ONLY correctness problems and requirement gaps: a step that will not work, a criterion the plan does not meet, an assumption the code contradicts.',
+    'Do not report style, do not suggest refactors, and do not invent findings to seem useful -- "no problems found" is a valid and useful answer. Be specific and concise (under 250 words).',
     "End with exactly one line: 'VERDICT: SOLID' or 'VERDICT: NEEDS CHANGES'.",
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-export function composeProceedPrompt(task: string, plan: string, critique: string): string {
+/** Reconcile: the author filters the reviewer's findings against the task and
+ *  the criteria BEFORE anyone acts on them. Without this step, review findings
+ *  become scope creep -- a reviewer asked for gaps will find them. */
+export function composeReconcilePrompt(task: string, plan: string, critique: string, criteria: string[] = []): string {
+  return [
+    'You wrote a plan; an independent reviewer critiqued it. Reconcile the two (read-only, change NOTHING).',
+    `The task:\n${task}`,
+    '',
+    criteria.length ? `Acceptance criteria (these outrank both the plan and the review):\n${criteria.map((c) => `- ${c}`).join('\n')}\n` : '',
+    `Your plan:\n${plan}`,
+    '',
+    `The review:\n${critique}`,
+    '',
+    'For EACH finding in the review decide: ACCEPT (it identifies a real problem with meeting the task or the criteria -- amend the plan) or REJECT (out of scope, contradicts the criteria, already covered, or a matter of taste -- leave the plan alone).',
+    'Output the amended plan with the same sections as before (Approach, Files, Steps, Acceptance criteria, Risks), then a final section:',
+    '## Reconciliation — one line per finding: ACCEPTED or REJECTED, and why, in under 20 words each.',
+    'Do not add work the task did not ask for. Keep it under 600 words.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+export function composeProceedPrompt(task: string, plan: string, critique: string, criteria: string[] = []): string {
   return [
     `Execute this task:\n${task}`,
     '',
-    `Plan (from a pre-execution consult):\n${plan}`,
+    // Criteria travel WITH the task and are stated to outrank the plan --
+    // executors treating a plan as authority over requirements was the failure.
+    criteria.length ? `Acceptance criteria -- these outrank the plan; if they conflict, the criteria win and you say so:\n${criteria.map((c) => `- ${c}`).join('\n')}\n` : '',
+    `Plan (reviewed and reconciled before execution):\n${plan}`,
     '',
-    `Independent reviewer critique:\n${critique}`,
-    '',
-    'Proceed with the implementation now, following the plan and incorporating the critique wherever it genuinely improves it.',
-  ].join('\n');
+    critique ? `The reviewer's findings, for context (the plan above already reconciles them):\n${critique}\n` : '',
+    'Proceed with the implementation now. The harness will run the project gates when you finish; do not edit or run the gate definitions yourself.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 const READ_ONLY_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'WebSearch', 'WebFetch', 'TodoWrite', 'Task']);
@@ -155,7 +193,7 @@ export function startConsultStep(
   cwd: string,
   prompt: string,
   model: string,
-  phase: 'plan' | 'critique',
+  phase: 'plan' | 'critique' | 'reconcile',
 ): ConsultRun {
   let cancel: () => void = () => {};
   const raw =
@@ -195,7 +233,7 @@ export function startConsultStep(
   const promise = raw.then((out) => {
     const trimmed = out.trim();
     if (!trimmed) throw new Error(`${agent} consult run returned no text`);
-    return truncate(trimmed, phase === 'plan' ? PLAN_CAP : CRITIQUE_CAP);
+    return truncate(trimmed, phase === 'critique' ? CRITIQUE_CAP : PLAN_CAP);
   });
   return { promise, cancel: () => cancel() };
 }

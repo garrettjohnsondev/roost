@@ -1,3 +1,6 @@
+import { composeReconcilePrompt } from './consult.js';
+import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
+import type { SessionMode } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
@@ -29,6 +32,9 @@ import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startC
 
 const TRANSCRIPT_CAP = 5000;
 
+/** What a finished consult leaves behind for Proceed. */
+type ConsultState = { task: string; plan: string; critique: string; criteria?: string[]; taskId?: string; planPath?: string };
+
 interface SessionOpts {
   model?: string;
   resume?: string;
@@ -41,7 +47,8 @@ interface SessionOpts {
     effort: string;
     approvals: ApprovalSetting;
     routedModel?: string;
-    pendingConsult?: { task: string; plan: string; critique: string };
+    pendingConsult?: ConsultState;
+    mode?: SessionMode;
   };
   onChange?: () => void;
 }
@@ -67,7 +74,7 @@ export class Session {
   private consultRunning = false;
   private activeConsult?: ConsultRun;
   private consultCancelled = false;
-  pendingConsult?: { task: string; plan: string; critique: string };
+  pendingConsult?: ConsultState;
   private standardModelFor: (agent: AgentKind) => string;
   /** Decision 3: skip the cross-model review when triage sizes the task small. */
   private sizeGate = true;
@@ -83,6 +90,13 @@ export class Session {
   model: string;
   effort: string;
   approvals: ApprovalSetting;
+  mode: SessionMode;
+  private maxReviewRounds = 1;
+  private autoProceed = false;
+  private verifyAfterProceed = true;
+  /** Set on Proceed; consumed when the executor's turn ends. */
+  private pendingVerify?: { taskId?: string; criteria?: string[]; review: boolean };
+  private executing = false;
 
   private get autoMode(): boolean {
     return this.model === 'auto';
@@ -105,6 +119,7 @@ export class Session {
     this.model = opts.model ?? (opts.resume ? '' : agentConfig.defaultModel);
     this.effort = opts.restore?.effort ?? '';
     this.approvals = opts.restore?.approvals ?? 'ask';
+    this.mode = opts.restore?.mode ?? (this.model === 'auto' ? 'auto' : 'chat');
     this.resumedFrom = opts.resume;
     this.onChange = opts.onChange;
     this.autoRoute = config.autoRoute[agent];
@@ -115,6 +130,9 @@ export class Session {
     this.standardModelFor = (a: AgentKind) => config.autoRoute[a].standard.model;
     this.sizeGate = config.consult?.sizeGate ?? true;
     this.budget = config.budget;
+    this.maxReviewRounds = Math.max(1, Math.min(2, config.consult?.maxReviewRounds ?? 1));
+    this.autoProceed = config.consult?.autoProceed ?? false;
+    this.verifyAfterProceed = config.consult?.verifyAfterProceed ?? true;
     this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
     try {
       const gates = gatesFrom(loadProjectKnowledge(this.cwd));
@@ -188,6 +206,8 @@ export class Session {
       crew: crewMember(this.agent, this.autoMode ? this.routedModel ?? this.model : this.model, this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
+      mode: this.mode,
+      planPath: this.pendingConsult?.planPath,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
       boost: this.boost || undefined,
@@ -281,6 +301,13 @@ export class Session {
       const model = this.routedModel || (this.model && this.model !== 'auto' ? this.model : this.standardModelFor(this.agent));
       event = { ...event, crew: crewMember(this.agent, model, this.currentRole) };
     }
+    if (event.type === 'status' && event.state === 'idle' && this.executing && this.pendingVerify) {
+      const pv = this.pendingVerify;
+      this.executing = false;
+      this.pendingVerify = undefined;
+      // Deferred a tick so this idle lands in the transcript before "Verifying…".
+      setTimeout(() => void this.autoVerify(pv), 0);
+    }
     this.transcript.push(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
     // Meaningful activity only — status/usage churn shouldn't bump a session to the top
@@ -336,6 +363,12 @@ export class Session {
     switch (msg.type) {
       case 'user_message':
         if (this.title === 'New session' && msg.text) this.title = truncate(msg.text, 60);
+        if (this.mode === 'plan' || this.mode === 'build') {
+          // Plan: a plan file, nothing executes. Build: the full conference,
+          // then the Proceed gate (or autoProceed, off by default).
+          await this.runConsult(msg.text, { planOnly: this.mode === 'plan' });
+          break;
+        }
         if (this.autoMode) await this.routeFor(msg.text);
         await this.adapter.sendUserMessage(msg.text, msg.images);
         this.broadcastMeta();
@@ -412,10 +445,17 @@ export class Session {
         if (this.title === 'New session' && consult.task) this.title = truncate(consult.task, 60);
         if (this.autoMode) await this.routeFor(consult.task);
         await this.adapter.sendUserMessage(
-          composeProceedPrompt(consult.task, consult.plan, consult.critique),
+          composeProceedPrompt(consult.task, consult.plan, consult.critique, consult.criteria ?? []),
           undefined,
           `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`,
         );
+        // Verification runs when this turn ends: gates always, the diff
+        // reviewer in build mode. Armed here, fired from pushEvent.
+        if (this.verifyAfterProceed) {
+          this.pendingVerify = { taskId: consult.taskId, criteria: consult.criteria, review: this.mode === 'build' };
+          this.executing = true;
+        }
+        logDecision({ kind: 'review', sessionId: this.id, stage: 'execute', taskId: consult.taskId, mode: this.mode });
         this.broadcastMeta();
         break;
       }
@@ -438,6 +478,24 @@ export class Session {
         }
         break;
       }
+      case 'set_mode': {
+        const m = msg.mode;
+        if (m !== 'chat' && m !== 'auto' && m !== 'plan' && m !== 'build') break;
+        this.mode = m;
+        if ((m === 'auto' || m === 'build') && this.model !== 'auto') {
+          this.routedModel = this.model || undefined;
+          this.model = 'auto';
+          this.lastTier = undefined;
+        } else if ((m === 'chat' || m === 'plan') && this.model === 'auto') {
+          const concrete = this.routedModel ?? this.standardModelFor(this.agent);
+          await this.adapter.setModel(concrete).catch(() => {});
+          this.model = concrete;
+          this.routedModel = undefined;
+        }
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'mode', action: m });
+        this.broadcastMeta();
+        break;
+      }
       case 'set_boost':
         this.boost = !!msg.on;
         if (this.autoMode) this.lastTier = undefined; // the next message re-routes
@@ -455,7 +513,7 @@ export class Session {
    *  a digest of recent conversation for context), the other agent critiques, both land
    *  in the transcript, and consultPending arms the Proceed/Dismiss bar. Stop cancels the
    *  active one-shot; a failed critique degrades gracefully instead of losing the plan. */
-  private async runConsult(task: string): Promise<void> {
+  private async runConsult(task: string, opts: { planOnly?: boolean } = {}): Promise<void> {
     if (!task.trim() || this.consultRunning) return;
     // The gate, before any one-shot process exists.
     const h = quotaStore().headroom(this.agent, this.budget);
@@ -497,6 +555,18 @@ export class Session {
       // the plan reaches the reviewer's context, the transcript, or execution.
       const plan = sanitizeAgentOutput(await this.activeConsult.promise).text;
       this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: plan, ts: now() });
+      // The plan is a file from here on. Criteria are pulled out of it and
+      // travel with review, execution and verification.
+      const taskId = newTaskId();
+      const criteria = extractCriteria(plan);
+      let planFile: PlanFile = { taskId, task, plan, criteria, rounds: 0, createdAt: now(), updatedAt: now() };
+      const path = writePlan(this.cwd, planFile);
+      logDecision({ kind: 'review', sessionId: this.id, stage: 'plan', taskId, criteria: criteria.length, planPath: path });
+      if (opts.planOnly) {
+        this.pendingConsult = { task, plan, critique: '', criteria, taskId, planPath: path };
+        this.pushEvent({ type: 'status', state: 'working', message: `Plan written to ${path}`, ts: now() });
+        return;
+      }
 
       let critique: string;
       if (skipReview) {
@@ -505,7 +575,7 @@ export class Session {
       } else {
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
         try {
-          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), reviewerModel, 'critique');
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan, criteria), reviewerModel, 'critique');
           critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
         } catch (err: any) {
           if (this.consultCancelled) throw err;
@@ -515,7 +585,36 @@ export class Session {
         this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: critique, ts: now() });
       }
 
-      this.pendingConsult = { task, plan, critique };
+      // Reconcile: the author filters the findings against the task and the
+      // criteria BEFORE anyone acts on them. Capped at maxReviewRounds
+      // (default 1, never more than 2): round 1 buys ~8 points, round 2 ~4.5,
+      // round 3 ~1.5 and rising noise.
+      let reconciled = plan;
+      let currentCritique = critique;
+      let rounds = 0;
+      while (!skipReview && rounds < this.maxReviewRounds && !currentCritique.startsWith('(Critique unavailable')) {
+        rounds += 1;
+        this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is reconciling the review against the requirements…`, ts: now() });
+        this.activeConsult = startConsultStep(this.agent, this.cwd, composeReconcilePrompt(task, reconciled, currentCritique, criteria), plannerModel, 'reconcile');
+        reconciled = sanitizeAgentOutput(await this.activeConsult.promise).text;
+        this.pushEvent({ type: 'consult', phase: 'reconcile', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: reconciled, ts: now() });
+        planFile = { ...planFile, critique: currentCritique, reconciled, rounds, updatedAt: now() };
+        writePlan(this.cwd, planFile);
+        logDecision({ kind: 'review', sessionId: this.id, stage: 'reconcile', taskId, round: rounds });
+        const needsChanges = /VERDICT:\s*NEEDS CHANGES/i.test(currentCritique);
+        if (!needsChanges || rounds >= this.maxReviewRounds) break;
+        this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is re-reviewing (round ${rounds + 1})…`, ts: now() });
+        try {
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, reconciled, criteria), reviewerModel, 'critique');
+          currentCritique = sanitizeAgentOutput(await this.activeConsult.promise).text;
+          this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: currentCritique, ts: now() });
+        } catch (err: any) {
+          if (this.consultCancelled) throw err;
+          break;
+        }
+      }
+
+      this.pendingConsult = { task, plan: reconciled, critique: currentCritique, criteria, taskId, planPath: path };
       if (this.sockets.size === 0) {
         sendNotification(`consult:${this.id}`, `Consult ready · ${this.title}`, 'Plan and critique are waiting for your decision.');
       }
@@ -527,6 +626,29 @@ export class Session {
       this.consultRunning = false;
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
       this.broadcastMeta();
+    }
+    if (this.autoProceed && this.mode === 'build' && this.pendingConsult && !opts.planOnly) {
+      await this.handleClientMessage({ type: 'consult_proceed' });
+    }
+  }
+
+  /** Runs when the executor's turn ends after a Proceed: the project gates,
+   *  and in build mode the fresh-context diff reviewer with the criteria. */
+  private async autoVerify(pv: { taskId?: string; criteria?: string[]; review: boolean }): Promise<void> {
+    this.pushEvent({ type: 'status', state: 'working', message: pv.review ? 'Execution finished — running the gates, then reviewing the diff…' : 'Execution finished — running the project gates…', ts: now() });
+    try {
+      const report = await verifyTask({
+        cwd: this.cwd,
+        taskId: pv.taskId ?? this.id,
+        fingerprintAtStart: this.gateFingerprintAtStart,
+        review: pv.review ? { executorAgent: this.agent, criteria: pv.criteria?.length ? pv.criteria.map((c) => `- ${c}`).join('\n') : undefined } : undefined,
+      });
+      this.pushEvent({ type: 'verify', report, ts: now() });
+      if (this.sockets.size === 0) sendNotification(`verify:${this.id}`, `${report.passed ? 'Verified' : 'Verification FAILED'} · ${this.title}`, report.summary);
+    } catch (err: any) {
+      this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);
+    } finally {
+      this.pushEvent({ type: 'status', state: 'idle', ts: now() });
     }
   }
 
@@ -574,7 +696,8 @@ interface PersistedSession {
   updatedAt: number;
   agentSessionId?: string;
   resumedFrom?: string;
-  pendingConsult?: { task: string; plan: string; critique: string };
+  pendingConsult?: ConsultState;
+  mode?: SessionMode;
 }
 
 export class SessionManager {
@@ -626,6 +749,7 @@ export class SessionManager {
       agentSessionId: s.agentSessionId,
       resumedFrom: s.resumedFrom,
       pendingConsult: s.pendingConsult,
+      mode: s.mode,
     }));
     try {
       const path = statePath();
@@ -678,6 +802,7 @@ export class SessionManager {
             approvals: entry.approvals,
             routedModel: entry.routedModel,
             pendingConsult: entry.pendingConsult,
+            mode: entry.mode,
           },
           onChange: () => this.scheduleSave(),
         });
