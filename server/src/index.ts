@@ -1,3 +1,4 @@
+import { readDecisions, summarizeDecisions } from './decisions.js';
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
@@ -222,7 +223,14 @@ app.post('/api/sessions', (req, res) => {
   // On resume, an explicit model continues to override; otherwise leave it unset so the
   // engine picks back up with whatever the original session was using, instead of forcing
   // today's default model onto yesterday's conversation.
-  const session = manager.create(agent as AgentKind, cwd, { model: model || undefined, resume });
+  let session;
+  try {
+    session = manager.create(agent as AgentKind, cwd, { model: model || undefined, resume });
+  } catch (err: any) {
+    // A one-writer refusal is a 409 with the reason, not a 500.
+    res.status(typeof err?.status === 'number' ? err.status : 500).json({ error: String(err?.message ?? err) });
+    return;
+  }
   if (resume && typeof title === 'string' && title) session.title = title;
   res.json({ session: session.meta() });
 });
@@ -317,6 +325,14 @@ app.post('/api/notifications/test', async (_req, res) => {
     return;
   }
   res.json({ sent: true });
+});
+
+/** The operator's record: what the harness decided in the last day. */
+app.get('/api/decisions', (req, res) => {
+  const limit = Math.min(2000, Math.max(1, Number(req.query.limit) || 500));
+  const rows = readDecisions(limit);
+  const since = Date.now() - 24 * 3600_000;
+  res.json({ summary: summarizeDecisions(rows, since), recent: rows.slice(-50) });
 });
 
 app.get('/api/usage', (_req, res) => {

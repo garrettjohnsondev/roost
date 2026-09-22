@@ -58,6 +58,12 @@ export interface ConsultConfig {
   sizeGate: boolean;
 }
 
+export interface GuardsConfig {
+  /** Decision 2, one writer. 'warn' posts a notice when a second session opens
+   *  on a project; 'block' refuses it with a 409. */
+  oneWriter: 'warn' | 'block';
+}
+
 export interface PocketConfig {
   port: number;
   projects: string[];
@@ -67,6 +73,7 @@ export interface PocketConfig {
   autoRoute: { claude: AutoRouteConfig; codex: AutoRouteConfig };
   budget: BudgetConfig;
   consult: ConsultConfig;
+  guards: GuardsConfig;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -101,6 +108,7 @@ const DEFAULTS: PocketConfig = {
     surplusWithinMins: 360,
   },
   consult: { sizeGate: true },
+  guards: { oneWriter: 'warn' },
   claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] }, // no Codex model exposes 'minimal'
 };
@@ -130,6 +138,7 @@ export function loadConfig(): PocketConfig {
       },
       budget: { ...DEFAULTS.budget, ...parsed.budget },
       consult: { ...DEFAULTS.consult, ...parsed.consult },
+      guards: { ...DEFAULTS.guards, ...parsed.guards },
       claude: { ...DEFAULTS.claude, ...parsed.claude },
       codex: { ...DEFAULTS.codex, ...parsed.codex },
     };

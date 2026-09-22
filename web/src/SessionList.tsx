@@ -5,6 +5,7 @@ import { GitSheet } from './GitSheet';
 import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
+import { DecisionsPanel } from './DecisionsPanel';
 import type { Theme } from './theme';
 import type { AgentKind, GitSummary, PocketConfigResponse, RecentProject, SessionMeta } from './types';
 
@@ -216,6 +217,7 @@ export function SessionList(props: {
       </header>
 
       <UsagePanel />
+      <DecisionsPanel />
 
       {sessions.length > 0 && (
         <section className="card">

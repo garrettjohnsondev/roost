@@ -361,8 +361,10 @@ From the 2026-09-21 review. Confirmed findings that were neither silent data cor
 - **Decisions log** (`.pocket-data/decisions.jsonl`): every route, reviewer choice, size-gate outcome, one-writer gate and dispatch, with timing — the record Phase 4's "does the conference earn its keep" needs.
 - **The web workspace has tests**: the chat reducer is exported and covered; `npm test` runs both workspaces.
 
-**Remaining:**
-- One-writer *blocking* (a `oneWriter: 'block'` option) once the notice has been lived with.
-- A visible "draft kept — not connected" note in the composer (the draft is kept; the composer does not yet say why the send did nothing).
-- UI tests for the `useSession` hook itself (session switch, replay) and `UsagePanel`'s honesty states — the reducer is covered, the hook is not.
-- An operator view of the decisions log (it is a file; nothing reads it yet).
+**Shipped 2026-09-22, second pass:**
+- **`guards.oneWriter: 'block'`** refuses a second session on a project with a 409 and the reason, checked *before* an agent process is spawned. Default stays `'warn'`.
+- **The composer says why a send did nothing** — "Not connected — your message is kept here until the session reconnects."
+- **The session hook is a pure reducer** (`reduceSessionEvent`) over items, meta, status, usage and the approval queue, tested without a DOM; a session switch is exactly `initialCore()`. The fuel gauge's pure parts (`usageView.ts`) are tested the same way.
+- **The decisions log has a reader**: `GET /api/decisions` summarises the last 24 hours — routes, dispatches with success rate and mean time (null, never 0, when there are none), reviews by strength and size-gate skips, one-writer gates — and the home screen shows it.
+
+**Nothing from the review remains unshipped.** What comes next is the roadmap's own sequence: Phase 3 (the conference as a build mode), Phase 4 (quota-aware dispatch — the review orchestrator's own failure, correction 27, is the case for it), Phase 5 (the verification gate).

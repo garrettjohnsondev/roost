@@ -476,6 +476,8 @@ function Composer(props: {
 }) {
   const [text, setText] = useState('');
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
+  /** A send that could not go out. The draft is kept; this says why. */
+  const [unsent, setUnsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function send() {
@@ -483,7 +485,11 @@ function Composer(props: {
     // A send while disconnected used to clear the box into the void; now the
     // draft stays until a send actually goes out.
     const sent = props.onSend(text.trim(), images.length ? images.map(({ mediaType, data }) => ({ mediaType, data })) : undefined);
-    if (!sent) return;
+    if (!sent) {
+      setUnsent(true);
+      return;
+    }
+    setUnsent(false);
     setText('');
     setImages([]);
   }
@@ -521,6 +527,11 @@ function Composer(props: {
               <button onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}>✕</button>
             </div>
           ))}
+        </div>
+      )}
+      {unsent && (
+        <div className="composer-hint composer-unsent">
+          Not connected — your message is kept here until the session reconnects.
         </div>
       )}
       <div className="composer-row">

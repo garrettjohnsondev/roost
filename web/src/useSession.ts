@@ -88,86 +88,90 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
   return next;
 }
 
+export interface SessionCore {
+  items: ChatItem[];
+  meta: SessionMeta | null;
+  status: SessionState['status'];
+  statusMessage: string | null;
+  usage: UsageInfo | null;
+  approvals: Array<NonNullable<SessionState['pendingApproval']>>;
+}
+
+export function initialCore(): SessionCore {
+  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [] };
+}
+
+/** Everything the phone shows for a session, as a pure function of the events
+ *  it has received. Pure so it can be tested without a DOM -- and so a session
+ *  switch is exactly `initialCore()`, which is how the previous chat's usage
+ *  and status stopped leaking under the next chat's title. */
+export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): SessionCore {
+  switch (event.type) {
+    case 'replay': {
+      const resolved = new Set(event.events.filter((e) => e.type === 'approval_resolved').map((e: any) => e.requestId));
+      let items: ChatItem[] = [];
+      let usage: UsageInfo | null = null;
+      let status = prev.status;
+      let statusMessage: string | null = null;
+      const approvals: SessionCore['approvals'] = [];
+      for (const e of event.events) {
+        items = apply(items, e);
+        if (e.type === 'approval_request' && !resolved.has(e.requestId)) {
+          approvals.push({ requestId: e.requestId, title: e.title, detail: e.detail });
+        }
+        if (e.type === 'usage') usage = e.usage;
+        if (e.type === 'status') {
+          status = e.state;
+          statusMessage = e.message ?? null;
+        }
+      }
+      return { items, meta: event.meta, status, statusMessage, usage, approvals };
+    }
+    case 'session_meta':
+      return { ...prev, meta: event.meta };
+    case 'usage':
+      return { ...prev, usage: event.usage };
+    case 'status':
+      return { ...prev, status: event.state, statusMessage: event.message ?? null };
+    case 'approval_request': {
+      // A queue, not a slot: two concurrent requests used to strand the first.
+      const approvals = prev.approvals.some((a) => a.requestId === event.requestId)
+        ? prev.approvals
+        : [...prev.approvals, { requestId: event.requestId, title: event.title, detail: event.detail }];
+      return { ...prev, approvals, items: apply(prev.items, event) };
+    }
+    case 'approval_resolved':
+      return { ...prev, approvals: prev.approvals.filter((a) => a.requestId !== event.requestId), items: apply(prev.items, event) };
+    default:
+      return { ...prev, items: apply(prev.items, event) };
+  }
+}
+
 export function useSession(sessionId: string): SessionState {
-  const [items, setItems] = useState<ChatItem[]>([]);
-  const [meta, setMeta] = useState<SessionMeta | null>(null);
-  const [status, setStatus] = useState<SessionState['status']>('connecting');
+  const [core, setCore] = useState<SessionCore>(initialCore);
   const [connected, setConnected] = useState(false);
-  const [usage, setUsage] = useState<UsageInfo | null>(null);
-  // A queue, not a slot: two concurrent requests used to strand the first one
-  // with no way to answer it.
-  const [approvals, setApprovals] = useState<Array<NonNullable<SessionState['pendingApproval']>>>([]);
   const [closedReason, setClosedReason] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const socketRef = useRef<SessionSocket | null>(null);
 
   useEffect(() => {
-    // Everything below is per-session. Leaving the previous session's usage,
-    // status and approval in place until the replay arrived showed one chat's
-    // numbers under another chat's title.
     setClosedReason(null);
-    setUsage(null);
-    setStatusMessage(null);
-    setApprovals([]);
-    setItems([]);
-    const handle = (event: ServerEvent) => {
-      switch (event.type) {
-        case 'replay': {
-          setMeta(event.meta);
-          let rebuilt: ChatItem[] = [];
-          const open: Array<NonNullable<SessionState['pendingApproval']>> = [];
-          const resolved = new Set(
-            event.events.filter((e) => e.type === 'approval_resolved').map((e: any) => e.requestId),
-          );
-          for (const e of event.events) {
-            rebuilt = apply(rebuilt, e);
-            if (e.type === 'approval_request' && !resolved.has(e.requestId)) {
-              open.push({ requestId: e.requestId, title: e.title, detail: e.detail });
-            }
-            if (e.type === 'usage') setUsage(e.usage);
-            if (e.type === 'status') setStatus(e.state);
-          }
-          setItems(rebuilt);
-          setApprovals(open);
-          break;
-        }
-        case 'session_meta':
-          setMeta(event.meta);
-          break;
-        case 'usage':
-          setUsage(event.usage);
-          break;
-        case 'status':
-          setStatus(event.state);
-          setStatusMessage(event.message ?? null);
-          break;
-        case 'approval_request':
-          setApprovals((q) => (q.some((a) => a.requestId === event.requestId) ? q : [...q, { requestId: event.requestId, title: event.title, detail: event.detail }]));
-          setItems((prev) => apply(prev, event));
-          break;
-        case 'approval_resolved':
-          setApprovals((q) => q.filter((a) => a.requestId !== event.requestId));
-          setItems((prev) => apply(prev, event));
-          break;
-        default:
-          setItems((prev) => apply(prev, event));
-      }
-    };
+    setCore(initialCore());
+    const handle = (event: ServerEvent) => setCore((prev) => reduceSessionEvent(prev, event));
     const socket = new SessionSocket(sessionId, handle, setConnected, setClosedReason);
     socketRef.current = socket;
     return () => socket.close();
   }, [sessionId]);
 
   return {
-    items,
-    meta,
-    status,
+    items: core.items,
+    meta: core.meta,
+    status: core.status,
     connected,
-    usage,
-    pendingApproval: approvals[0] ?? null,
-    pendingApprovalCount: approvals.length,
+    usage: core.usage,
+    pendingApproval: core.approvals[0] ?? null,
+    pendingApprovalCount: core.approvals.length,
     closedReason,
-    statusMessage,
+    statusMessage: core.statusMessage,
     send: (msg) => socketRef.current?.send(msg) ?? false,
   };
 }

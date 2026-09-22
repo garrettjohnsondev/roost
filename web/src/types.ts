@@ -122,6 +122,15 @@ export interface Persona {
   avatar?: string;
 }
 
+export interface DecisionsSummary {
+  total: number;
+  sinceMs: number;
+  routes: number;
+  dispatches: { total: number; ok: number; failed: number; meanMs: number | null };
+  reviews: { total: number; skippedBySizeGate: number; byStrength: Record<string, number> };
+  gates: { oneWriter: number };
+}
+
 export interface CrewInfo {
   /** Who: stable per (suite, model). */
   name: string;

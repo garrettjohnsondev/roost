@@ -177,3 +177,9 @@ describe('built-in defaults route to models that exist', () => {
     expect(issues).toEqual([]);
   });
 });
+
+describe('guards', () => {
+  it('defaults one-writer to warn, not block', () => {
+    expect(loadConfig().guards.oneWriter).toBe('warn');
+  });
+});

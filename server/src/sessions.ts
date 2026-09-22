@@ -453,6 +453,11 @@ export class Session {
   }
 }
 
+/** Thrown by SessionManager.create when guards.oneWriter is 'block'. */
+export class OneWriterError extends Error {
+  readonly status = 409;
+}
+
 const IDLE_SWEEP_INTERVAL_MS = 30 * 60 * 1000;
 const SAVE_DEBOUNCE_MS = 2000;
 
@@ -587,10 +592,15 @@ export class SessionManager {
   }
 
   create(agent: AgentKind, cwd: string, opts: { model?: string; resume?: string } = {}): Session {
-    const session = new Session(agent, cwd, this.config, { ...opts, onChange: () => this.scheduleSave() });
-    // Decision 2, one writer: nothing here can stop two sessions editing one
-    // tree, but the person opening the second can be told before they do.
+    // Decision 2, one writer. Checked BEFORE constructing the session, because
+    // a Session spawns its agent process on construction and a refusal must
+    // not leave one running.
     const others = [...this.sessions.values()].filter((s) => s.meta().cwd === cwd);
+    if (others.length && this.config.guards?.oneWriter === 'block') {
+      logDecision({ kind: 'gate', rule: 'one-writer', action: 'blocked', cwd, others: others.map((s) => s.id) });
+      throw new OneWriterError(`${others.length} other session${others.length > 1 ? 's are' : ' is'} already open on this project and guards.oneWriter is 'block'. Close it first, or set guards.oneWriter to 'warn'.`);
+    }
+    const session = new Session(agent, cwd, this.config, { ...opts, onChange: () => this.scheduleSave() });
     this.sessions.set(session.id, session);
     if (others.length) {
       session.notice(`${others.length} other session${others.length > 1 ? 's are' : ' is'} open on this project — concurrent edits are not guarded; keep one session writing at a time.`);

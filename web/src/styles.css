@@ -1845,3 +1845,7 @@ button {
 .review-strength { font-size: 11px; opacity: 0.75; margin-left: 6px; }
 
 .msg-crew { margin-bottom: 4px; }
+
+.composer-unsent { color: #d9a441; }
+.decisions { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.decisions li { padding: 2px 0; }
