@@ -233,6 +233,10 @@ export function SessionList(props: {
               <ChangesBadge summary={gitSummaries[s.cwd]} onOpen={() => setGitSheetFor(s.cwd)} />
               {s.state === 'working' ? (
                 <span className="live-badge working">● Working</span>
+              ) : s.state === 'error' ? (
+                <span className="live-badge error">● Error</span>
+              ) : s.state === 'connecting' ? (
+                <span className="live-badge">● Connecting</span>
               ) : (
                 <span className="live-badge">● Live</span>
               )}

@@ -50,7 +50,12 @@ export function claudeDeltas(prev: Map<string, any>, modelUsage: any): ClaudeDel
       cacheWriteTok,
       reasoningTok: d('thinkingTokens'),
       costUsd: d('costUSD'),
-      priced: cur.pricingBasis !== 'unknown',
+      // SDK ModelUsage.costBasis: 'list' | 'managed' | 'unknown'. 'unknown' means
+      // "no pricing row matched, costUSD is a GUESS at the default model's rate".
+      // Absent means 'list' (older builds, right after --resume). The field was
+      // previously read as `pricingBasis`, which does not exist, so every guess
+      // was recorded as authoritative -- the catch-all-price-row bug again.
+      priced: (cur.costBasis ?? 'list') !== 'unknown',
     });
   }
   return out;

@@ -142,7 +142,6 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
       {session.usage && (
         <div className="usage-bar">
           {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
-          {session.usage.costUsd != null && <> · ${session.usage.costUsd.toFixed(2)}</>}
           {session.usage.contextPct != null && <> · ctx {session.usage.contextPct}%</>}
         </div>
       )}

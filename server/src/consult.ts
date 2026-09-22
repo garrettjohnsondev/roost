@@ -104,8 +104,9 @@ function codexOneShotCancellable(cwd: string, prompt: string, model: string): { 
       if (!threadId) throw new Error('codex consult thread failed to start');
 
       let lastMessage = '';
+      let timer: NodeJS.Timeout | undefined;
       const done = new Promise<string>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('consult run timed out')), ONE_SHOT_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error('consult run timed out')), ONE_SHOT_TIMEOUT_MS);
         onNotification = (method, params) => {
           if (method === 'item/completed' && params?.item?.type === 'agentMessage' && params.item.text) {
             lastMessage = params.item.text;
@@ -120,13 +121,26 @@ function codexOneShotCancellable(cwd: string, prompt: string, model: string): { 
           }
         };
       });
-      await rpc.request('turn/start', { threadId, input: [{ type: 'text', text: prompt, text_elements: [] }] }, ONE_SHOT_TIMEOUT_MS);
-      return await done;
+      // A rejected turn/start left `done` unobserved with a live timer -- an
+      // unhandledRejection minutes later. Observe it and always clear the timer.
+      done.catch(() => {});
+      try {
+        await rpc.request('turn/start', { threadId, input: [{ type: 'text', text: prompt, text_elements: [] }] }, ONE_SHOT_TIMEOUT_MS);
+        return await done;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     } finally {
       rpc.kill();
     }
   })();
-  return { promise, kill: () => rpc.kill() };
+  // Killing the process alone left `done` waiting for a turn/completed that
+  // would never arrive: Stop appeared to hang for the full timeout.
+  const kill = () => {
+    rpc.kill();
+    onNotification('error', { willRetry: false, error: { message: 'consult cancelled' } });
+  };
+  return { promise, kill };
 }
 
 export interface ConsultRun {
@@ -157,6 +171,10 @@ export function startConsultStep(
               cwd,
               model,
               maxTurns: 12,
+              // The SDK loads ALL filesystem settings when this is omitted, and a
+              // settings file's permissions.allow rules approve tools without ever
+              // consulting canUseTool -- which made "read-only" advisory.
+              settingSources: [],
               canUseTool: async (toolName: string) =>
                 READ_ONLY_TOOLS.has(toolName)
                   ? { behavior: 'allow', updatedInput: undefined as any }

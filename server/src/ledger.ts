@@ -73,13 +73,24 @@ export class CallLedger {
     return join(this.dir, 'usage.jsonl');
   }
 
+  /** Rows that failed to reach disk. Retried on the next record() -- a row
+   *  dropped silently is a ledger that lies about what happened. */
+  private unflushed: string[] = [];
+  private appendWarned = false;
+
   record(r: CallRecord): void {
     this.rows.push(r);
+    this.unflushed.push(JSON.stringify(r));
     try {
       mkdirSync(this.dir, { recursive: true });
-      appendFileSync(this.file(), JSON.stringify(r) + '\n');
-    } catch {
-      /* best effort */
+      appendFileSync(this.file(), this.unflushed.join('\n') + '\n');
+      this.unflushed = [];
+      this.appendWarned = false;
+    } catch (err: any) {
+      if (!this.appendWarned) {
+        this.appendWarned = true;
+        console.error(`[pocket] ledger append failed (${err?.message ?? err}); ${this.unflushed.length} row(s) held in memory, retried on the next call`);
+      }
     }
   }
 
@@ -130,9 +141,10 @@ export class CallLedger {
     const rows = this.since(scope.sinceTs, { sessionId: scope.sessionId, taskId: scope.taskId });
     if (rows.length < 3) return null;
 
-    const actualPriced = rows.filter((r) => r.costUsd != null);
-    if (!actualPriced.length) return null;
-    const actualUsd = +actualPriced.reduce((s, r) => s + (r.costUsd ?? 0), 0).toFixed(4);
+    // All-or-nothing: one unpriced call makes "actual" unknowable, and treating
+    // it as free would flatter the saving by exactly that call's cost.
+    if (rows.some((r) => r.costUsd == null)) return null;
+    const actualUsd = +rows.reduce((s, r) => s + (r.costUsd as number), 0).toFixed(4);
 
     // "Solo" means: the heavy-tier model of whichever agents actually worked.
     const agents = [...new Set(rows.map((r) => r.agent))];

@@ -159,7 +159,8 @@ export class CodexAdapter implements AgentAdapter {
     if (!pending) return;
     this.pending.delete(requestId);
     this.emit({ type: 'approval_resolved', requestId, decision, ts: now() });
-    pending.resolve(decision === 'deny' ? 'decline' : decision === 'allow-session' ? 'acceptForSession' : 'accept');
+    // Strict: only the two affirmative decisions accept; anything else declines.
+    pending.resolve(decision === 'allow' ? 'accept' : decision === 'allow-session' ? 'acceptForSession' : 'decline');
   }
 
   private onNotification(method: string, params: any) {
@@ -187,7 +188,10 @@ export class CodexAdapter implements AgentAdapter {
         if (item.type === 'agentMessage' && item.text) {
           this.emit({ type: 'assistant_message', text: item.text, ts: now() });
         } else if (this.itemNames.has(item.id)) {
-          const ok = item.type === 'commandExecution' ? item.exitCode === 0 || item.exitCode == null : item.status !== 'failed';
+          // A declined or failed item is not ok. exitCode == null used to count
+          // as success, so a command the user refused showed a green check.
+          const declined = item.status === 'declined' || item.status === 'failed' || item.status === 'rejected';
+          const ok = declined ? false : item.type === 'commandExecution' ? item.exitCode === 0 || item.exitCode == null : item.status !== 'failed';
           const detail = item.type === 'commandExecution' && item.exitCode != null ? `exit ${item.exitCode}` : undefined;
           this.emit({ type: 'tool_end', toolId: item.id, name: this.itemNames.get(item.id)!, ok, detail, ts: now() });
           this.itemNames.delete(item.id);
@@ -198,10 +202,30 @@ export class CodexAdapter implements AgentAdapter {
         this.activeTurnId = params?.turn?.id ?? null;
         this.emit({ type: 'status', state: 'working', ts: now() });
         break;
-      case 'turn/completed':
+      case 'turn/completed': {
         this.activeTurnId = null;
-        this.emit({ type: 'status', state: 'idle', ts: now() });
+        // TurnCompletedNotification carries turn.status ('completed' |
+        // 'interrupted' | 'failed' | 'inProgress') and turn.error. A failed turn
+        // used to resolve as an ordinary idle completion with nothing said.
+        const status = params?.turn?.status;
+        if (status === 'failed') {
+          const why = params?.turn?.error?.message ?? 'unknown error';
+          this.emit({ type: 'error', message: `Codex turn failed: ${truncate(String(why), 500)}`, ts: now() });
+        }
+        this.emit({ type: 'status', state: 'idle', message: status === 'interrupted' ? 'Stopped.' : undefined, ts: now() });
         break;
+      }
+      case 'error': {
+        // The engine hit an error; willRetry says whether it is giving up.
+        // Either way the user must see it -- it used to go nowhere.
+        const msg = params?.error?.message ?? params?.message ?? 'unknown error';
+        this.emit({ type: 'error', message: `Codex: ${truncate(String(msg), 500)}${params?.willRetry ? ' (retrying)' : ''}`, ts: now() });
+        if (params?.willRetry === false) {
+          this.activeTurnId = null;
+          this.emit({ type: 'status', state: 'idle', ts: now() });
+        }
+        break;
+      }
       case 'account/rateLimits/updated':
         // Free usage-panel refresh as a side effect of normal chatting.
         noteCodexRateLimits(params?.rateLimits);
@@ -318,9 +342,19 @@ export class CodexAdapter implements AgentAdapter {
   }
 
   async interrupt(): Promise<void> {
-    if (this.threadId) {
-      await this.rpc.request('turn/interrupt', { threadId: this.threadId }).catch(() => {});
+    if (!this.threadId) return;
+    // TurnInterruptParams is { threadId, turnId } -- turnId is REQUIRED. Sent
+    // without it the request was rejected, the rejection swallowed, and idle
+    // emitted anyway: Stop silently did nothing while the UI said it worked.
+    if (!this.activeTurnId) {
       this.emit({ type: 'status', state: 'idle', ts: now() });
+      return;
+    }
+    try {
+      await this.rpc.request('turn/interrupt', { threadId: this.threadId, turnId: this.activeTurnId });
+      this.emit({ type: 'status', state: 'idle', ts: now() });
+    } catch (err: any) {
+      this.emit({ type: 'error', message: `Stop failed: ${err?.message ?? err}`, ts: now() });
     }
   }
 

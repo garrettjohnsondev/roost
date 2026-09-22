@@ -93,7 +93,14 @@ export function useSession(sessionId: string): SessionState {
   const socketRef = useRef<SessionSocket | null>(null);
 
   useEffect(() => {
+    // Everything below is per-session. Leaving the previous session's usage,
+    // status and approval in place until the replay arrived showed one chat's
+    // numbers under another chat's title.
     setClosedReason(null);
+    setUsage(null);
+    setStatusMessage(null);
+    setPendingApproval(null);
+    setItems([]);
     const handle = (event: ServerEvent) => {
       switch (event.type) {
         case 'replay': {

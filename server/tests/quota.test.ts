@@ -135,6 +135,9 @@ describe('claude structured usage read', () => {
   // sibling keys are deliberately included: an earlier implementation iterated
   // rate_limits blindly and invented phantom "no data" windows out of `spend`,
   // `extra_usage`, `seven_day_breakdown` and a raft of null codename entries.
+  // Reset times are RELATIVE: absolute timestamps expired a few hours after
+  // this fixture was written and every window purged on read (three red tests).
+  const inHours = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
   const LIVE = {
     subscription_type: 'max',
     rate_limits_available: true,
@@ -146,11 +149,11 @@ describe('claude structured usage read', () => {
       member_dashboard_available: false,
       seven_day_breakdown: { as_of: '2026-09-21T17:38:35Z', rows: [] },
       limits: [
-        { kind: 'session', group: 'session', percent: 23, severity: 'normal', resets_at: '2026-09-21T21:30:00.400221+00:00', scope: null, is_active: true },
-        { kind: 'weekly_all', group: 'weekly', percent: 3, severity: 'normal', resets_at: '2026-09-25T01:00:00.400240+00:00', scope: null, is_active: false },
-        { kind: 'weekly_scoped', group: 'weekly', percent: 0, severity: 'normal', resets_at: '2026-09-25T01:00:00+00:00', scope: { model: { id: null, display_name: 'Fable' } }, is_active: false },
+        { kind: 'session', group: 'session', percent: 23, severity: 'normal', resets_at: inHours(3), scope: null, is_active: true },
+        { kind: 'weekly_all', group: 'weekly', percent: 3, severity: 'normal', resets_at: inHours(4 * 24), scope: null, is_active: false },
+        { kind: 'weekly_scoped', group: 'weekly', percent: 0, severity: 'normal', resets_at: inHours(4 * 24), scope: { model: { id: null, display_name: 'Fable' } }, is_active: false },
       ],
-      model_scoped: [{ display_name: 'Fable', utilization: 0, resets_at: '2026-09-25T01:00:00+00:00' }],
+      model_scoped: [{ display_name: 'Fable', utilization: 0, resets_at: inHours(4 * 24) }],
     },
   };
 

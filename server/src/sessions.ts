@@ -1,3 +1,4 @@
+import { shouldApplyEffort } from './routing.js';
 import { randomUUID } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import type { WebSocket } from 'ws';
@@ -47,6 +48,8 @@ export class Session {
   private onChange?: () => void;
   private autoRoute: AutoRouteConfig;
   private lastTier?: Tier;
+  /** Effort moves this session; each one costs a prompt-cache reset. */
+  private effortChanges = 0;
   /** Which hat the live agent is wearing, so ledger rows attribute correctly. */
   private currentRole: CrewRole = 'chat';
   private consultRunning = false;
@@ -167,19 +170,32 @@ export class Session {
     const { tier, reason } = await triage(text);
     this.lastTier = tier;
     const target = this.autoRoute[tier];
-    if (target.model === this.routedModel) return;
     try {
-      await this.adapter.setModel(target.model);
-      this.routedModel = target.model;
-      // Apply the tier's effort — including clearing a previous tier's override back to
-      // engine-auto ('') on downgrade, so heavy's xhigh doesn't stick to a light model.
+      let changed = false;
+      // Two tiers may share a model. Returning early on a same-model retriage
+      // skipped the effort change and the 'routed' event along with it.
+      if (target.model !== this.routedModel) {
+        await this.adapter.setModel(target.model);
+        this.routedModel = target.model;
+        changed = true;
+      }
+      // Changing effort mid-conversation invalidates the prompt cache. Only
+      // move for a change worth the reset, and never flap -- this used to
+      // re-apply on every retriage with no hysteresis at all.
       const newEffort = target.effort ?? '';
       if (newEffort !== this.effort) {
-        await this.adapter.setEffort(newEffort).catch(() => {});
-        this.effort = newEffort;
+        const change = shouldApplyEffort({ current: this.effort || null, proposed: newEffort, agent: this.agent, changesSoFar: this.effortChanges });
+        if (change.apply) {
+          await this.adapter.setEffort(newEffort).catch(() => {});
+          this.effort = newEffort;
+          this.effortChanges += 1;
+          changed = true;
+        }
       }
-      this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
-      this.broadcastMeta();
+      if (changed) {
+        this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
+        this.broadcastMeta();
+      }
     } catch (err: any) {
       this.reportError(`Auto-routing to ${target.model} failed (${String(err?.message ?? err)}) — continuing on current model.`);
     }
@@ -245,13 +261,20 @@ export class Session {
         await this.adapter.sendUserMessage(msg.text, msg.images);
         this.broadcastMeta();
         break;
-      case 'approval_response':
-        this.adapter.resolveApproval(msg.requestId, msg.decision);
-        if (msg.decision === 'allow-session') {
-          this.approvals = 'full-auto';
-          this.broadcastMeta();
+      case 'approval_response': {
+        // Validated here, once. A malformed decision reaching an adapter used
+        // to resolve as ALLOW, because both adapters treated "not deny" as accept.
+        const decision = msg.decision as unknown;
+        if (decision !== 'allow' && decision !== 'allow-session' && decision !== 'deny') {
+          this.reportError(`Ignored approval with unknown decision ${JSON.stringify(decision)}.`);
+          break;
         }
+        // 'allow-session' remembers THIS tool for the rest of the session. It
+        // used to flip the whole session to full-auto, silently widening every
+        // later permission the user never saw.
+        this.adapter.resolveApproval(msg.requestId, decision);
         break;
+      }
       case 'set_model':
         if (msg.model === 'auto') {
           // Keep whatever is currently running as the routed baseline; next message re-triages.
@@ -440,7 +463,7 @@ export class SessionManager {
     this.saveTimer.unref();
   }
 
-  private saveNow(): void {
+  saveNow(): void {
     const entries: PersistedSession[] = [...this.sessions.values()].map((s) => ({
       id: s.id,
       agent: s.agent,

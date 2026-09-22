@@ -93,7 +93,7 @@ describe('claudeDeltas', () => {
       thinkingTokens: 0,
       costUSD: cost,
       canonicalModel: 'claude-sonnet-4',
-      pricingBasis: 'sdk',
+      costBasis: 'sdk',
     },
   });
 
@@ -123,7 +123,7 @@ describe('claudeDeltas', () => {
 
   it('marks unpriced SDK usage as unpriced rather than free', () => {
     const prev = new Map();
-    const out = claudeDeltas(prev, { m: { inputTokens: 10, outputTokens: 1, costUSD: 0, pricingBasis: 'unknown' } });
+    const out = claudeDeltas(prev, { m: { inputTokens: 10, outputTokens: 1, costUSD: 0, costBasis: 'unknown' } });
     expect(out[0].priced).toBe(false);
   });
 });

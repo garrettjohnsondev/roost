@@ -1833,3 +1833,11 @@ button {
   padding-top: 10px; display: flex; flex-direction: column; gap: 10px;
 }
 .crew-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.live-badge.error { color: var(--danger); }
+
+.usage-note { font-size: 12px; margin: 2px 0 6px; }
+.usage-note-bad { color: var(--danger); }
+.usage-note-warn { color: #d9a441; }
+.usage-note-muted { opacity: 0.7; }
+.usage-window-stale { opacity: 0.6; }

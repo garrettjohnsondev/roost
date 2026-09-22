@@ -69,11 +69,33 @@ describe('fromClaudeContextUsage', () => {
     expect(fromClaudeContextUsage(undefined)).toBeNull();
     expect(fromClaudeContextUsage({ context_usage: {} })).toBeNull();
   });
+
+  it('reads the camelCase shape that query.getContextUsage() actually returns', () => {
+    // SDKControlGetContextUsageResponse: totalTokens / rawMaxTokens / percentage /
+    // categories[].isDeferred. The snake_case shape only exists on /context
+    // messages; reading it here returned null on every real call, so the
+    // Claude context meter never emitted once.
+    const s = fromClaudeContextUsage({
+      totalTokens: 150_000, maxTokens: 200_000, rawMaxTokens: 200_000, percentage: 75, model: 'opus',
+      categories: [
+        { name: 'messages', tokens: 90_000, color: '' },
+        { name: 'stale schemas', tokens: 5_000, color: '', isDeferred: true },
+      ],
+      gridRows: [], memoryFiles: [],
+    })!;
+    expect(s.usedTokens).toBe(150_000);
+    expect(s.maxTokens).toBe(200_000);
+    expect(s.percent).toBe(75);
+    expect(s.categories!.some((c) => c.name === 'stale schemas')).toBe(false);
+  });
 });
 
 describe('fromCodexTokenUsage', () => {
   it('computes percent against the engine-reported window', () => {
-    const s = fromCodexTokenUsage({ inputTokens: 30_000, cachedInputTokens: 60_000, outputTokens: 2_000 }, 200_000)!;
+    // inputTokens INCLUDES cachedInputTokens (codexInputSplit.ts is the one
+    // place that assumption lives). The old fixture added them on top and
+    // encoded a double count as the expected answer.
+    const s = fromCodexTokenUsage({ inputTokens: 90_000, cachedInputTokens: 60_000, outputTokens: 2_000 }, 200_000)!;
     expect(s.usedTokens).toBe(92_000);
     expect(s.percent).toBe(46);
     expect(s.pressure).toBe('filling');

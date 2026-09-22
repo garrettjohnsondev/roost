@@ -58,9 +58,28 @@ function authorized(req: express.Request): boolean {
   return header === `Bearer ${token}` || req.query.token === token;
 }
 
+/** Browser-origin defence. A same-origin page sends no Origin or one whose
+ *  host matches ours; a cross-site page -- or a DNS-rebound one -- cannot forge
+ *  that. Non-browser clients send no Origin and pass. Without this, a server
+ *  running without POCKET_TOKEN could be driven by any web page the phone
+ *  happened to visit, and "driven" here means running agents in full-auto. */
+function originAllowed(req: { headers: Record<string, any> }): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(String(origin)).host === String(req.headers.host ?? '');
+  } catch {
+    return false;
+  }
+}
+
 app.use('/api', (req, res, next) => {
   if (!authorized(req)) {
     res.status(401).json({ error: 'unauthorized' });
+    return;
+  }
+  if (req.method !== 'GET' && !originAllowed(req)) {
+    res.status(403).json({ error: 'cross-origin request refused' });
     return;
   }
   next();
@@ -395,6 +414,10 @@ wss.on('connection', (ws: WebSocket, req) => {
     ws.close(4001, 'unauthorized');
     return;
   }
+  if (!originAllowed(req)) {
+    ws.close(4003, 'cross-origin refused');
+    return;
+  }
   const sessionId = url.searchParams.get('session');
   const session = sessionId ? manager.get(sessionId) : undefined;
   if (!session) {
@@ -441,6 +464,13 @@ let flushed = false;
 const flushState = () => {
   if (flushed) return;
   flushed = true;
+  // Session state has its own unref'd 2 s debounce; without this it was lost
+  // on every Ctrl-C while the quota store was dutifully flushed.
+  try {
+    manager.saveNow();
+  } catch {
+    /* shutdown is best effort */
+  }
   try {
     quotaStore().flush();
   } catch {

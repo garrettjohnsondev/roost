@@ -123,6 +123,10 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
       model: spec.model,
       ...(spec.effort ? { effort: spec.effort } : {}),
       maxTurns: 24,
+      // Load NO filesystem settings: a user/project settings file can carry
+      // permissions.allow rules that approve tools without ever consulting
+      // canUseTool, which would make this capability gate advisory.
+      settingSources: [],
       canUseTool: async (toolName: string) =>
         allowed.has(toolName)
           ? { behavior: 'allow', updatedInput: undefined as any }
@@ -138,18 +142,26 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
         for (const block of m.message?.content ?? []) if (block.type === 'text') final = block.text;
       }
       if (m.type === 'result') {
-        final = typeof m.result === 'string' ? m.result : final;
         reportClaudeUsage(spec, m);
+        if (m.is_error === true || (typeof m.subtype === 'string' && m.subtype.startsWith('error'))) {
+          throw new Error(`claude dispatch failed: ${typeof m.result === 'string' && m.result ? m.result.slice(0, 300) : m.subtype}`);
+        }
+        final = typeof m.result === 'string' ? m.result : final;
         break;
       }
     }
     return final;
   })();
 
-  return Promise.race([
-    collect,
-    new Promise<string>((_, rej) => setTimeout(() => rej(new Error('dispatch timed out')), timeoutMs)),
-  ]).finally(() => { input.close(); void q.interrupt?.().catch(() => {}); });
+  // Clear the loser's timer: left running it pins the event loop for the full
+  // timeout after the work is already done.
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<string>((_, rej) => { timer = setTimeout(() => rej(new Error('dispatch timed out')), timeoutMs); });
+  return Promise.race([collect, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+    input.close();
+    void q.interrupt?.().catch(() => {});
+  });
 }
 
 /** A dispatch is one turn, so its usage is already per-call -- no delta needed. */
@@ -183,7 +195,11 @@ function runCodex(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => v
     onNotification: (method, params) => onNotification(method, params),
     onExit: () => {},
   });
-  setCancel(() => rpc.kill());
+  setCancel(() => {
+    rpc.kill();
+    // Settle `done` now; a killed process sends no turn/completed.
+    onNotification('error', { willRetry: false, error: { message: 'dispatch cancelled' } });
+  });
 
   return (async () => {
     try {
@@ -205,8 +221,9 @@ function runCodex(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => v
       // Usage arrives on its OWN notification, not on turn/completed -- reading
       // it off the completion params silently produced no ledger entry at all.
       let lastUsage: any = null;
+      let timer: NodeJS.Timeout | undefined;
       const done = new Promise<string>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('dispatch timed out')), timeoutMs);
+        timer = setTimeout(() => reject(new Error('dispatch timed out')), timeoutMs);
         onNotification = (method, params) => {
           if (method === 'item/completed' && params?.item?.type === 'agentMessage' && params.item.text) {
             lastMessage = params.item.text;
@@ -227,12 +244,20 @@ function runCodex(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => v
           }
         };
       });
-      await rpc.request('turn/start', {
-        threadId,
-        ...(spec.effort ? { effort: spec.effort } : {}),
-        input: [{ type: 'text', text: spec.prompt, text_elements: [] }],
-      }, timeoutMs);
-      return await done;
+      // If turn/start itself rejects, nothing has subscribed to `done` yet and
+      // its timer would reject unobserved later -- an unhandledRejection, which
+      // takes the whole server down. Observe it, and always clear the timer.
+      done.catch(() => {});
+      try {
+        await rpc.request('turn/start', {
+          threadId,
+          ...(spec.effort ? { effort: spec.effort } : {}),
+          input: [{ type: 'text', text: spec.prompt, text_elements: [] }],
+        }, timeoutMs);
+        return await done;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
     } finally {
       rpc.kill();
     }

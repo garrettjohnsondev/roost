@@ -15,7 +15,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    // The server answers errors as {error: string}; show that text, not the
+    // raw JSON envelope.
+    const body = await res.text();
+    let message = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed.error === 'string') message = parsed.error;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(message ? `${res.status}: ${message}` : `HTTP ${res.status}`);
+  }
   return res.json() as Promise<T>;
 }
 

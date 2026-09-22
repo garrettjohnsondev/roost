@@ -115,6 +115,16 @@ export function normalizePct(v: unknown): number | null {
   return Math.min(100, Math.round(v * 100));
 }
 
+/** For fields the SDK DOCUMENTS as 0-100 (the structured usage read's
+ *  `percent`, and its flat-key `utilization`). normalizePct's fraction
+ *  heuristic turned an honest 1% into 100% -- exactly the value a window shows
+ *  right after a reset -- and the authority guard then protected the wrong
+ *  number for ten minutes. A documented scale needs a clamp, not a guess. */
+export function clampPct(v: unknown): number | null {
+  if (typeof v !== 'number' || Number.isNaN(v)) return null;
+  return Math.min(100, Math.max(0, Math.round(v)));
+}
+
 function emptyAgent(): AgentQuota {
   return { windows: {}, usageAllowed: null };
 }
@@ -150,7 +160,10 @@ export class QuotaStore {
     // `utilization` is a 0-1/0-100 guess. Never let the guess overwrite a
     // recent authoritative read of the same window.
     const prev = this.claude.windows[key];
-    if (prev?.source === 'sdk-usage' && Date.now() - prev.observedAt < USAGE_AUTHORITY_MS) return;
+    // A denial is the one thing the streaming event knows first. It must never
+    // be held back behind a ten-minute-old "allowed" from the usage read.
+    const denied = info?.status === 'rejected';
+    if (!denied && prev?.source === 'sdk-usage' && Date.now() - prev.observedAt < USAGE_AUTHORITY_MS) return;
     this.upsert('claude', key, {
       label,
       usedPercent: normalizePct(info?.utilization),
@@ -179,7 +192,7 @@ export class QuotaStore {
       const { key, label, durationMins } = canonicalClaudeKey(row.kind, row.scope?.model?.display_name);
       this.upsert('claude', key, {
         label,
-        usedPercent: normalizePct(row.percent),
+        usedPercent: clampPct(row.percent),
         windowDurationMins:
           row.group === 'session' ? 300 : row.group === 'weekly' ? 10080 : durationMins,
         resetsAt: row.resets_at ? Date.parse(row.resets_at) || null : null,
@@ -196,7 +209,7 @@ export class QuotaStore {
         const canon = canonicalClaudeKey(type);
         this.upsert('claude', canon.key, {
           label: canon.label,
-          usedPercent: normalizePct(w.utilization),
+          usedPercent: clampPct(w.utilization),
           windowDurationMins: canon.durationMins,
           resetsAt: w.resets_at ? Date.parse(w.resets_at) || null : null,
           source: 'sdk-usage',
@@ -260,7 +273,10 @@ export class QuotaStore {
       resetsAt: patch.resetsAt ?? prev?.resetsAt ?? null,
       status: patch.status ?? prev?.status,
       source: patch.source,
-      observedAt: Date.now(),
+      // A sparse update that carried the percent over from the previous
+      // observation must not re-stamp it as fresh: that hid staleness, and a
+      // stale percent then read as live headroom.
+      observedAt: patch.usedPercent != null ? Date.now() : (prev?.observedAt ?? Date.now()),
     };
     bucket.windows[key] = next;
     if (next.usedPercent != null && next.usedPercent !== prev?.usedPercent) {
@@ -294,6 +310,17 @@ export class QuotaStore {
     const oldest = wins.length ? Math.min(...wins.map((w) => w.observedAt)) : null;
     const ageMins = oldest == null ? null : Math.round((Date.now() - oldest) / 60000);
 
+    // An explicit denial outranks everything, including having no percentages
+    // at all: a provider saying "no" with no number attached is still a "no".
+    // These used to sit below the no-percentages early return, so a denial
+    // with no percent read as 'unknown'.
+    if (bucket.usageAllowed === false) {
+      return { state: 'exhausted', worstPercent: known[0]?.usedPercent ?? null, ageMins, reason: 'provider reports ordinary usage not allowed' };
+    }
+    const rejected = wins.find((w) => w.status === 'rejected');
+    if (rejected) {
+      return { state: 'exhausted', worstPercent: rejected.usedPercent, worstWindow: rejected, ageMins, reason: `${rejected.label} rejected by provider` };
+    }
     if (!known.length) {
       return { state: 'unknown', worstPercent: null, ageMins, reason: wins.length ? 'no usage percentages reported' : 'no live quota data' };
     }
@@ -301,10 +328,7 @@ export class QuotaStore {
     const worst = known.reduce((a, b) => ((a.usedPercent ?? 0) >= (b.usedPercent ?? 0) ? a : b));
     const pct = worst.usedPercent!;
 
-    if (bucket.usageAllowed === false) {
-      return { state: 'exhausted', worstPercent: pct, worstWindow: worst, ageMins, reason: 'provider reports ordinary usage not allowed' };
-    }
-    if (known.some((w) => w.status === 'rejected') || pct >= budget.hardStopPct) {
+    if (pct >= budget.hardStopPct) {
       return { state: 'exhausted', worstPercent: pct, worstWindow: worst, ageMins, reason: `${worst.label} at ${pct}%` };
     }
     if (ageMins != null && ageMins > budget.staleAfterMins) {
@@ -319,7 +343,10 @@ export class QuotaStore {
    *  free capacity that vanishes — but only if no LONGER-horizon window is under
    *  pressure, otherwise "spending" it just eats next week's budget. */
   surplus(agent: AgentKind, budget: BudgetConfig): Surplus | null {
-    const wins = this.live(agent).filter((w) => w.usedPercent != null && w.resetsAt);
+    // A stale percent is not use-it-or-lose-it headroom; it is a guess about a
+    // window we have not seen lately. Same freshness rule headroom() applies.
+    const freshBefore = Date.now() - budget.staleAfterMins * 60_000;
+    const wins = this.live(agent).filter((w) => w.usedPercent != null && w.resetsAt && w.observedAt >= freshBefore);
     let best: Surplus | null = null;
     for (const w of wins) {
       const minutesLeft = Math.round((w.resetsAt! - Date.now()) / 60000);

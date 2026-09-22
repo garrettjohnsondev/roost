@@ -42,6 +42,8 @@ export class ClaudeAdapter implements AgentAdapter {
   private input = new AsyncQueue<any>();
   private q: any;
   private pending = new Map<string, PendingApproval>();
+  /** Tools the user approved "for this session". */
+  private sessionAllowedTools = new Set<string>();
   private approvals: ApprovalSetting;
   private disposed = false;
   /** Last seen cumulative modelUsage, per model key. The SDK documents
@@ -50,6 +52,9 @@ export class ClaudeAdapter implements AgentAdapter {
    *  so per-call truth is the diff between consecutive results. */
   private lastModelUsage = new Map<string, any>();
   private sessionCostUsd = 0;
+  /** Calls whose cost the SDK could only guess. One of these makes the session
+   *  total unknown -- summing a guess as 0 presents a partial as a real figure. */
+  private sessionUnpriced = 0;
   private sessionInTok = 0;
   private sessionOutTok = 0;
 
@@ -79,13 +84,13 @@ export class ClaudeAdapter implements AgentAdapter {
       settingSources: ['user', 'project', 'local'],
       effort: this.opts.effort || undefined,
       canUseTool: async (toolName: string, toolInput: Record<string, unknown>, _extra: unknown) => {
+        if (this.sessionAllowedTools.has(toolName)) return { behavior: 'allow', updatedInput: toolInput };
         const decision = await this.requestApproval(toolName, toolInput);
-        if (decision === 'allow-session') {
-          void this.setApprovals('full-auto');
-        }
-        return decision === 'deny'
-          ? { behavior: 'deny', message: 'Denied by user from Pocket.' }
-          : { behavior: 'allow', updatedInput: toolInput };
+        // Remember the TOOL. Switching the session to bypassPermissions here
+        // silently widened every later permission the user never saw.
+        if (decision === 'allow-session') this.sessionAllowedTools.add(toolName);
+        if (decision === 'allow' || decision === 'allow-session') return { behavior: 'allow', updatedInput: toolInput };
+        return { behavior: 'deny', message: 'Denied by user from Pocket.' };
       },
     };
 
@@ -165,6 +170,13 @@ export class ClaudeAdapter implements AgentAdapter {
       }
       case 'result': {
         this.emitCallDeltas(m);
+        // subtype 'error_*' or is_error means the turn stopped early or ended on
+        // an API error. Reporting that as an ordinary idle completion hid every
+        // terminal failure behind a blank assistant turn.
+        if (m.is_error === true || (typeof m.subtype === 'string' && m.subtype.startsWith('error'))) {
+          const why = typeof m.result === 'string' && m.result ? m.result : String(m.subtype ?? 'unknown error');
+          this.emit({ type: 'error', message: `Claude turn failed: ${truncate(why, 500)}`, ts: now() });
+        }
         this.emit({
           type: 'usage',
           usage: {
@@ -172,7 +184,7 @@ export class ClaudeAdapter implements AgentAdapter {
             outputTokens: this.sessionOutTok,
             // Summed from per-call deltas rather than read off m.total_cost_usd,
             // so the chat bar and the ledger can never disagree.
-            costUsd: this.sessionCostUsd || undefined,
+            costUsd: this.sessionUnpriced === 0 && this.sessionCostUsd > 0 ? this.sessionCostUsd : undefined,
           },
           ts: now(),
         });
@@ -201,7 +213,8 @@ export class ClaudeAdapter implements AgentAdapter {
   /** Cumulative -> per-call, via the shared delta math in usageDelta.ts. */
   private emitCallDeltas(m: any): void {
     for (const d of claudeDeltas(this.lastModelUsage, m?.modelUsage)) {
-      this.sessionCostUsd = +(this.sessionCostUsd + (d.priced ? d.costUsd : 0)).toFixed(6);
+      if (d.priced) this.sessionCostUsd = +(this.sessionCostUsd + d.costUsd).toFixed(6);
+      else this.sessionUnpriced += 1;
       this.sessionInTok += d.inTok + d.cacheReadTok + d.cacheWriteTok;
       this.sessionOutTok += d.outTok;
       this.opts.onCall?.({

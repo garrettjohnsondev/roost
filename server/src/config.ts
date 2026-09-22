@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -121,12 +121,27 @@ export function loadConfig(): PocketConfig {
       claude: { ...DEFAULTS.claude, ...parsed.claude },
       codex: { ...DEFAULTS.codex, ...parsed.codex },
     };
-  } catch {
-    console.warn(`[pocket] no readable config at ${configPath()}, using defaults`);
-    return DEFAULTS;
+  } catch (err: any) {
+    // "No file yet" and "a file we could not parse" are different situations.
+    // Returning the shared DEFAULTS object for a corrupt file meant the next
+    // save silently overwrote the user's recoverable config with defaults.
+    if (existsSync(configPath())) {
+      const aside = `${configPath()}.corrupt-${Date.now()}`;
+      try {
+        renameSync(configPath(), aside);
+        console.error(`[pocket] config at ${configPath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}, using defaults`);
+      } catch {
+        console.error(`[pocket] config at ${configPath()} is unreadable (${err?.message ?? err}) and could not be moved aside; using defaults WITHOUT saving`);
+      }
+    } else {
+      console.warn(`[pocket] no config at ${configPath()}, using defaults`);
+    }
+    return structuredClone(DEFAULTS);
   }
 }
 
 export function saveConfig(config: PocketConfig): void {
-  writeFileSync(configPath(), JSON.stringify(config, null, 2) + '\n');
+  const tmp = `${configPath()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(config, null, 2) + '\n');
+  renameSync(tmp, configPath());
 }

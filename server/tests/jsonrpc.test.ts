@@ -65,3 +65,18 @@ describe('JsonRpcProcess stdout parsing', () => {
     await expect(pending).rejects.toThrow('nope');
   });
 });
+
+describe('JsonRpcProcess stdout decoding', () => {
+  it('reassembles a multi-byte character split across chunks', () => {
+    // toString('utf8') per chunk turned the two halves of 'é' into U+FFFD
+    // replacement characters, corrupting any non-ASCII text on a boundary.
+    const seen: string[] = [];
+    const proc = makeProc((m) => seen.push(m));
+    procs.push(proc);
+    const buf = Buffer.from(JSON.stringify({ jsonrpc: '2.0', method: 'héllo → wörld', params: {} }) + '\n');
+    const cut = buf.indexOf(Buffer.from('é')) + 1; // inside the 2-byte sequence
+    proc.onStdoutData(buf.subarray(0, cut));
+    proc.onStdoutData(buf.subarray(cut));
+    expect(seen).toEqual(['héllo → wörld']);
+  });
+});

@@ -1,3 +1,4 @@
+import { StringDecoder } from 'node:string_decoder';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
 type Json = any;
@@ -26,6 +27,9 @@ export class JsonRpcProcess {
   private stderrTail: string[] = [];
   private debug = process.env.DEBUG_CODEX === '1';
   private lineBuffer = '';
+  /** Reassembles multi-byte characters split across chunks. toString('utf8')
+   *  per chunk corrupted any non-ASCII text that straddled a boundary. */
+  private decoder = new StringDecoder('utf8');
 
   constructor(command: string, args: string[], cwd: string, private handlers: JsonRpcHandlers) {
     this.child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -35,6 +39,11 @@ export class JsonRpcProcess {
       if (this.debug) console.error('[codex stderr]', text.trimEnd());
       this.stderrTail.push(text);
       if (this.stderrTail.length > 40) this.stderrTail.shift();
+    });
+    // A write racing the child's death raises EPIPE on stdin; with no listener
+    // that is an uncaught 'error' event, which kills the server.
+    this.child.stdin.on('error', (err) => {
+      if (this.debug) console.error('[codex stdin]', err.message);
     });
     this.child.on('exit', (code) => {
       const tail = this.stderrTail.join('').slice(-2000);
@@ -50,7 +59,7 @@ export class JsonRpcProcess {
   }
 
   private onStdoutData(chunk: Buffer) {
-    this.lineBuffer += chunk.toString('utf8');
+    this.lineBuffer += this.decoder.write(chunk);
     if (this.lineBuffer.length > MAX_BUFFERED_LINE_BYTES) {
       console.error(`[codex] dropping oversized unterminated line (${this.lineBuffer.length} bytes) — no newline seen`);
       this.lineBuffer = '';
@@ -100,6 +109,7 @@ export class JsonRpcProcess {
   private write(obj: Json) {
     const line = JSON.stringify(obj);
     if (this.debug) console.error('[codex ->]', line.slice(0, 500));
+    if (this.child.stdin.destroyed || !this.child.stdin.writable) return; // exit handler rejects the pending request
     this.child.stdin.write(line + '\n');
   }
 

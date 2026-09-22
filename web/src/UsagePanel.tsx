@@ -19,26 +19,38 @@ function fmtCountdown(resetsAt: number): string {
   return `resets in ${Math.round(hours / 24)}d`;
 }
 
-function barColor(pct: number | undefined, status: string | undefined): string {
-  if (status === 'rejected' || (pct ?? 0) >= 90) return 'var(--danger)';
-  if (status === 'allowed_warning' || (pct ?? 0) >= 70) return '#d9a441';
+function barColor(pct: number, status: string | undefined, headroom: AgentUsage['headroom']): string {
+  if (status === 'rejected' || headroom === 'exhausted' || pct >= 90) return 'var(--danger)';
+  if (headroom === 'stale') return 'var(--muted, #8a8a8a)';
+  if (status === 'allowed_warning' || pct >= 70) return '#d9a441';
   return 'var(--ok)';
 }
 
-function AgentUsageBlock({ label, usage }: { label: string; usage: AgentUsage }) {
-  if (usage.error) {
-    return (
-      <div className="usage-block">
-        <div className="usage-block-label">{label}</div>
-        <div className="usage-block-error">{usage.error}</div>
-      </div>
-    );
+/** What the headroom state means, in words. A bare percent hides whether it
+ *  is live, hours old, or sitting next to an explicit denial -- and the old
+ *  panel showed a 3-hour-old 40% exactly like a live one. */
+function headroomNote(usage: AgentUsage): { text: string; tone: 'warn' | 'bad' | 'muted' } | null {
+  if (usage.usageAllowed === false) return { text: 'Provider reports usage not allowed', tone: 'bad' };
+  const oldest = usage.windows.length ? Math.min(...usage.windows.map((w) => w.observedAt)) : null;
+  switch (usage.headroom) {
+    case 'exhausted': return { text: 'Limit reached', tone: 'bad' };
+    case 'stale': return { text: `Stale — last seen ${oldest ? fmtAgo(oldest) : 'unknown'}`, tone: 'muted' };
+    case 'gated': return { text: 'Near the limit — new work is gated', tone: 'warn' };
+    case 'tight': return { text: 'Getting tight', tone: 'warn' };
+    case 'unknown': return usage.windows.length ? { text: 'No percentages reported', tone: 'muted' } : null;
+    default: return null;
   }
+}
+
+function AgentUsageBlock({ label, usage }: { label: string; usage: AgentUsage }) {
+  const note = headroomNote(usage);
+  const stale = usage.headroom === 'stale';
   if (usage.windows.length === 0) {
     return (
       <div className="usage-block">
         <div className="usage-block-label">{label}</div>
-        <div className="usage-block-error">No data yet</div>
+        <div className="usage-block-error">{usage.error ? `Not connected · ${usage.error}` : 'No data yet'}</div>
+        {note && <div className={`usage-note usage-note-${note.tone}`}>{note.text}</div>}
       </div>
     );
   }
@@ -48,20 +60,23 @@ function AgentUsageBlock({ label, usage }: { label: string; usage: AgentUsage })
         {label}
         {usage.planType ? <span className="usage-plan"> · {usage.planType}</span> : null}
       </div>
+      {usage.error && <div className="usage-block-error">{usage.error}</div>}
+      {note && <div className={`usage-note usage-note-${note.tone}`}>{note.text}</div>}
       {usage.windows.map((w, i) => (
-        <div key={i} className="usage-window">
+        <div key={w.key ?? i} className={`usage-window${stale ? ' usage-window-stale' : ''}`}>
           <div className="usage-window-top">
             <span>{w.label}</span>
             <span className="usage-window-meta">
-              {w.usedPercent != null ? `${w.usedPercent}%` : w.status ?? ''}
+              {w.status === 'rejected' ? 'rejected' : w.usedPercent != null ? `${w.usedPercent}%` : 'no data'}
               {w.resetsAt ? ` · ${fmtCountdown(w.resetsAt)}` : ''}
+              {stale ? ` · seen ${fmtAgo(w.observedAt)}` : ''}
             </span>
           </div>
           {w.usedPercent != null && (
             <div className="usage-bar-track">
               <div
                 className="usage-bar-fill"
-                style={{ width: `${Math.min(100, w.usedPercent)}%`, background: barColor(w.usedPercent, w.status) }}
+                style={{ width: `${Math.min(100, w.usedPercent)}%`, background: barColor(w.usedPercent, w.status, usage.headroom) }}
               />
             </div>
           )}

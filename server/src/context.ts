@@ -1,3 +1,4 @@
+import { splitCodexInput } from './codexInputSplit.js';
 import type { AgentKind } from './protocol.js';
 
 /** There are THREE distinct contexts in this harness and conflating them is how
@@ -82,19 +83,28 @@ export function adviseContext(state: Omit<ContextState, 'advice'>): ContextAdvic
  *  last response plus local estimates, so this is cheap enough to poll. */
 export function fromClaudeContextUsage(resp: any): Omit<ContextState, 'advice'> | null {
   const u = resp?.context_usage ?? resp;
-  if (!u || typeof u.total_tokens !== 'number') return null;
+  if (!u) return null;
+  // `query.getContextUsage()` resolves SDKControlGetContextUsageResponse, which
+  // is camelCase (totalTokens, rawMaxTokens, categories[].isDeferred). The
+  // snake_case SDKContextUsage only ever appears as `context_usage` on the
+  // synthetic assistant message a /context slash command produces. This read
+  // the snake_case names on the camelCase response, returned null on every
+  // real call, and the Claude context meter never emitted once.
+  const total = typeof u.totalTokens === 'number' ? u.totalTokens : u.total_tokens;
+  if (typeof total !== 'number') return null;
+  const max = typeof u.rawMaxTokens === 'number' ? u.rawMaxTokens : u.raw_max_tokens;
   const percent = typeof u.percentage === 'number' ? Math.round(u.percentage) : null;
   const categories = Array.isArray(u.categories)
     ? u.categories
-        .filter((c: any) => c && typeof c.tokens === 'number' && c.kind !== 'deferred')
+        .filter((c: any) => c && typeof c.tokens === 'number' && c.kind !== 'deferred' && c.isDeferred !== true)
         .map((c: any) => ({ name: String(c.name ?? c.category ?? 'other'), tokens: c.tokens, kind: c.kind }))
         .sort((a: any, b: any) => b.tokens - a.tokens)
         .slice(0, 8)
     : undefined;
   return {
     agent: 'claude',
-    usedTokens: u.total_tokens,
-    maxTokens: typeof u.raw_max_tokens === 'number' ? u.raw_max_tokens : null,
+    usedTokens: total,
+    maxTokens: typeof max === 'number' ? max : null,
     percent,
     pressure: pressureFor(percent),
     overLimit: u.over_limit ? { tokensOver: u.over_limit.tokens_over, kind: u.over_limit.kind } : undefined,
@@ -107,10 +117,15 @@ export function fromClaudeContextUsage(resp: any): Omit<ContextState, 'advice'> 
  *  category table; `last` is what currently occupies the window. */
 export function fromCodexTokenUsage(last: any, modelContextWindow: number | null | undefined): Omit<ContextState, 'advice'> | null {
   if (!modelContextWindow) return null;
-  const used =
-    Number(last?.inputTokens ?? last?.input_tokens ?? 0) +
-    Number(last?.cachedInputTokens ?? last?.cached_input_tokens ?? 0) +
-    Number(last?.outputTokens ?? last?.output_tokens ?? 0);
+  // inputTokens already INCLUDES cachedInputTokens (codexInputSplit.ts is the
+  // one place that assumption lives). Adding cached on top double-counted the
+  // cache and disagreed with the contextPct the adapter emits from the same
+  // notification.
+  const split = splitCodexInput(
+    Number(last?.inputTokens ?? last?.input_tokens ?? 0),
+    Number(last?.cachedInputTokens ?? last?.cached_input_tokens ?? 0),
+  );
+  const used = split.uncached + split.cached + Number(last?.outputTokens ?? last?.output_tokens ?? 0);
   if (!used) return null;
   const percent = Math.min(100, Math.round((used / modelContextWindow) * 100));
   return {
