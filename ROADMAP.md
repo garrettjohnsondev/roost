@@ -231,6 +231,8 @@ The loop in §3, wired end to end in `runConsult`:
 
 Every stage logs a decision (`plan`, `reconcile`, `execute`, `verify`) with the task id, so the decisions view can answer whether the conference earns its keep.
 
+**Dogfooded 2026-09-22** on a real three-piece task in this repo (a `--json` flag, a doc change, a unit test): **116 s** end to end — Sonnet planned, Codex gpt-5.6-terra reviewed (none), verdict `NEEDS CHANGES`, one reconcile round: **1 findings accepted, 0 rejected**. Five acceptance criteria were extracted, every one a command or an observable — e.g. *"`node tools/gen-avatars.mjs --json --limit 0` prints valid JSON to stdout and does not modify `pool.json` (verify via `git status`/mtime)"*. The plan file carried all five sections; both stages landed in the decisions log.
+
 ### 🟨 Phase 4 — Quota-aware routing + ceiling *(routing, gate, boost shipped)*
 `route.ts` — `chooseRoute()`, pure. **Scarcity steps the tier down** (tight: one tier; gated: light only) and, for dispatch, **prefers the vendor with better *known* headroom**; **unknown and stale rank last and never win a move** — missing data is never a reason to move work. A chat session is bound to one adapter, so under pressure it gets a **suggestion** (notice + ntfy, once per state) rather than a switch. **Surplus + the user's boost toggle steps up** to the heavy tier, and boost holds (does not fire) when the window is under pressure. `chooseEffort` (Phase 4b) is now on the live path: thinking is trimmed before the model is downgraded and raised first under boost.
 
