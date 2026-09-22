@@ -15,7 +15,7 @@ const EXPAND_SNIPPET = 4000;
 // Wire strings verified against `codex app-server generate-ts` for codex-cli 0.146.0.
 const APPROVAL_TO_POLICY: Record<ApprovalSetting, string> = {
   ask: 'on-request',
-  'auto-edits': 'on-request',
+  'auto-edits': 'on-request', // file changes are auto-accepted in onServerRequest instead
   'full-auto': 'never',
 };
 
@@ -132,6 +132,10 @@ export class CodexAdapter implements AgentAdapter {
       return { decision };
     }
     if (method === 'item/fileChange/requestApproval' || method === 'applyPatchApproval') {
+      // Codex has no approval policy that means "edits yes, commands ask", so
+      // 'auto-edits' mapped to the same policy as 'ask' and the toggle did
+      // nothing. Honour it here, at the one request type it is about.
+      if (this.approvals === 'auto-edits') return { decision: 'accept' };
       const decision = await this.requestApproval(
         'Codex wants to change files',
         [params?.reason, params?.grantRoot ? `grant root: ${params.grantRoot}` : ''].filter(Boolean).join('\n') || 'Apply proposed file changes',

@@ -17,6 +17,18 @@ interface ModelCache {
 }
 
 const TTL_MS = 60 * 60 * 1000;
+/** These probes gate /api/config on first load. Unbounded, a hung CLI left the
+ *  app on "Connecting…" with no error, forever. */
+const PROBE_TIMEOUT_MS = 15_000;
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  let t: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, rej) => {
+    t = setTimeout(() => rej(new Error(`${what} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => {
+    if (t) clearTimeout(t);
+  }) as Promise<T>;
+}
 let cache: ModelCache | null = null;
 let inflight: Promise<ModelCache> | null = null;
 
@@ -31,7 +43,7 @@ async function fetchClaudeModels(cwd: string): Promise<ModelOption[]> {
     } as any,
   });
   try {
-    const models: any[] = await q.supportedModels();
+    const models: any[] = await withTimeout(q.supportedModels(), PROBE_TIMEOUT_MS, 'claude model probe');
     return models.map((m) => ({
       id: m.value,
       label: m.displayName || m.value,
@@ -58,9 +70,9 @@ async function fetchCodexModels(cwd: string): Promise<ModelOption[]> {
     await rpc.request('initialize', {
       clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
       capabilities: null,
-    });
+    }, PROBE_TIMEOUT_MS);
     rpc.notify('initialized');
-    const res = await rpc.request('model/list', { includeHidden: false });
+    const res = await rpc.request('model/list', { includeHidden: false }, PROBE_TIMEOUT_MS);
     return (res?.data ?? [])
       .filter((m: any) => !m.hidden)
       .map((m: any) => ({

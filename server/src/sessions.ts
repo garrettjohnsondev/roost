@@ -1,3 +1,6 @@
+import { reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
+import { modelRegistry } from './registry.js';
+import { sanitizeAgentOutput } from './sanitize.js';
 import { shouldApplyEffort } from './routing.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -167,7 +170,7 @@ export class Session {
    *  current tier. Any routing failure falls through silently — the message must send. */
   private async routeFor(text: string): Promise<void> {
     if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return;
-    const { tier, reason } = await triage(text);
+    const { tier, reason } = await triage(text, this.agent, this.autoRoute.light?.model);
     this.lastTier = tier;
     const target = this.autoRoute[tier];
     try {
@@ -356,7 +359,16 @@ export class Session {
     this.consultRunning = true;
     this.consultCancelled = false;
     this.pendingConsult = undefined;
-    const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    // Who reviews: the other vendor when present, otherwise a different model
+    // on this subscription, otherwise a clean context of the same model -- and
+    // the strength is labelled on the turn. This was hard-wired to the other
+    // vendor and simply failed on a single subscription. The planner is the
+    // model the user actually chose, not a silent downgrade to standard.
+    const plannerModel = this.model && this.model !== 'auto' ? this.model : (this.routedModel ?? this.standardModelFor(this.agent));
+    const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all());
+    const other: AgentKind = choice.strength === 'none' ? (this.agent === 'claude' ? 'codex' : 'claude') : choice.agent;
+    const reviewerModel = choice.strength === 'none' ? this.standardModelFor(other) : choice.model;
+    const strengthLabel = REVIEW_STRENGTH_LABEL[choice.strength];
     try {
       const context = this.transcript
         .filter((e) => e.type === 'user_message' || e.type === 'assistant_message')
@@ -364,22 +376,24 @@ export class Session {
         .map((e: any) => `${e.type === 'user_message' ? 'User' : 'Agent'}: ${truncate(e.text, 300)}`)
         .join('\n');
 
-      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, this.standardModelFor(this.agent), 'planner').name} is drafting a plan…`, ts: now() });
-      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), this.standardModelFor(this.agent), 'plan');
-      const plan = await this.activeConsult.promise;
-      this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, crew: crewMember(this.agent, this.standardModelFor(this.agent), 'planner'), text: plan, ts: now() });
+      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is drafting a plan…`, ts: now() });
+      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), plannerModel, 'plan');
+      // Dispatched output is untrusted input: defang control structures before
+      // the plan reaches the reviewer's context, the transcript, or execution.
+      const plan = sanitizeAgentOutput(await this.activeConsult.promise).text;
+      this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: plan, ts: now() });
 
-      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, this.standardModelFor(other), 'reviewer').name} is reviewing the plan…`, ts: now() });
+      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
       let critique: string;
       try {
-        this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), this.standardModelFor(other), 'critique');
-        critique = await this.activeConsult.promise;
+        this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), reviewerModel, 'critique');
+        critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
       } catch (err: any) {
         if (this.consultCancelled) throw err;
         // A dead reviewer shouldn't cost the user a good plan — degrade to plan-only.
         critique = `(Critique unavailable — ${truncate(String(err?.message ?? err), 200)}. Proceeding uses the plan as-is.)`;
       }
-      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, this.standardModelFor(other), 'reviewer'), text: critique, ts: now() });
+      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: critique, ts: now() });
 
       this.pendingConsult = { task, plan, critique };
       if (this.sockets.size === 0) {

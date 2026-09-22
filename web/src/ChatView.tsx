@@ -397,6 +397,9 @@ function Message({ item }: { item: ChatItem }) {
               </>
             )}
             {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
+            {item.reviewStrength && (
+              <span className="review-strength" title="How independent this reviewer is from the author">{item.reviewStrength}</span>
+            )}
           </div>
           <Markdown text={item.text} />
         </div>

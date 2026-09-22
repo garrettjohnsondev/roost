@@ -72,7 +72,7 @@ function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, ts: event.ts });
       break;
     case 'consult':
-      next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, text: event.text, ts: event.ts });
+      next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });
       break;
     case 'error':
       next.push({ kind: 'error', text: event.message, ts: event.ts });

@@ -14,7 +14,7 @@ Pocket already had the hard part: a mobile PWA reachable over Tailscale that dri
 
 **"Saving tokens" is the wrong goal, and the right one is better.** On flat-rate plans the marginal cost of another frontier call is zero, which kills the cost argument for orchestration outright ([AkitaOnRails](https://akitaonrails.com/en/2026/04/25/llm-benchmarks-vale-a-pena-misturar-2-modelos/)) **[B]**. What actually binds is **rate limits on one account**. The fix for that is routing through the *other* provider's quota and through cheaper tiers — which a Claude+Codex harness does natively.
 
-So: **this is a rate-limit-management and quality harness.** Every claim the UI makes must be phrased that way. Every figure is an API-list-price *valuation*, labelled **"API value"**, never "spend".
+So: **this is a rate-limit-management and quality harness.** Every claim the UI makes must be phrased that way. **Dollar figures stay off the UI entirely** (decision 7, correction 14). Where a valuation must appear at all — logs, exports — it is an API-list-price *valuation*, labelled **"API value"**, never "spend".
 
 ---
 
@@ -25,15 +25,16 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **0** | Truth — pricing, ledger, quota, policy, correct capture | ✅ **Done, verified live** |
 | **4b** | Effort as a routed dimension | ✅ **Done** |
 | **4c** | Context metering (three windows) | ✅ **Done** (metering; UI pending) |
-| **1** | The crew — personas, roles, avatars | ⬜ Next |
-| **2** | Dispatch primitive — `runAgentTask` | ⬜ |
+| **1** | The crew — personas, roles, avatars | ✅ **Done** |
+| **2** | Dispatch primitive — `runAgentTask`, task-shaped definitions, sliced project file | ✅ **Done, verified live** |
 | **3** | The conference — plan → review → reconcile | ⬜ |
 | **4** | Quota-aware model routing + budget ceiling | ⬜ |
 | **4d** | Modes — chat / auto / plan / build | ⬜ |
 | **5** | Verification gate | ⬜ |
-| **6** | UI — fuel gauge, crew badges, context meter | ⬜ |
+| **7** | Model registry and auto-update | 🟨 core done, live on both vendors |
+| **6** | UI — fuel gauge, crew editor, context meter | 🟨 honest fuel gauge + crew editor shipped; context meter pending |
 
-**114 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**200 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -41,6 +42,8 @@ CLAUDE (max)      5-hour session 23%  ·  7-day (all) 4%  ·  7-day (Fable) 0%
 CODEX (prolite)   Primary (7d)   42%
 ```
 Both via **zero-token** reads. One real Codex turn produced exactly one ledger record: model `gpt-6-astra`, 4,738 uncached + 12,928 cached = 17,666 tokens, matching the engine's own cumulative figure to the token.
+
+**Reviewed 2026-09-21** by sixteen finders — eight Claude, eight Codex, each blind to the other — over subsystem maps produced by readers who read every file: **243 distinct findings, 66 found independently by both vendors.** Every finding acted on was reproduced against the code and the SDK/protocol types first. P0 (`a31f8c3`), P1 (`621345a`) and the follow-up batch shipped; the unshipped remainder is §12. The review itself produced correction 27.
 
 ---
 
@@ -160,7 +163,7 @@ So `reviewerFor(planner)` picks, in order:
 ### ✅ Phase 4b — Effort as a routed dimension *(done)*
 `chooseEffort(tier, kind, headroom, surplus, supported, adaptive, configured)`. Mechanical work capped low regardless of tier. **Trims thinking before downgrading the model** under pressure; **raises thinking first** under surplus. Three refusals to guess: never override an explicit human choice; defer to `supportsAdaptiveThinking`; clamp explicitly to `supportedEffortLevels` rather than let the SDK downgrade silently.
 
-`shouldApplyEffort()` protects the prompt cache — see §7.
+`shouldApplyEffort()` protects the prompt cache — see §8, correction 4. It was defined but **never called from live routing** until 2026-09-21 (correction 26).
 
 ### ✅ Phase 4c — Context metering *(metering done, UI pending)*
 Three windows, and conflating them is how long sessions rot:
@@ -284,16 +287,29 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 | 12 | **`.unref()` on the save timer dropped the last observation.** `persist()` debounces 2s and unrefs, so the timer never holds the process open: any exit within 2s of a quota read discarded it. Observed live — 8 Claude windows in `quota-history.jsonl`, `claude.windows` empty in `windows.json`. Since `load()` purges on restart (correctly), Claude quota came back `unknown` on **every** boot, leaving the fuel gauge blank exactly when you'd open the app to check it. Failed safe, per decision 6, but blind. | `flush()` writes synchronously; `index.ts` calls it on `SIGINT`/`SIGTERM`/`beforeExit`. |
 | 14 | **Read token counts as window burn.** A Codex image-generation turn reports ~11.9k tokens, so I extrapolated a 30-avatar pool to ~290k tokens and told Garrett it was a meaningful slice of his weekly window, gating the feature and asking him to pick a smaller pool. Measured against the actual limit, a clean before/after over the 26-avatar build run moved the weekly window **43% → 44%** — about **0.04% per generation**, or roughly 2,600 generations to exhaust it. **Tokens reported by a turn are not proportional to the rate-limit window they consume.** | Never quote a token count as if it were window cost. The percent-of-window-per-1k-token estimator (§7, Phase 4) is not a nicety — it is the only honest way to price anything here, and this is its proof case. |
 | 13 | **Reintroduced the Codex stdin hang that agent-sync had already fixed.** The avatar generator shelled out with `execFile(..., { stdio: ['ignore','pipe','pipe'] })` — but **`stdio` is not a supported `execFile` option and is silently ignored**, so stdin stayed an open pipe. Codex drains stdin before starting work, so it sat there: 8½ minutes, exit code 0, zero images, no error. The identical bug cost 25-minute silent hangs in agent-sync. | `runCodex()` in both `tools/gen-avatars.mjs` and `server/src/avatars.ts` uses `spawn` with `stdio: ['ignore', ...]`, which actually honours it, plus a hard timeout so a hang fails loudly instead of quietly. |
+| 15 | **A 1% window stored as 100%.** The structured usage read's `percent` is documented 0–100, but it went through `normalizePct`, whose `v > 1` branch skips exactly 1 and treats it as a fraction. 1% is what every window shows right after a reset; the authority guard then protected the wrong number for ten minutes. | `clampPct()` for documented scales; the heuristic serves only the streaming event. Boundary test at 1. |
+| 16 | **Denials hidden.** The authority guard dropped a `status:'rejected'` event behind a fresh "allowed"; `headroom()` returned `unknown` for a denial with no percentage and for `usageAllowed=false` with no windows; `upsert()` re-stamped `observedAt` on a carried-over percent so stale read as live; `surplus()` never checked age. | Denials outrank everything and land immediately; observation time survives sparse updates; surplus honours `staleAfterMins`. |
+| 17 | **Read `pricingBasis`, a field that does not exist.** The SDK's `costBasis:'unknown'` means *costUSD is a guess at the default model's rate*; every guess was recorded as authoritative `'sdk'` cost, summed into session totals, and counted in savings — the catch-all-price-row bug (correction 3) through a different door. The test fixture had invented the same wrong name. | `(costBasis ?? 'list') !== 'unknown'`; a session total is emitted only when every call was priced; `savings()` is all-or-nothing. |
+| 18 | **Claude context meter never emitted once.** `getContextUsage()` resolves a camelCase response (`totalTokens`, `rawMaxTokens`); the reader checked `total_tokens`, which exists only on `/context` slash-command messages, and returned `null` on every real call. The fixture used the invented shape. | Both shapes accepted; fixture is the real camelCase payload. |
+| 19 | **Codex context double-counted the cache.** `inputTokens` already includes `cachedInputTokens` (`codexInputSplit.ts` is the one place that assumption lives); `context.ts` added them on top and disagreed with the `contextPct` emitted from the same notification. The test encoded the double count as expected. | One split, one assumption. |
+| 20 | **"Allow for this session" escalated the whole session to `bypassPermissions`**, silently widening every later permission; a malformed approval decision resolved as ALLOW on both adapters. | Remember the *tool*; validate decisions once, at the session boundary; adapters decline anything not affirmative. |
+| 21 | **Consult and dispatch capability gates were advisory.** `settingSources` omitted ⇒ the SDK loads every filesystem settings file, whose `permissions.allow` rules approve tools without consulting `canUseTool`. | `settingSources: []` on every one-shot; guarded by a doctrine test. |
+| 22 | **Stop did nothing, and failure looked like success.** `turn/interrupt` omitted the required `turnId` (`TurnInterruptParams = {threadId, turnId}`), the rejection was swallowed, idle emitted. A `turn.status:'failed'`, an `ErrorNotification`, and Claude's `error_*` result subtypes all resolved as ordinary completion; a declined command showed a green check. | `turnId` sent, failures reported, statuses read. |
+| 23 | **Orphaned timers and a hanging cancel.** A rejected `turn/start` left the completion promise's timer to reject unobserved — an `unhandledRejection`, fatal to the server; cancelling a Codex one-shot killed the process but the promise waited the full timeout. | Observe, clear, and settle on cancel. |
+| 24 | **No Origin/Host check.** Without `POCKET_TOKEN` the API and WebSocket accepted any browser origin; a page on any tailnet device, or a DNS-rebound one, could drive the server — and "drive" means agents in full-auto. Custom avatars were served with no auth at all; agent subprocesses inherited the token. | Same-origin enforced on the socket and mutating routes; avatars behind auth; token scrubbed from subprocess env. |
+| 25 | **Three tests went red by themselves.** The quota fixture carried absolute `resets_at` timestamps that expired mid-afternoon, so every window purged on read — a wall-clock dependency, the non-hermetic class correction 8 forbids. | Relative timestamps. |
+| 26 | **Defined but never called.** `shouldApplyEffort()` (correction 4) existed and was tested, but live auto-routing re-applied effort on every retriage without it, paying a prompt-cache reset each time — and skipped both the effort and the `routed` event when two tiers shared a model. Likewise `reviewerFor()` (§6) was never wired into the consult, which stayed hard-wired to the other vendor and simply failed on a single subscription. | Both wired. A rule without a live call site is a rule that has drifted. |
+| 27 | **The review orchestrator rate-limited itself.** The first review workflow lost all eight finders, the synthesizer and the critic to the Claude 5-hour session limit mid-run, with no quota awareness at all. The rerun routed the finders to Codex (47% weekly) and verified on Claude after the reset — the harness's own thesis, performed by hand. | Recorded as the justification for Phase 4: dispatch must read the gauge before spawning. |
 | 10 | **Planned a free-model planning tier** before checking what free costs. The constraint isn't rate limits, it's that free tiers are paid for in prompts — and this harness runs on private repos. | Dropped entirely. See decision 8. |
 
 ---
 
 ## 9. Open risks and unverified claims
 
-1. **`SDKRateLimitInfo.utilization` scale is undocumented** (0–1 vs 0–100); Pocket assumes 0–1. `normalizePct` accepts both and warns once in the ambiguous band. *Note: the structured `limits[]` path reports `percent` as plain 0–100, so it has no ambiguity — prefer it.*
+1. **`SDKRateLimitInfo.utilization` scale is undocumented** (0–1 vs 0–100); Pocket assumes 0–1. `normalizePct` accepts both and warns once in the ambiguous band. *Since correction 15 the structured `limits[]`/flat-key path uses `clampPct` (documented 0–100); the heuristic serves only the streaming event.* *Note: the structured `limits[]` path reports `percent` as plain 0–100, so it has no ambiguity — prefer it.*
 2. **Codex `inputTokens` vs `cachedInputTokens` inclusivity is unstated** — up to 10× cost impact. Isolated in `codexInputSplit.ts` with a one-time warning if the exclusive branch is ever taken. *Live evidence so far says inclusive.*
 3. **`usage_EXPERIMENTAL_...` is explicitly unstable** — the method name will change on stabilisation. `typeof`-guarded; the haiku probe stays as a permanent fallback.
-4. **Codex prices are unknown** and `pocket.config.json`'s two model lists disagree with each other — *and neither lists `gpt-6-astra`, the model actually running*. Codex rows ship as `basis:'unknown'` → no dollar figure until `prices.json` exists. Don't invent rates.
+4. **Codex prices are unknown.** Codex rows ship as `basis:'unknown'` → no dollar figure — and after correction 14 there is no dollar figure anywhere on the UI regardless. The config now routes light/standard/heavy to `gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-6-astra` from the live `model/list` roster (Phase 7), which resolves the earlier note about disagreeing model lists. Phase 4's estimator prices in percent-of-window per 1k tokens and needs no price table.
 5. **Cross-device blindness.** Provider windows include usage from other machines and the web apps; our ledger sees only Pocket. Window-derived burn is truthful; ledger-derived burn is Pocket-only. Label them distinctly.
 6. **Concurrency.** Ledger and quota store are process-wide singletons using synchronous appends. Fine at chat scale; a bottleneck once Phase 3 runs parallel dispatches.
 7. **Hand-mirrored types.** `server/src/protocol.ts` ↔ `web/src/types.ts` are maintained by hand. Generate before adding many mission events.
@@ -323,3 +339,21 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 **Ported as prompts and policies:** charter acceptance criteria and done-definition · fresh-context critic · evidence-before-acceptance · bounded rounds.
 
 **Did not port:** `orchestrator.js`'s 1,586-line phase machine (the ceremony cost 28 hours for 2 of 6 stages on its one real run) · `quota.js` (dead pty scrape) · both CLI adapters (superseded by Pocket's transports) · `demo.js` · five orphan office HTML files · 1.34 GB of cinematic plates.
+
+---
+
+## 12. Review backlog — confirmed, not yet shipped
+
+From the 2026-09-21 review. Each is real; none is silent data corruption or an unsafe action, which is why they follow the P0/P1 batches rather than lead them.
+
+- **Size-gate the conference** (decision 3 has no enforcement): triage returns tier only; `runConsult` runs the full ceremony on every request.
+- **Assistant turns carry no crew badge** — Phase 1 promises avatar + name + role on *every* turn; only consult turns have it.
+- **First run defaults the project to the external volume**, not a configured project.
+- **Concurrent approvals strand all but the latest** in `useSession`; a draft typed while disconnected is discarded on Enter.
+- **Resumed Codex threads ledger the whole thread-cumulative total as the first call** (`lastTotal` starts null after restart) — the phantom-call bug in a new coat; needs the persisted counter.
+- **One writer is a decision, not a guard**: two sessions can hold the same working tree.
+- **Registry absence semantics**: a failed roster fetch keeps the previously persisted roster, so "vendor absent" is not yet the unambiguous signal §6 claims. Needs a per-vendor `lastFetchOk`.
+- **Preview/git parsing**: string-content user messages dropped from Claude previews; Codex previews truncate filenames at the first space; git's quoted filenames passed back unquoted.
+- **Notification "test" reports success before publish**; failed project save mutates live state.
+- **Observability**: no operator log of dispatches, routing decisions and gate outcomes beyond stdout — Phase 4's measurement depends on it.
+- **Web UI has no tests.** Highest value first: the `useSession` reducer (interleaved deltas, replay, session switch), then `UsagePanel` honesty states.

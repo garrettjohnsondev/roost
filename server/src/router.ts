@@ -1,3 +1,5 @@
+import { runAgentTask } from './agents/dispatch.js';
+import type { AgentKind } from './protocol.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { repoRoot } from './config.js';
 
@@ -52,10 +54,27 @@ const TRIAGE_TIMEOUT_MS = 20_000;
 
 /** One-shot Haiku classification. Falls back to 'standard' on any failure — a routing
  *  hiccup should never block the actual message. */
-export async function triage(text: string): Promise<TriageResult> {
+export async function triage(text: string, agent: AgentKind = 'claude', lightModel?: string): Promise<TriageResult> {
+  // A Codex session must not silently depend on a Claude subscription. On a
+  // Codex-only install the Haiku probe failed every time and every task
+  // "defaulted" to standard with no one told. Classify on the session's own
+  // vendor, on its light tier.
+  if (agent === 'codex') {
+    try {
+      const r = await runAgentTask({
+        agent: 'codex', model: lightModel ?? '', effort: 'low', capability: 'read-only', cwd: repoRoot,
+        prompt: TRIAGE_PROMPT + text.slice(0, 2000), timeoutMs: TRIAGE_TIMEOUT_MS * 2, maxChars: 400,
+      }).promise;
+      return parseTriage(r.text);
+    } catch {
+      return { tier: 'standard', reason: 'triage failed — defaulted' };
+    }
+  }
   const q: any = query({
     prompt: TRIAGE_PROMPT + text.slice(0, 2000),
-    options: { model: 'haiku', maxTurns: 1, cwd: repoRoot } as any,
+    // A classifier needs no CLAUDE.md, skills or MCP servers; loading them only
+    // slows the probe and widens what it can do.
+    options: { model: lightModel || 'haiku', maxTurns: 1, cwd: repoRoot, settingSources: [] } as any,
   });
   const collect = (async () => {
     let out = '';
