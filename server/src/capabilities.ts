@@ -66,11 +66,17 @@ export function reviewerFor(
   planner: { agent: AgentKind; model: string },
   models: ModelCard[],
   presence?: Presence,
+  /** Live headroom. A vendor at its ceiling is not a reviewer: the dispatch
+   *  gate would refuse the review outright, so the conference would lose its
+   *  independent check with nothing said. Fall back to a different model here
+   *  instead -- weaker, but it runs, and the label says which it was. */
+  headroom?: (agent: AgentKind) => string,
 ): ReviewChoice {
   const other: AgentKind = planner.agent === 'claude' ? 'codex' : 'claude';
 
   // 1. Another vendor entirely -- independent training, independent blind spots.
-  const otherSide = presence?.(other) === 'absent' ? [] : usable(models, other);
+  const otherExhausted = headroom?.(other) === 'exhausted';
+  const otherSide = presence?.(other) === 'absent' || otherExhausted ? [] : usable(models, other);
   if (otherSide.length) {
     return {
       agent: other, model: otherSide[0].id, strength: 'cross-vendor',
@@ -87,7 +93,9 @@ export function reviewerFor(
   if (different) {
     return {
       agent: planner.agent, model: different.id, strength: 'cross-model',
-      why: `${different.displayName} is a different model on the same subscription`,
+      why: otherExhausted
+        ? `${other} is at its limit — ${different.displayName} reviews from the same subscription instead`
+        : `${different.displayName} is a different model on the same subscription`,
     };
   }
 

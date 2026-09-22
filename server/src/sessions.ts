@@ -238,27 +238,54 @@ export class Session {
   /** Auto-mode dispatcher: cheap Haiku triage picks the tier, tier picks model+effort.
    *  First message always triages; follow-ups only when they plausibly outgrow the
    *  current tier. Any routing failure falls through silently — the message must send. */
+  private vendorState(a: AgentKind) {
+    return {
+      route: a === this.agent ? this.autoRoute : this.otherAutoRoute,
+      headroom: quotaStore().headroom(a, this.budget),
+      presence: modelRegistry().presence(a),
+      surplus: quotaStore().surplus(a, this.budget),
+    };
+  }
+
+  /** Where the triage call runs.
+   *
+   *  Triage is tiny, stateless and fires on every message, so it is the
+   *  cheapest thing to move onto whichever subscription has room. The live
+   *  chat cannot cross vendors -- it is bound to one adapter -- but this
+   *  one-shot can, which is the first place the harness actually SPENDS the
+   *  other account's quota rather than suggesting the user do it by hand.
+   *  `candidates` on the light tier is what makes it reachable. */
+  private triageTarget(): { agent: AgentKind; model: string; crossed: boolean } {
+    const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    const fallback = { agent: this.agent, model: this.autoRoute.light?.model ?? '', crossed: false };
+    try {
+      const d = chooseRoute({ tier: 'light', vendors: { [this.agent]: this.vendorState(this.agent), [other]: this.vendorState(other) } });
+      if (d.refused || !d.model) return fallback;
+      return { agent: d.agent, model: d.model, crossed: d.agent !== this.agent };
+    } catch {
+      return fallback;
+    }
+  }
+
   private async routeFor(text: string): Promise<TriageResult | null> {
     if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return null;
-    const triaged = await triage(text, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage'));
+    const t = this.triageTarget();
+    if (t.crossed) {
+      logDecision({ kind: 'route', sessionId: this.id, stage: 'triage', agent: t.agent, model: t.model, crossedFrom: this.agent, reason: 'more headroom on the other subscription' });
+    }
+    const triaged = await triage(text, t.agent, t.model, (d) => this.ledgerCall(d, 'triage'));
     const { tier, reason } = triaged;
     this.lastTier = tier;
     // Quota-aware: the tier triage asked for is modulated by live headroom on
     // THIS session's vendor -- a chat is bound to one adapter, so the other
     // vendor can only be suggested -- and by the surplus/boost toggle.
     const otherAgent: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
-    const vendorState = (a: AgentKind) => ({
-      route: a === this.agent ? this.autoRoute : this.otherAutoRoute,
-      headroom: quotaStore().headroom(a, this.budget),
-      presence: modelRegistry().presence(a),
-      surplus: quotaStore().surplus(a, this.budget),
-    });
-    const mine = vendorState(this.agent);
+    const mine = this.vendorState(this.agent);
     if (this.boost && !mine.surplus) {
       this.boost = false;
       this.notice('Boost turned off — the surplus window has reset.');
     }
-    const decision = chooseRoute({ tier, vendors: { [this.agent]: mine, [otherAgent]: vendorState(otherAgent) }, lockAgent: this.agent, boost: this.boost });
+    const decision = chooseRoute({ tier, vendors: { [this.agent]: mine, [otherAgent]: this.vendorState(otherAgent) }, lockAgent: this.agent, boost: this.boost });
     logDecision({ kind: 'route', sessionId: this.id, agent: this.agent, askedTier: tier, tier: decision.tier, model: decision.model, headroom: mine.headroom.state, gated: decision.gated, refused: decision.refused, steppedDown: decision.steppedDown, steppedUp: decision.steppedUp, boost: this.boost, reason: decision.reason });
     if (decision.suggestOther) {
       const key = `${mine.headroom.state}:${decision.suggestOther}`;
@@ -567,7 +594,7 @@ export class Session {
     // vendor and simply failed on a single subscription. The planner is the
     // model the user actually chose, not a silent downgrade to standard.
     const plannerModel = this.model && this.model !== 'auto' ? this.model : (this.routedModel ?? this.standardModelFor(this.agent));
-    const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all(), (a) => modelRegistry().presence(a));
+    const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all(), (a) => modelRegistry().presence(a), (a) => quotaStore().headroom(a, this.budget).state);
     const configuredOther: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
     // An empty or unfetched roster must not be reported as "no reviewer" while
     // the configured one goes on to review anyway.

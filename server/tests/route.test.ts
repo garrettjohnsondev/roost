@@ -73,3 +73,21 @@ describe('chooseRoute — surplus and boost', () => {
     expect(d.reason).toMatch(/boost held/);
   });
 });
+
+describe('cross-vendor candidates are actually reachable', () => {
+  it('sends light work to whichever subscription has room', async () => {
+    const { loadConfig } = await import('../src/config.js');
+    const cfg = loadConfig();
+    const mk = (a: 'claude' | 'codex', state: Headroom['state']): VendorState =>
+      ({ route: cfg.autoRoute[a], headroom: H(state), presence: 'present', surplus: null });
+    // No lockAgent: this is the dispatch path, where crossing is allowed.
+    expect(chooseRoute({ tier: 'light', vendors: { claude: mk('claude', 'tight'), codex: mk('codex', 'room') } }).agent).toBe('codex');
+    expect(chooseRoute({ tier: 'light', vendors: { claude: mk('claude', 'room'), codex: mk('codex', 'gated') } }).agent).toBe('claude');
+  });
+
+  it('leaves heavy work where it is — no candidates on that tier', async () => {
+    const { loadConfig } = await import('../src/config.js');
+    expect(loadConfig().autoRoute.claude.heavy.candidates).toBeUndefined();
+    expect(loadConfig().autoRoute.claude.light.candidates?.length).toBe(2);
+  });
+})

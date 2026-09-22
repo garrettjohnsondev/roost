@@ -100,3 +100,22 @@ describe('an unfetched roster is not "no reviewer"', () => {
     expect(r).toMatchObject({ model: 'gpt-6-astra', strength: 'cross-vendor' });
   });
 });
+
+describe('a reviewer you cannot reach is not a reviewer', () => {
+  const all = [...codex, ...claude];
+
+  it('skips the other vendor when it is at its ceiling, and says why', () => {
+    // The dispatch gate would refuse the review outright, so the conference
+    // would lose its independent check with nothing said.
+    const r = reviewerFor({ agent: 'claude', model: 'opus' }, all, undefined, (a) => (a === 'codex' ? 'exhausted' : 'room'));
+    expect(r.strength).toBe('cross-model');
+    expect(r.agent).toBe('claude');
+    expect(r.why).toMatch(/at its limit/);
+  });
+
+  it('still prefers the other vendor when it is merely tight', () => {
+    const r = reviewerFor({ agent: 'claude', model: 'opus' }, all, undefined, (a) => (a === 'codex' ? 'tight' : 'room'));
+    expect(r.strength).toBe('cross-vendor');
+    expect(r.agent).toBe('codex');
+  });
+})

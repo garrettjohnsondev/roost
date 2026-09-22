@@ -240,7 +240,10 @@ export async function reviewDiff(cwd: string, executorAgent: AgentKind, criteria
   if (!diff.trim()) return { agent: executorAgent, model: '', strength: 'none', text: '(no diff to review)' };
   const def = loadAgentDefs(cwd).find((d) => d.name === 'review');
   if (!def) return { agent: executorAgent, model: '', strength: 'none', text: '(no review definition)' };
-  const choice = reviewerFor({ agent: executorAgent, model: '' }, modelRegistry().all(), (a) => modelRegistry().presence(a));
+  const { quotaStore } = await import('./quota.js');
+  const { loadConfig } = await import('./config.js');
+  const budget = loadConfig().budget;
+  const choice = reviewerFor({ agent: executorAgent, model: '' }, modelRegistry().all(), (a) => modelRegistry().presence(a), (a) => quotaStore().headroom(a, budget).state);
   if (choice.strength === 'none') return { agent: executorAgent, model: '', strength: 'none', text: '(no reviewer available)' };
   const prompt = composeDispatchPrompt({
     def,

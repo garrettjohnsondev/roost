@@ -107,17 +107,21 @@ const DEFAULTS: PocketConfig = {
   sessionIdleTimeoutHours: 24,
   notifications: { url: 'https://ntfy.sh', topic: '' },
   autoRoute: {
+    // `candidates` let a tier cross vendors: the router picks whichever
+    // subscription has better KNOWN headroom. Only light and standard cross --
+    // heavy work stays where the session is, because moving hard reasoning
+    // between engines mid-task costs more than the quota it saves.
     claude: {
-      light: { model: 'haiku' },
-      standard: { model: 'sonnet' },
+      light: { model: 'haiku', candidates: [{ agent: 'claude', model: 'haiku' }, { agent: 'codex', model: 'gpt-5.6-luna' }] },
+      standard: { model: 'sonnet', candidates: [{ agent: 'claude', model: 'sonnet' }, { agent: 'codex', model: 'gpt-5.6-terra' }] },
       heavy: { model: 'opus', effort: 'xhigh' },
     },
     // From the live model/list roster on 2026-09-21. The previous defaults
     // pointed a FRESH install at a deleted model and a superseded one; the
     // registry (Phase 7) audits these against the roster at startup.
     codex: {
-      light: { model: 'gpt-5.6-luna' },
-      standard: { model: 'gpt-5.6-terra' },
+      light: { model: 'gpt-5.6-luna', candidates: [{ agent: 'codex', model: 'gpt-5.6-luna' }, { agent: 'claude', model: 'haiku' }] },
+      standard: { model: 'gpt-5.6-terra', candidates: [{ agent: 'codex', model: 'gpt-5.6-terra' }, { agent: 'claude', model: 'sonnet' }] },
       heavy: { model: 'gpt-6-astra', effort: 'xhigh' },
     },
   },
