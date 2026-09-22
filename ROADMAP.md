@@ -28,7 +28,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **1** | The crew — personas, roles, avatars | ✅ **Done** |
 | **2** | Dispatch primitive — `runAgentTask`, task-shaped definitions, sliced project file | ✅ **Done, verified live** |
 | **3** | The conference — plan → review → reconcile | ⬜ |
-| **4** | Quota-aware model routing + budget ceiling | ⬜ |
+| **4** | Quota-aware model routing + budget ceiling | 🟨 routing, gate, boost and task ceiling shipped; window-weight estimator pending |
 | **4d** | Modes — chat / auto / plan / build | ⬜ |
 | **5** | Verification gate | ⬜ |
 | **7** | Model registry and auto-update | 🟨 core done, live on both vendors |
@@ -223,8 +223,12 @@ Definitions are therefore named for **tasks, not jobs**: `explore`, `plan`, `rev
 ### ⬜ Phase 3 — The conference
 Extend `runConsult` into a size-gated loop. `composePlannerPrompt` / `composeCriticPrompt` / `composeProceedPrompt` already exist and are close to right. Three changes: **plan to a file**; **starve the reviewer** (plan + criteria only, plus an anti-noise instruction — a reviewer asked for gaps will invent them); **reconcile step** where the primary filters findings against requirements.
 
-### ⬜ Phase 4 — Quota-aware routing + ceiling
-`chooseRoute()` as a pure function beside the untouched `triage`/`shouldRetriage`. Scarcity: shift to the roomy suite and step the tier down. **Never route toward an agent with worse-known headroom.** Surplus: the use-it-or-lose-it path (`quota.surplus()` is built) with a one-tap **"Use the good models"** toggle that holds until reset. **A hard budget across the whole agent tree**, not per-agent — per-agent caps don't bound a tree.
+### 🟨 Phase 4 — Quota-aware routing + ceiling *(routing, gate, boost shipped)*
+`route.ts` — `chooseRoute()`, pure. **Scarcity steps the tier down** (tight: one tier; gated: light only) and, for dispatch, **prefers the vendor with better *known* headroom**; **unknown and stale rank last and never win a move** — missing data is never a reason to move work. A chat session is bound to one adapter, so under pressure it gets a **suggestion** (notice + ntfy, once per state) rather than a switch. **Surplus + the user's boost toggle steps up** to the heavy tier, and boost holds (does not fire) when the window is under pressure. `chooseEffort` (Phase 4b) is now on the live path: thinking is trimmed before the model is downgraded and raised first under boost.
+
+`gate.ts` — `guardDispatch()`, in front of **every** `runAgentTask` and every consult, *before* a process exists: vendor present, quota not exhausted, and the task inside its ceiling (`budget.maxDispatchesPerTask`, default 40; `budget.maxTaskTokens`, null by default because there is no honest universal number). `policy.ts` computed levels that nothing consulted; this is the call site. Every refusal, gated allowance and boost toggle lands in the decisions log.
+
+**Pending:** the percent-of-window-per-1k-token estimator (§10) — the measurement that makes "how much of the week does a Luna call cost" answerable — and cross-vendor *candidates* per tier in the shipped config (the router supports them; the config does not yet name any).
 
 ### ⬜ Phase 4d — Modes
 **Chat** (one agent, no ceremony) · **Auto** (triage → tier → model *and* effort) · **Plan** (read-only: Claude `permissionMode:'plan'`, Codex `sandbox:'read-only'`) · **Build** (the full conference). Per-session, switchable mid-session, persisted.

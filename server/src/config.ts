@@ -50,6 +50,11 @@ export interface BudgetConfig {
    *  surplusWithinMins, is a use-it-or-lose-it opportunity worth upgrading for. */
   surplusHeadroomPct: number;
   surplusWithinMins: number;
+  /** Hard ceiling across a task's whole agent tree: dispatches per task. */
+  maxDispatchesPerTask?: number | null;
+  /** Hard ceiling across a task's whole agent tree: ledgered tokens per task.
+   *  Null by default -- there is no honest universal number. */
+  maxTaskTokens?: number | null;
 }
 
 export interface ConsultConfig {
@@ -106,6 +111,8 @@ const DEFAULTS: PocketConfig = {
     dailyUsd: null,
     surplusHeadroomPct: 25,
     surplusWithinMins: 360,
+    maxDispatchesPerTask: 40,
+    maxTaskTokens: null,
   },
   consult: { sizeGate: true },
   guards: { oneWriter: 'warn' },

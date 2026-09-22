@@ -24,6 +24,7 @@ export type ClientMessage =
   | { type: 'consult'; text: string }
   | { type: 'consult_proceed' }
   | { type: 'consult_dismiss' }
+  | { type: 'set_boost'; on: boolean }
   | { type: 'interrupt' };
 
 /** Expanded detail for a tool call, shown when the user taps its chip. */
@@ -32,6 +33,15 @@ export interface ToolExpand {
   before?: string;
   after?: string;
   raw?: string;
+}
+
+/** A window about to reset with capacity left -- the "spend it before it
+ *  resets" banner. */
+export interface SurplusInfo {
+  agent: AgentKind;
+  label: string;
+  minutesLeft: number;
+  headroomPct: number;
 }
 
 export interface SessionMeta {
@@ -57,6 +67,9 @@ export interface SessionMeta {
   /** Set only when this session was created via resume — the id it was resumed from.
    *  Distinct from agentSessionId, which every session eventually gets (fresh or not). */
   resumedFrom?: string;
+  /** "Use the good models" is on for this session. Clears when the surplus does. */
+  boost?: boolean;
+  surplus?: SurplusInfo | null;
 }
 
 export interface CrewInfo {

@@ -139,6 +139,25 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
         />
       )}
 
+      {session.meta?.surplus && !session.meta.boost && (
+        <div className="surplus-bar">
+          <span>
+            Spend it before it resets — {session.meta.surplus.headroomPct}% of your {session.meta.surplus.label} vanishes in{' '}
+            {fmtMinutes(session.meta.surplus.minutesLeft)}.
+          </span>
+          <button className="chip" onClick={() => session.send({ type: 'set_boost', on: true })}>
+            Use the good models
+          </button>
+        </div>
+      )}
+      {session.meta?.boost && (
+        <div className="surplus-bar on">
+          <span>Boost on — routing to the heavy tier{session.meta.surplus ? ` until ${session.meta.surplus.label} resets` : ''}.</span>
+          <button className="chip" onClick={() => session.send({ type: 'set_boost', on: false })}>
+            Turn off
+          </button>
+        </div>
+      )}
       {session.usage && (
         <div className="usage-bar">
           {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
@@ -340,6 +359,10 @@ function CrewAvatar({ crew }: { crew: CrewInfo }) {
     );
   }
   return <span className="crew-avatar crew-monogram" style={{ background: crew.color }}>{crew.initial}</span>;
+}
+
+function fmtMinutes(m: number): string {
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
 }
 
 function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {

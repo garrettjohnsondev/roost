@@ -1,3 +1,4 @@
+import { guardDispatch } from '../gate.js';
 import { logDecision } from '../decisions.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JsonRpcProcess } from '../jsonrpc.js';
@@ -84,6 +85,14 @@ const DEFAULT_MAX_CHARS = 12_000;
  *  re-pays its own system prompt, so dispatch saves CONTEXT reliably and
  *  tokens only sometimes. */
 export function runAgentTask(spec: AgentTaskSpec): AgentTaskRun {
+  // Quota, presence and the task ceiling are checked BEFORE a process exists.
+  try {
+    guardDispatch(spec);
+  } catch (err) {
+    const refused = Promise.reject(err);
+    refused.catch(() => {}); // observed here; the caller still sees the rejection
+    return { promise: refused, cancel: () => {} };
+  }
   const started = Date.now();
   const timeoutMs = spec.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxChars = spec.maxChars ?? DEFAULT_MAX_CHARS;

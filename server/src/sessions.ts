@@ -1,3 +1,9 @@
+import { quotaStore } from './quota.js';
+import { chooseRoute } from './route.js';
+import { chooseEffort, classifyKind } from './routing.js';
+import type { BudgetConfig, AutoRouteConfig as OtherRouteConfig } from './config.js';
+import type { Surplus } from './quota.js';
+import type { SurplusInfo } from './protocol.js';
 import { logDecision } from './decisions.js';
 import { reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
 import { modelRegistry } from './registry.js';
@@ -63,6 +69,11 @@ export class Session {
   private standardModelFor: (agent: AgentKind) => string;
   /** Decision 3: skip the cross-model review when triage sizes the task small. */
   private sizeGate = true;
+  private budget!: BudgetConfig;
+  private otherAutoRoute!: OtherRouteConfig;
+  /** "Use the good models" while a surplus window is live. */
+  private boost = false;
+  private lastSuggestion?: string;
   routedModel?: string;
   model: string;
   effort: string;
@@ -98,6 +109,8 @@ export class Session {
     // plan/review, without paying heavy-tier prices for a throwaway run.
     this.standardModelFor = (a: AgentKind) => config.autoRoute[a].standard.model;
     this.sizeGate = config.consult?.sizeGate ?? true;
+    this.budget = config.budget;
+    this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
     const adapterOptions = {
       cwd,
       // In auto mode the concrete model is chosen per-message by the router; start the
@@ -166,6 +179,8 @@ export class Session {
       consultPending: this.pendingConsult ? true : undefined,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
+      boost: this.boost || undefined,
+      surplus: toSurplusInfo(quotaStore().surplus(this.agent, this.budget)),
     };
   }
 
@@ -176,7 +191,38 @@ export class Session {
     if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return;
     const { tier, reason } = await triage(text, this.agent, this.autoRoute.light?.model);
     this.lastTier = tier;
-    const target = this.autoRoute[tier];
+    // Quota-aware: the tier triage asked for is modulated by live headroom on
+    // THIS session's vendor -- a chat is bound to one adapter, so the other
+    // vendor can only be suggested -- and by the surplus/boost toggle.
+    const otherAgent: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    const vendorState = (a: AgentKind) => ({
+      route: a === this.agent ? this.autoRoute : this.otherAutoRoute,
+      headroom: quotaStore().headroom(a, this.budget),
+      presence: modelRegistry().presence(a),
+      surplus: quotaStore().surplus(a, this.budget),
+    });
+    const mine = vendorState(this.agent);
+    if (this.boost && !mine.surplus) {
+      this.boost = false;
+      this.notice('Boost turned off — the surplus window has reset.');
+    }
+    const decision = chooseRoute({ tier, vendors: { [this.agent]: mine, [otherAgent]: vendorState(otherAgent) }, lockAgent: this.agent, boost: this.boost });
+    logDecision({ kind: 'route', sessionId: this.id, agent: this.agent, askedTier: tier, tier: decision.tier, model: decision.model, headroom: mine.headroom.state, gated: decision.gated, refused: decision.refused, steppedDown: decision.steppedDown, steppedUp: decision.steppedUp, boost: this.boost, reason: decision.reason });
+    if (decision.suggestOther) {
+      const key = `${mine.headroom.state}:${decision.suggestOther}`;
+      if (this.lastSuggestion !== key) {
+        this.lastSuggestion = key;
+        const msg = `${this.agent} is ${mine.headroom.state} (${mine.headroom.reason}); ${decision.suggestOther} has room — consider starting new work there.`;
+        this.notice(msg);
+        if (this.sockets.size === 0) sendNotification(`route:${this.id}`, `Quota · ${this.title}`, msg, { minIntervalMs: 30 * 60_000 });
+      }
+    }
+    if (decision.refused) {
+      // The user's own message still goes out; routing just has nothing to pick.
+      this.notice(`Routing refused: ${decision.reason}. Sending on the current model.`);
+      return;
+    }
+    const target = { model: decision.model, effort: decision.effort };
     try {
       let changed = false;
       // Two tiers may share a model. Returning early on a same-model retriage
@@ -189,7 +235,15 @@ export class Session {
       // Changing effort mid-conversation invalidates the prompt cache. Only
       // move for a change worth the reset, and never flap -- this used to
       // re-apply on every retriage with no hysteresis at all.
-      const newEffort = target.effort ?? '';
+      // Phase 4b's chooser, finally on the live path: it trims thinking before
+      // the model is downgraded and raises it first under boost. The user's
+      // configured effort is the base; adaptive is not forced over it.
+      const card = modelRegistry().get(this.agent, target.model);
+      const effortPick = chooseEffort({
+        tier: decision.tier, kind: classifyKind(text), agent: this.agent, headroom: mine.headroom.state,
+        surplus: this.boost && !!mine.surplus, configured: target.effort ?? null, supported: card?.efforts ?? null, adaptive: false,
+      });
+      const newEffort = effortPick.effort;
       if (newEffort !== this.effort) {
         const change = shouldApplyEffort({ current: this.effort || null, proposed: newEffort, agent: this.agent, changesSoFar: this.effortChanges });
         if (change.apply) {
@@ -200,8 +254,7 @@ export class Session {
         }
       }
       if (changed) {
-        this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
-        logDecision({ kind: 'route', sessionId: this.id, agent: this.agent, tier, model: target.model, effort: this.effort, reason });
+        this.pushEvent({ type: 'routed', model: target.model, tier: decision.tier, reason: `${reason}; ${decision.reason}`, ts: now() });
         this.broadcastMeta();
       }
     } catch (err: any) {
@@ -355,6 +408,12 @@ export class Session {
         this.broadcastMeta();
         break;
       }
+      case 'set_boost':
+        this.boost = !!msg.on;
+        if (this.autoMode) this.lastTier = undefined; // the next message re-routes
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'boost', action: this.boost ? 'on' : 'off' });
+        this.broadcastMeta();
+        break;
       case 'consult_dismiss':
         this.pendingConsult = undefined;
         this.broadcastMeta();
@@ -368,6 +427,13 @@ export class Session {
    *  active one-shot; a failed critique degrades gracefully instead of losing the plan. */
   private async runConsult(task: string): Promise<void> {
     if (!task.trim() || this.consultRunning) return;
+    // The gate, before any one-shot process exists.
+    const h = quotaStore().headroom(this.agent, this.budget);
+    if (h.state === 'exhausted') {
+      logDecision({ kind: 'gate', sessionId: this.id, rule: 'quota', action: 'refused', agent: this.agent, role: 'consult', reason: h.reason });
+      this.reportError(`Consult refused: ${this.agent} ${h.reason}.`);
+      return;
+    }
     this.consultRunning = true;
     this.consultCancelled = false;
     this.pendingConsult = undefined;
@@ -451,6 +517,10 @@ export class Session {
     for (const ws of this.sockets) ws.close(4010, reason);
     this.sockets.clear();
   }
+}
+
+function toSurplusInfo(s: Surplus | null): SurplusInfo | null {
+  return s ? { agent: s.agent, label: s.window.label, minutesLeft: s.minutesLeft, headroomPct: s.headroomPct } : null;
 }
 
 /** Thrown by SessionManager.create when guards.oneWriter is 'block'. */

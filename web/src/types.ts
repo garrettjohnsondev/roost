@@ -18,6 +18,7 @@ export type ClientMessage =
   | { type: 'consult'; text: string }
   | { type: 'consult_proceed' }
   | { type: 'consult_dismiss' }
+  | { type: 'set_boost'; on: boolean }
   | { type: 'interrupt' };
 
 export interface ToolExpand {
@@ -25,6 +26,15 @@ export interface ToolExpand {
   before?: string;
   after?: string;
   raw?: string;
+}
+
+/** A window about to reset with capacity left -- the "spend it before it
+ *  resets" banner. */
+export interface SurplusInfo {
+  agent: AgentKind;
+  label: string;
+  minutesLeft: number;
+  headroomPct: number;
 }
 
 export interface SessionMeta {
@@ -44,6 +54,9 @@ export interface SessionMeta {
   consultPending?: boolean;
   agentSessionId?: string;
   resumedFrom?: string;
+  /** "Use the good models" is on for this session. Clears when the surplus does. */
+  boost?: boolean;
+  surplus?: SurplusInfo | null;
 }
 
 export interface GitSummary {

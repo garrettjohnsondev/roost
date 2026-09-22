@@ -1849,3 +1849,6 @@ button {
 .composer-unsent { color: #d9a441; }
 .decisions { list-style: none; padding: 0; margin: 0; font-size: 13px; }
 .decisions li { padding: 2px 0; }
+
+.surplus-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; background: rgba(217,164,65,0.12); border-bottom: 1px solid rgba(217,164,65,0.35); }
+.surplus-bar.on { background: rgba(34,197,94,0.10); border-bottom-color: rgba(34,197,94,0.35); }
