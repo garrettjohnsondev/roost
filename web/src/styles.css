@@ -1868,3 +1868,15 @@ button {
 .verify-image { font-size: 12px; }
 .verify-image.bad { color: #ef4444; }
 .verify-review { margin-top: 8px; border-top: 1px solid var(--line, #2a2a2a); padding-top: 8px; }
+
+.context-bar { display: flex; gap: 10px; justify-content: space-between; padding: 4px 12px; font-size: 12px; opacity: 0.85; }
+.context-bar.filling { color: #d9a441; }
+.context-bar.degrading { color: #f97316; }
+.context-bar.critical { color: #ef4444; }
+.context-advice { font-weight: 600; }
+.usage-weights { margin-top: 4px; }
+.models-card { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.models-issue, .models-new { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.models-issue { color: #d9a441; }
+.models-roster { opacity: 0.8; }
+.models-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

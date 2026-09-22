@@ -182,6 +182,38 @@ export interface Persona {
   avatar?: string;
 }
 
+export interface WeightEstimate {
+  agent: AgentKind;
+  key: string;
+  model: string;
+  /** null until enough single-model samples exist. Never a guess. */
+  pctPerMillionTokens: number | null;
+  samples: number;
+  tokens: number;
+  pctMoved: number;
+  confidence: 'none' | 'low' | 'medium' | 'high';
+  note: string;
+}
+
+export interface ModelCardWire {
+  agent: AgentKind;
+  id: string;
+  displayName: string;
+  description: string;
+  efforts: string[];
+  isVendorDefault: boolean;
+  supersededBy: string | null;
+  hidden: boolean;
+  suggested: { tier: 'light' | 'standard' | 'heavy' | null; why: string };
+}
+
+export interface ModelsResponse {
+  fetchedAt: number;
+  models: ModelCardWire[];
+  issues: Array<{ agent: string; tier: string; model: string; problem: string; suggestion: string | null }>;
+  capabilities: { vendors: AgentKind[]; crossVendorReview: boolean; reviewLabel: string };
+}
+
 export interface DecisionsSummary {
   total: number;
   sinceMs: number;

@@ -172,6 +172,26 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
           {session.usage.contextPct != null && <> · ctx {session.usage.contextPct}%</>}
         </div>
       )}
+      {session.context && (
+        <div
+          className={`context-bar ${session.context.pressure}`}
+          title={session.context.categories?.map((c) => `${c.name}: ${fmtTokens(c.tokens)}`).join('\n')}
+        >
+          <span>
+            Context {session.context.percent != null ? `${session.context.percent}%` : 'no data'}
+            {session.context.usedTokens != null && session.context.maxTokens != null
+              ? ` · ${fmtTokens(session.context.usedTokens)} of ${fmtTokens(session.context.maxTokens)}`
+              : ''}
+            {` · ${session.context.pressure}`}
+            {session.context.overLimit ? ` · ${fmtTokens(session.context.overLimit.tokensOver)} over the ${session.context.overLimit.kind === 'hard_limit' ? 'hard limit' : 'compaction window'}` : ''}
+          </span>
+          {session.context.advice && (
+            <span className="context-advice">
+              {session.context.advice.action}: {session.context.advice.reason}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="messages" ref={scrollRef}>
         {(recap || recapLoading) && (

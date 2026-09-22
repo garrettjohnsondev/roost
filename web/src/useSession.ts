@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SessionSocket } from './api';
-import type { ChatItem, ClientMessage, ServerEvent, SessionMeta, UsageInfo } from './types';
+import type { ChatItem, ClientMessage, ServerEvent, SessionMeta, UsageInfo, ContextInfo } from './types';
 
 export interface SessionState {
   items: ChatItem[];
@@ -16,6 +16,7 @@ export interface SessionState {
   closedReason: string | null;
   /** Free-text detail attached to the latest status event (e.g. consult progress). */
   statusMessage: string | null;
+  context: ContextInfo | null;
   /** false when the socket is not open -- the caller keeps the draft. */
   send: (msg: ClientMessage) => boolean;
 }
@@ -98,10 +99,12 @@ export interface SessionCore {
   statusMessage: string | null;
   usage: UsageInfo | null;
   approvals: Array<NonNullable<SessionState['pendingApproval']>>;
+  /** The engine's own context window, as last reported. null = no data. */
+  context: ContextInfo | null;
 }
 
 export function initialCore(): SessionCore {
-  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [] };
+  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [], context: null };
 }
 
 /** Everything the phone shows for a session, as a pure function of the events
@@ -114,6 +117,7 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
       const resolved = new Set(event.events.filter((e) => e.type === 'approval_resolved').map((e: any) => e.requestId));
       let items: ChatItem[] = [];
       let usage: UsageInfo | null = null;
+      let context: ContextInfo | null = null;
       let status = prev.status;
       let statusMessage: string | null = null;
       const approvals: SessionCore['approvals'] = [];
@@ -123,17 +127,22 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
           approvals.push({ requestId: e.requestId, title: e.title, detail: e.detail });
         }
         if (e.type === 'usage') usage = e.usage;
+        if (e.type === 'context') context = e.context;
         if (e.type === 'status') {
           status = e.state;
           statusMessage = e.message ?? null;
         }
       }
-      return { items, meta: event.meta, status, statusMessage, usage, approvals };
+      return { items, meta: event.meta, status, statusMessage, usage, approvals, context };
     }
     case 'session_meta':
       return { ...prev, meta: event.meta };
     case 'usage':
       return { ...prev, usage: event.usage };
+    case 'context':
+      // Emitted after every Claude turn and every Codex usage update. It went
+      // to the item reducer's default case and was dropped on the floor.
+      return { ...prev, context: event.context };
     case 'status':
       return { ...prev, status: event.state, statusMessage: event.message ?? null };
     case 'approval_request': {
@@ -175,6 +184,7 @@ export function useSession(sessionId: string): SessionState {
     pendingApprovalCount: core.approvals.length,
     closedReason,
     statusMessage: core.statusMessage,
+    context: core.context,
     send: (msg) => socketRef.current?.send(msg) ?? false,
   };
 }

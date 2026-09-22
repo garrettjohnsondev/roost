@@ -1,3 +1,4 @@
+import type { CallDelta } from './agents/types.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { AsyncQueue, truncate } from './util.js';
@@ -89,12 +90,44 @@ export function composeProceedPrompt(task: string, plan: string, critique: strin
 
 const READ_ONLY_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'WebSearch', 'WebFetch', 'TodoWrite', 'Task']);
 
-async function collectClaude(q: any): Promise<string> {
+/** A one-shot is one turn, so its result's modelUsage IS the per-call figure.
+ *  costBasis:'unknown' means the SDK guessed the price; that is recorded as
+ *  unknown, never as authoritative. */
+function claudeDeltas(result: any): CallDelta[] {
+  const out: CallDelta[] = [];
+  for (const [model, u] of Object.entries<any>(result?.modelUsage ?? {})) {
+    const basis = u?.costBasis ?? 'list';
+    const priced = basis !== 'unknown' && typeof u?.costUSD === 'number';
+    out.push({
+      agent: 'claude', model,
+      inTok: u?.inputTokens ?? 0, outTok: u?.outputTokens ?? 0,
+      cacheReadTok: u?.cacheReadInputTokens ?? 0, cacheWriteTok: u?.cacheCreationInputTokens ?? 0,
+      reasoningTok: u?.thinkingTokens ?? undefined,
+      costUsd: priced ? u.costUSD : null, costBasis: priced ? 'sdk' : 'unknown',
+      agentSessionId: result?.session_id,
+    });
+  }
+  return out;
+}
+
+function codexDeltaFromLast(last: any, model: string): CallDelta | null {
+  if (!last) return null;
+  return {
+    agent: 'codex', model,
+    inTok: last.inputTokens ?? 0, outTok: last.outputTokens ?? 0,
+    cacheReadTok: last.cachedInputTokens ?? 0, cacheWriteTok: 0,
+    reasoningTok: last.reasoningOutputTokens ?? undefined,
+    costUsd: null, costBasis: 'unknown',
+  };
+}
+
+async function collectClaude(q: any, onResult?: (m: any) => void): Promise<string> {
   const collect = (async () => {
     let final = '';
     for await (const m of q) {
       if (m.type === 'result') {
         final = typeof m.result === 'string' ? m.result : final;
+        onResult?.(m);
         break;
       }
       if (m.type === 'assistant') {
@@ -115,7 +148,7 @@ async function collectClaude(q: any): Promise<string> {
   }
 }
 
-function codexOneShotCancellable(cwd: string, prompt: string, model: string): { promise: Promise<string>; kill: () => void } {
+function codexOneShotCancellable(cwd: string, prompt: string, model: string, onUsage?: (last: any, model: string) => void): { promise: Promise<string>; kill: () => void } {
   let onNotification: (method: string, params: any) => void = () => {};
   // mcp_servers={} — a consult is read-only exploration; MCP startup only adds delay.
   const rpc = new JsonRpcProcess('codex', ['app-server', '-c', 'mcp_servers={}'], cwd, {
@@ -142,6 +175,7 @@ function codexOneShotCancellable(cwd: string, prompt: string, model: string): { 
       if (!threadId) throw new Error('codex consult thread failed to start');
 
       let lastMessage = '';
+      let lastUsage: any = null;
       let timer: NodeJS.Timeout | undefined;
       const done = new Promise<string>((resolve, reject) => {
         timer = setTimeout(() => reject(new Error('consult run timed out')), ONE_SHOT_TIMEOUT_MS);
@@ -149,8 +183,12 @@ function codexOneShotCancellable(cwd: string, prompt: string, model: string): { 
           if (method === 'item/completed' && params?.item?.type === 'agentMessage' && params.item.text) {
             lastMessage = params.item.text;
           }
+          if (method === 'thread/tokenUsage/updated') {
+            lastUsage = params?.tokenUsage?.last ?? null; // this turn; never `total`
+          }
           if (method === 'turn/completed') {
             clearTimeout(timer);
+            onUsage?.(lastUsage, started?.thread?.model ?? model);
             resolve(lastMessage);
           }
           if (method === 'error' && params?.willRetry === false) {
@@ -194,6 +232,7 @@ export function startConsultStep(
   prompt: string,
   model: string,
   phase: 'plan' | 'critique' | 'reconcile',
+  onCall?: (d: CallDelta) => void,
 ): ConsultRun {
   let cancel: () => void = () => {};
   const raw =
@@ -223,10 +262,10 @@ export function startConsultStep(
             input.close();
             void q.interrupt?.().catch(() => {});
           };
-          return collectClaude(q).finally(() => input.close());
+          return collectClaude(q, (m) => { for (const d of claudeDeltas(m)) onCall?.(d); }).finally(() => input.close());
         })()
       : (() => {
-          const { promise, kill } = codexOneShotCancellable(cwd, prompt, model);
+          const { promise, kill } = codexOneShotCancellable(cwd, prompt, model, (last, m) => { const d = codexDeltaFromLast(last, m); if (d) onCall?.(d); });
           cancel = kill;
           return promise;
         })();

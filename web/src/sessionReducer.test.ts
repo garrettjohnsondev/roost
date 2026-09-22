@@ -59,3 +59,13 @@ describe('session reducer', () => {
     expect(c.status).toBe('idle');
   });
 });
+
+describe('context meter', () => {
+  it('keeps the latest context report and clears it on a session switch', () => {
+    const ctx = { agent: 'claude', usedTokens: 150_000, maxTokens: 200_000, percent: 75, pressure: 'degrading', observedAt: 1, advice: { action: 'dispatch', reason: 'x' } } as any;
+    const c = reduceSessionEvent(initialCore(), { type: 'context', context: ctx, ts: 1 });
+    expect(c.context?.percent).toBe(75);
+    expect(c.context?.advice?.action).toBe('dispatch');
+    expect(initialCore().context).toBeNull();
+  });
+});

@@ -220,7 +220,7 @@ export class Session {
    *  current tier. Any routing failure falls through silently — the message must send. */
   private async routeFor(text: string): Promise<void> {
     if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return;
-    const { tier, reason } = await triage(text, this.agent, this.autoRoute.light?.model);
+    const { tier, reason } = await triage(text, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage'));
     this.lastTier = tier;
     // Quota-aware: the tier triage asked for is modulated by live headroom on
     // THIS session's vendor -- a chat is bound to one adapter, so the other
@@ -468,7 +468,7 @@ export class Session {
             cwd: this.cwd,
             taskId: this.id,
             fingerprintAtStart: this.gateFingerprintAtStart,
-            review: msg.review ? { executorAgent: this.agent, criteria: typeof msg.criteria === 'string' ? msg.criteria : undefined } : undefined,
+            review: msg.review ? { executorAgent: this.agent, criteria: typeof msg.criteria === 'string' ? msg.criteria : undefined, onCall: (d) => this.ledgerCall(d, 'review') } : undefined,
           });
           this.pushEvent({ type: 'verify', report, ts: now() });
         } catch (err: any) {
@@ -543,7 +543,7 @@ export class Session {
     // more than it returns. Ask triage for a size; when it says small, keep
     // the plan and skip the cross-model review -- and say so on the turn.
     // Unknown size runs the full conference: the gate never skips on a guess.
-    const sized = this.sizeGate ? await triage(task, this.agent, this.autoRoute.light?.model) : null;
+    const sized = this.sizeGate ? await triage(task, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage')) : null;
     const skipReview = sized?.size === 'small';
     logDecision({ kind: 'review', sessionId: this.id, planner: { agent: this.agent, model: plannerModel }, reviewer: { agent: other, model: reviewerModel }, strength: resolved.strength, size: sized?.size ?? null, skipped: skipReview });
     try {
@@ -554,7 +554,7 @@ export class Session {
         .join('\n');
 
       this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is drafting a plan…`, ts: now() });
-      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), plannerModel, 'plan');
+      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), plannerModel, 'plan', (d) => this.ledgerCall(d, 'plan'));
       // Dispatched output is untrusted input: defang control structures before
       // the plan reaches the reviewer's context, the transcript, or execution.
       const plan = sanitizeAgentOutput(await this.activeConsult.promise).text;
@@ -579,7 +579,7 @@ export class Session {
       } else {
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
         try {
-          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan, criteria), reviewerModel, 'critique');
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan, criteria), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
           critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
         } catch (err: any) {
           if (this.consultCancelled) throw err;
@@ -599,7 +599,7 @@ export class Session {
       while (!skipReview && rounds < this.maxReviewRounds && !currentCritique.startsWith('(Critique unavailable')) {
         rounds += 1;
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is reconciling the review against the requirements…`, ts: now() });
-        this.activeConsult = startConsultStep(this.agent, this.cwd, composeReconcilePrompt(task, reconciled, currentCritique, criteria), plannerModel, 'reconcile');
+        this.activeConsult = startConsultStep(this.agent, this.cwd, composeReconcilePrompt(task, reconciled, currentCritique, criteria), plannerModel, 'reconcile', (d) => this.ledgerCall(d, 'reconcile'));
         reconciled = sanitizeAgentOutput(await this.activeConsult.promise).text;
         this.pushEvent({ type: 'consult', phase: 'reconcile', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: reconciled, ts: now() });
         planFile = { ...planFile, critique: currentCritique, reconciled, rounds, updatedAt: now() };
@@ -609,7 +609,7 @@ export class Session {
         if (!needsChanges || rounds >= this.maxReviewRounds) break;
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is re-reviewing (round ${rounds + 1})…`, ts: now() });
         try {
-          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, reconciled, criteria), reviewerModel, 'critique');
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, reconciled, criteria), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
           currentCritique = sanitizeAgentOutput(await this.activeConsult.promise).text;
           this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: currentCritique, ts: now() });
         } catch (err: any) {
@@ -645,7 +645,7 @@ export class Session {
         cwd: this.cwd,
         taskId: pv.taskId ?? this.id,
         fingerprintAtStart: this.gateFingerprintAtStart,
-        review: pv.review ? { executorAgent: this.agent, criteria: pv.criteria?.length ? pv.criteria.map((c) => `- ${c}`).join('\n') : undefined } : undefined,
+        review: pv.review ? { executorAgent: this.agent, criteria: pv.criteria?.length ? pv.criteria.map((c) => `- ${c}`).join('\n') : undefined, onCall: (d) => this.ledgerCall(d, 'review') } : undefined,
       });
       this.pushEvent({ type: 'verify', report, ts: now() });
       if (this.sockets.size === 0) sendNotification(`verify:${this.id}`, `${report.passed ? 'Verified' : 'Verification FAILED'} · ${this.title}`, report.summary);
@@ -654,6 +654,34 @@ export class Session {
     } finally {
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
     }
+  }
+
+  /** One-shots (triage, plan, review, reconcile, diff review) were invisible
+   *  to the ledger -- the orchestrator's own turns are the line item nobody
+   *  budgets for, and they were not even counted. */
+  private ledgerCall(d: CallDelta, role: string): void {
+    const priced =
+      d.costUsd != null
+        ? { usd: d.costUsd, basis: d.costBasis }
+        : estimateCost(d.model, { inTok: d.inTok, outTok: d.outTok, cacheReadTok: d.cacheReadTok, cacheWriteTok: d.cacheWriteTok });
+    callLedger().record({
+      at: Date.now(),
+      sessionId: this.id,
+      agentSessionId: d.agentSessionId,
+      turnId: d.turnId,
+      agent: d.agent,
+      model: d.model,
+      role,
+      persona: crewMember(d.agent, d.model, this.currentRole as CrewRole).name,
+      tier: this.lastTier,
+      inTok: d.inTok,
+      outTok: d.outTok,
+      cacheReadTok: d.cacheReadTok,
+      cacheWriteTok: d.cacheWriteTok,
+      reasoningTok: d.reasoningTok,
+      costUsd: priced.usd ?? null,
+      costBasis: priced.basis as any,
+    });
   }
 
   /** A visible, non-error note on the session's status line. */

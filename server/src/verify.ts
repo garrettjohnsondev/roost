@@ -12,6 +12,7 @@ import { modelRegistry } from './registry.js';
 import { logDecision } from './decisions.js';
 import { truncate } from './util.js';
 import type { AgentKind, VerifyReport, EvidenceRecord, ImageCheck } from './protocol.js';
+import type { CallDelta } from './agents/types.js';
 
 /** Phase 5: the verification gate.
  *
@@ -181,7 +182,7 @@ export interface VerifyOptions {
    *  were edited during the task, and the result cannot be trusted. */
   fingerprintAtStart?: string | null;
   /** Run the fresh-context diff reviewer last. */
-  review?: { executorAgent: AgentKind; criteria?: string };
+  review?: { executorAgent: AgentKind; criteria?: string; onCall?: (d: CallDelta) => void };
 }
 
 export async function verifyTask(opts: VerifyOptions): Promise<VerifyReport> {
@@ -201,7 +202,7 @@ export async function verifyTask(opts: VerifyOptions): Promise<VerifyReport> {
   const passed = !tampered && !nothingChecked && gatesOk && imagesOk;
 
   let review: VerifyReport['review'];
-  if (opts.review) review = await reviewDiff(opts.cwd, opts.review.executorAgent, opts.review.criteria, opts.taskId);
+  if (opts.review) review = await reviewDiff(opts.cwd, opts.review.executorAgent, opts.review.criteria, opts.taskId, opts.review.onCall);
 
   const parts: string[] = [];
   if (tampered) parts.push('gate definitions changed during the task');
@@ -234,7 +235,7 @@ function git(args: string[], cwd: string): Promise<string> {
  *  criteria only -- never the executor's reasoning, which made review worse
  *  than self-review when included. Picks the most independent reviewer
  *  available: another vendor, else another model, else a clean context. */
-export async function reviewDiff(cwd: string, executorAgent: AgentKind, criteria?: string, taskId?: string): Promise<VerifyReport['review']> {
+export async function reviewDiff(cwd: string, executorAgent: AgentKind, criteria?: string, taskId?: string, onCall?: (d: CallDelta) => void): Promise<VerifyReport['review']> {
   const diff = (await git(['diff', '--no-color'], cwd)) + (await git(['diff', '--cached', '--no-color'], cwd));
   if (!diff.trim()) return { agent: executorAgent, model: '', strength: 'none', text: '(no diff to review)' };
   const def = loadAgentDefs(cwd).find((d) => d.name === 'review');
@@ -247,6 +248,6 @@ export async function reviewDiff(cwd: string, executorAgent: AgentKind, criteria
     criteria,
     task: `Review this diff against the acceptance criteria.\n\n\`\`\`diff\n${truncate(diff, 60_000)}\n\`\`\``,
   });
-  const r = await runAgentTask({ agent: choice.agent, model: choice.model, capability: 'read-only', cwd, prompt, role: 'review', taskId }).promise;
+  const r = await runAgentTask({ agent: choice.agent, model: choice.model, capability: 'read-only', cwd, prompt, role: 'review', taskId, onCall }).promise;
   return { agent: choice.agent, model: choice.model, strength: REVIEW_STRENGTH_LABEL[choice.strength], text: r.text };
 }

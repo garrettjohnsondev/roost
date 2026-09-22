@@ -1,3 +1,4 @@
+import type { CallDelta } from './agents/types.js';
 import { runAgentTask } from './agents/dispatch.js';
 import type { AgentKind } from './protocol.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -62,7 +63,7 @@ const TRIAGE_TIMEOUT_MS = 20_000;
 
 /** One-shot Haiku classification. Falls back to 'standard' on any failure — a routing
  *  hiccup should never block the actual message. */
-export async function triage(text: string, agent: AgentKind = 'claude', lightModel?: string): Promise<TriageResult> {
+export async function triage(text: string, agent: AgentKind = 'claude', lightModel?: string, onCall?: (d: CallDelta) => void): Promise<TriageResult> {
   // A Codex session must not silently depend on a Claude subscription. On a
   // Codex-only install the Haiku probe failed every time and every task
   // "defaulted" to standard with no one told. Classify on the session's own
@@ -71,7 +72,7 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
     try {
       const r = await runAgentTask({
         agent: 'codex', model: lightModel ?? '', effort: 'low', capability: 'read-only', cwd: repoRoot,
-        prompt: TRIAGE_PROMPT + text.slice(0, 2000), timeoutMs: TRIAGE_TIMEOUT_MS * 2, maxChars: 400,
+        prompt: TRIAGE_PROMPT + text.slice(0, 2000), timeoutMs: TRIAGE_TIMEOUT_MS * 2, maxChars: 400, role: 'triage', onCall,
       }).promise;
       return parseTriage(r.text);
     } catch {
@@ -92,7 +93,17 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
           if (block.type === 'text') out += block.text;
         }
       }
-      if (m.type === 'result') break;
+      if (m.type === 'result') {
+        // One turn: modelUsage is the per-call figure. Triage used to be
+        // invisible to the ledger -- a cost on every routed message, unrecorded.
+        if (onCall) {
+          for (const [model, u] of Object.entries<any>(m.modelUsage ?? {})) {
+            const priced = (u?.costBasis ?? 'list') !== 'unknown' && typeof u?.costUSD === 'number';
+            onCall({ agent: 'claude', model, inTok: u?.inputTokens ?? 0, outTok: u?.outputTokens ?? 0, cacheReadTok: u?.cacheReadInputTokens ?? 0, cacheWriteTok: u?.cacheCreationInputTokens ?? 0, reasoningTok: u?.thinkingTokens ?? undefined, costUsd: priced ? u.costUSD : null, costBasis: priced ? 'sdk' : 'unknown' });
+          }
+        }
+        break;
+      }
     }
     return out;
   })();

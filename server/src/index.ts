@@ -1,4 +1,6 @@
-import { readDecisions, summarizeDecisions } from './decisions.js';
+import { callLedger } from './ledger.js';
+import { estimateWeights } from './quotaWeights.js';
+import { logDecision, readDecisions, summarizeDecisions } from './decisions.js';
 import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
@@ -381,6 +383,53 @@ app.get('/api/review-plan', (req, res) => {
   const agent = req.query.agent === 'codex' ? 'codex' : 'claude';
   const choice = reviewerFor({ agent, model: String(req.query.model ?? '') }, modelRegistry().all(), (a) => modelRegistry().presence(a));
   res.json({ ...choice, label: REVIEW_STRENGTH_LABEL[choice.strength] });
+});
+
+/** Measured window weights: percent of each window per million tokens, per
+ *  model, fitted from the quota history against the ledger. null until there
+ *  are enough single-model samples -- never a guess. */
+app.get('/api/weights', (_req, res) => {
+  const calls = callLedger()
+    .since(0)
+    .map((r) => ({ at: r.at, agent: r.agent, model: r.model, inTok: r.inTok, outTok: r.outTok, cacheReadTok: r.cacheReadTok, cacheWriteTok: r.cacheWriteTok }));
+  res.json({ estimates: estimateWeights(quotaStore().history(), calls) });
+});
+
+/** Assign a live-roster model to a tier -- the one-tap answer to "a new model
+ *  appeared" and to a route the audit found broken. Persists first, then
+ *  updates the live config. Open sessions keep the routes they started with. */
+app.post('/api/models/assign', (req, res) => {
+  const { agent, tier, model } = req.body ?? {};
+  if (agent !== 'claude' && agent !== 'codex') {
+    res.status(400).json({ error: 'agent must be claude or codex' });
+    return;
+  }
+  if (tier !== 'light' && tier !== 'standard' && tier !== 'heavy') {
+    res.status(400).json({ error: 'tier must be light, standard or heavy' });
+    return;
+  }
+  // Narrowed after the runtime checks above; req.body is `any`.
+  const a = agent as AgentKind;
+  const t = tier as 'light' | 'standard' | 'heavy';
+  const card = modelRegistry().get(a, String(model ?? ''));
+  if (!card) {
+    res.status(400).json({ error: `${model} is not in the live ${a} roster` });
+    return;
+  }
+  if (card.supersededBy) {
+    res.status(400).json({ error: `${card.id} is superseded by ${card.supersededBy}` });
+    return;
+  }
+  const next = { ...config.autoRoute, [a]: { ...config.autoRoute[a], [t]: { ...config.autoRoute[a][t], model: card.id } } };
+  try {
+    saveConfig({ ...config, autoRoute: next });
+  } catch (err: any) {
+    res.status(500).json({ error: `could not save config: ${err?.message ?? err}` });
+    return;
+  }
+  config.autoRoute = next;
+  logDecision({ kind: 'gate', rule: 'model-assign', agent: a, tier: t, model: card.id });
+  res.json({ ok: true, autoRoute: config.autoRoute, note: 'Applies to new sessions; open sessions keep the routes they started with.' });
 });
 
 app.post('/api/models/refresh', async (_req, res) => {

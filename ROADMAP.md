@@ -28,11 +28,11 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **1** | The crew — personas, roles, avatars | ✅ **Done** |
 | **2** | Dispatch primitive — `runAgentTask`, task-shaped definitions, sliced project file | ✅ **Done, verified live** |
 | **3** | The conference — plan → review → reconcile → execute → verify | ✅ **Done** |
-| **4** | Quota-aware model routing + budget ceiling | 🟨 routing, gate, boost and task ceiling shipped; window-weight estimator pending |
+| **4** | Quota-aware model routing + budget ceiling | ✅ **Done** — routing, gate, boost, task ceiling, and the measured window-weight estimator (null until it has samples) |
 | **4d** | Modes — chat / auto / plan / build | ✅ **Done** |
 | **5** | Verification gate | ✅ **Done** — gates, evidence, tamper check, image checks, diff reviewer |
-| **7** | Model registry and auto-update | 🟨 core done, live on both vendors |
-| **6** | UI — fuel gauge, crew editor, context meter | 🟨 honest fuel gauge + crew editor shipped; context meter pending |
+| **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, and the one-tap assign card for new or broken routes |
+| **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
 **200 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
@@ -238,7 +238,9 @@ Every stage logs a decision (`plan`, `reconcile`, `execute`, `verify`) with the 
 
 `gate.ts` — `guardDispatch()`, in front of **every** `runAgentTask` and every consult, *before* a process exists: vendor present, quota not exhausted, and the task inside its ceiling (`budget.maxDispatchesPerTask`, default 40; `budget.maxTaskTokens`, null by default because there is no honest universal number). `policy.ts` computed levels that nothing consulted; this is the call site. Every refusal, gated allowance and boost toggle lands in the decisions log.
 
-**Pending:** the percent-of-window-per-1k-token estimator (§10) — the measurement that makes "how much of the week does a Luna call cost" answerable — and cross-vendor *candidates* per tier in the shipped config (the router supports them; the config does not yet name any).
+**The estimator** (`quotaWeights.ts`) fits percent-of-window per million tokens, per model, from the quota history against the ledger: every pair of consecutive observations of one window is an interval; calls inside it on a single model are a sample; sums, not means of ratios, so intervals that moved 0% still count as "below the window's resolution"; resets and long gaps are skipped. **Null below three samples — never a guess.** Shown under each vendor in the fuel gauge with its confidence. Until this batch the one-shots (triage, plan, review, reconcile, diff review) never reached the ledger at all — the orchestrator's own turns were not merely unbudgeted, they were uncounted — so the estimator had nothing to fit against.
+
+Still open: cross-vendor *candidates* per tier in the shipped config (the router supports them; the config does not yet name any).
 
 ### ✅ Phase 4d — Modes *(done)*
 Per session, switchable, persisted: **chat** (one agent, no ceremony), **auto** (triage picks model and effort per message), **plan** (read-only — every message becomes a plan file; nothing executes; Proceed is still offered), **build** (the full conference, then the Proceed gate, then execute, then verify). Switching to auto or build puts the model on `auto`; switching back restores the last routed model.

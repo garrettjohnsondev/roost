@@ -423,6 +423,12 @@ export class QuotaStore {
     }
   }
 
+  /** Every recorded observation, oldest first. Fitted against the ledger by
+   *  quotaWeights.ts. */
+  history(): Array<{ at: number; agent: AgentKind; key: string; usedPercent: number }> {
+    return this.readHistory();
+  }
+
   private readHistory(): Array<{ at: number; agent: AgentKind; key: string; usedPercent: number }> {
     try {
       if (!existsSync(this.historyFile())) return [];
