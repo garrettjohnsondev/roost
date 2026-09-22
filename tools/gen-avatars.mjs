@@ -41,6 +41,10 @@ function runCodex(args, { cwd, timeout }) {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
 const OUT = join(ROOT, 'web', 'public', 'avatars');
+// 1024px originals are working files. They used to land in web/public too,
+// where Vite copies EVERYTHING into dist: a 560 KB pool shipped as a 31 MB
+// bundle on any machine that had run the generator.
+const RAW = join(ROOT, '.pocket-data', 'avatar-raw');
 const MANIFEST = join(OUT, 'pool.json');
 const SIZE = 128;
 
@@ -68,6 +72,7 @@ const planned = subjects.map((subject, i) => {
 });
 
 mkdirSync(OUT, { recursive: true });
+mkdirSync(RAW, { recursive: true });
 
 const todo = planned.filter((p) => !existsSync(join(OUT, `${p.slug}.png`))).slice(0, LIMIT);
 if (!todo.length) {
@@ -102,10 +107,10 @@ for (let i = 0; i < todo.length; i += BATCH) {
 
   console.log(`\n[batch ${i / BATCH + 1}] ${batch.map((b) => b.slug).join(', ')}`);
   try {
-    const argv = ['exec', '-s', 'workspace-write', '--skip-git-repo-check', '-C', OUT];
+    const argv = ['exec', '-s', 'workspace-write', '--skip-git-repo-check', '-C', RAW];
     if (MODEL) argv.push('-m', MODEL);
     argv.push(prompt);
-    const { stdout } = await runCodex(argv, { cwd: OUT, timeout: 20 * 60_000 });
+    const { stdout } = await runCodex(argv, { cwd: RAW, timeout: 20 * 60_000 });
     const used = /tokens used\s*\n?\s*([\d,]+)/i.exec(stdout)?.[1];
     if (used) console.log(`  turn cost: ${used} text tokens`);
   } catch (e) {
@@ -114,17 +119,13 @@ for (let i = 0; i < todo.length; i += BATCH) {
   }
 
   for (const p of batch) {
-    const raw = join(OUT, `raw-${p.slug}.png`);
+    const raw = join(RAW, `raw-${p.slug}.png`);
     if (!existsSync(raw)) { console.log(`  MISSING ${p.slug}`); continue; }
     await run('sips', ['-z', String(SIZE), String(SIZE), raw, '--out', join(OUT, `${p.slug}.png`)]);
     console.log(`  ok ${p.slug}`);
   }
 }
 
-// Raw 1024px originals are working files, not shipped assets.
-for (const f of readdirSync(OUT)) if (f.startsWith('raw-')) {
-  try { renameSync(join(OUT, f), join(OUT, f)); } catch {}
-}
 
 writeManifest();
 
