@@ -22,7 +22,8 @@ function png(w: number, h: number, pixel: (x: number, y: number) => [number, num
   for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; for (let x = 0; x < w; x++) { const [r, g, b] = pixel(x, y); const o = y * (w * 3 + 1) + 1 + x * 3; raw[o] = r; raw[o + 1] = g; raw[o + 2] = b; } }
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
-let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed & 0xff; };
+// High byte of the LCG: its low byte has a period of 256 and deflates to nothing.
+let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >> 16) & 0xff; };
 
 describe('gates come from the project file, not the agent', () => {
   it('parses bullets and backticks from ## gates', () => {
@@ -72,9 +73,10 @@ describe('a screenshot has to look like one', () => {
     // A truly flat image deflates to ~150 bytes and dies on the size floor, so
     // the colour check needs something incompressible but low-colour: a random
     // two-colour checker.
-    writeFileSync(join(dir, 'flat.png'), png(128, 128, () => (rnd() & 1 ? [40, 40, 40] : [200, 200, 200])));
+    // (An LCG's low bit just alternates; take a high bit or the checker compresses to nothing.)
+    writeFileSync(join(dir, 'flat.png'), png(256, 256, () => (rnd() & 0x40 ? [40, 40, 40] : [200, 200, 200])));
     writeFileSync(join(dir, 'solid.png'), png(64, 64, () => [40, 40, 40]));
-    writeFileSync(join(dir, 'real.png'), png(64, 64, () => [rnd(), rnd(), rnd()]));
+    writeFileSync(join(dir, 'real.png'), png(128, 128, () => [rnd(), rnd(), rnd()]));
     writeFileSync(join(dir, 'real-copy.png'), png(64, 64, (x, y) => [(x * 7) & 0xff, (y * 5) & 0xff, ((x + y) * 3) & 0xff]));
     writeFileSync(join(dir, 'real-copy2.png'), png(64, 64, (x, y) => [(x * 7) & 0xff, (y * 5) & 0xff, ((x + y) * 3) & 0xff]));
     writeFileSync(join(dir, 'tiny.png'), Buffer.from('not really'));
