@@ -52,6 +52,12 @@ export interface BudgetConfig {
   surplusWithinMins: number;
 }
 
+export interface ConsultConfig {
+  /** Decision 3: skip the cross-model review when triage sizes a task small
+   *  (fewer than ~10 files and fewer than 3 independent pieces). */
+  sizeGate: boolean;
+}
+
 export interface PocketConfig {
   port: number;
   projects: string[];
@@ -60,6 +66,7 @@ export interface PocketConfig {
   notifications: NotificationConfig;
   autoRoute: { claude: AutoRouteConfig; codex: AutoRouteConfig };
   budget: BudgetConfig;
+  consult: ConsultConfig;
   claude: AgentConfig;
   codex: AgentConfig;
 }
@@ -75,10 +82,13 @@ const DEFAULTS: PocketConfig = {
       standard: { model: 'sonnet' },
       heavy: { model: 'opus', effort: 'xhigh' },
     },
+    // From the live model/list roster on 2026-09-21. The previous defaults
+    // pointed a FRESH install at a deleted model and a superseded one; the
+    // registry (Phase 7) audits these against the roster at startup.
     codex: {
-      light: { model: 'gpt-5.4-mini' },
-      standard: { model: 'gpt-5.5' },
-      heavy: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+      light: { model: 'gpt-5.6-luna' },
+      standard: { model: 'gpt-5.6-terra' },
+      heavy: { model: 'gpt-6-astra', effort: 'xhigh' },
     },
   },
   budget: {
@@ -90,8 +100,9 @@ const DEFAULTS: PocketConfig = {
     surplusHeadroomPct: 25,
     surplusWithinMins: 360,
   },
+  consult: { sizeGate: true },
   claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
-  codex: { models: [], defaultModel: '', efforts: ['minimal', 'low', 'medium', 'high', 'xhigh'] },
+  codex: { models: [], defaultModel: '', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] }, // no Codex model exposes 'minimal'
 };
 
 /** Repo root is two levels up from server/src (or server/dist). */
@@ -118,6 +129,7 @@ export function loadConfig(): PocketConfig {
         codex: { ...DEFAULTS.autoRoute.codex, ...parsed.autoRoute?.codex },
       },
       budget: { ...DEFAULTS.budget, ...parsed.budget },
+      consult: { ...DEFAULTS.consult, ...parsed.consult },
       claude: { ...DEFAULTS.claude, ...parsed.claude },
       codex: { ...DEFAULTS.codex, ...parsed.codex },
     };

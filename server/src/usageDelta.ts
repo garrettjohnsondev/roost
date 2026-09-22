@@ -97,7 +97,11 @@ export function codexDelta(prev: CodexRaw | null, totalRaw: any, lastRaw: any): 
   const cur = readCodexBreakdown(totalRaw);
   let d: CodexRaw;
   if (!prev) {
-    d = { ...cur };
+    // No baseline yet. On a RESUMED thread `total` is the whole prior history,
+    // and taking it as the first call re-creates the 15-18M-token phantom in
+    // a new coat. `last` is this turn; on a fresh thread it equals `total`.
+    const first = readCodexBreakdown(lastRaw);
+    d = first.inputTokens || first.outputTokens || first.cachedInputTokens ? first : { ...cur };
   } else {
     d = {} as CodexRaw;
     let negative = false;

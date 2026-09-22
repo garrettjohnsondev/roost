@@ -79,8 +79,17 @@ export async function refreshRegistry(cwd: string): Promise<RegistryChange[]> {
   const results = await Promise.allSettled([fetchCodexModels(cwd), fetchClaudeModels(cwd)]);
   const agents = ['codex', 'claude'] as const;
   results.forEach((r, i) => {
-    if (r.status === 'fulfilled' && r.value.length) changes.push(...reg.update(agents[i], r.value));
-    else if (r.status === 'rejected') console.log(`[pocket] ${agents[i]} model refresh failed: ${r.reason?.message ?? r.reason}`);
+    if (r.status === 'fulfilled' && r.value.length) {
+      changes.push(...reg.update(agents[i], r.value));
+      reg.noteFetch(agents[i], true);
+    } else {
+      // A failed or empty fetch is the absence signal §6 relies on. Keeping the
+      // cached roster is right (a blip must not erase it); claiming the vendor
+      // is present because a roster is cached was not.
+      const why = r.status === 'rejected' ? String(r.reason?.message ?? r.reason) : 'empty roster';
+      reg.noteFetch(agents[i], false, why);
+      console.log(`[pocket] ${agents[i]} model refresh failed: ${why}`);
+    }
   });
 
   for (const c of changes) console.log(`[pocket] ${describeChange(c)}`);

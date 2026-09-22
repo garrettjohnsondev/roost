@@ -39,6 +39,10 @@ export interface Registry {
   version: 1;
   fetchedAt: number;
   models: ModelCard[];
+  /** Per-vendor outcome of the last roster fetch. A vendor whose fetch failed
+   *  is ABSENT (not signed in); one never fetched is unknown. A cached roster
+   *  alone said nothing about either, which made §6's absence claim wrong. */
+  status?: Partial<Record<AgentKind, { ok: boolean; at: number; error?: string }>>;
 }
 
 /** Why a tier was chosen, so the UI can always answer "why is Astra heavy?" */
@@ -262,6 +266,17 @@ export class ModelRegistry {
     return this.reg.fetchedAt;
   }
 
+  noteFetch(agent: AgentKind, ok: boolean, error?: string): void {
+    this.reg = { ...this.reg, status: { ...(this.reg.status ?? {}), [agent]: { ok, at: Date.now(), error } } };
+    this.persist();
+  }
+
+  presence(agent: AgentKind): 'present' | 'absent' | 'unknown' {
+    const s = this.reg.status?.[agent];
+    if (!s) return 'unknown';
+    return s.ok ? 'present' : 'absent';
+  }
+
   forAgent(agent: AgentKind): ModelCard[] {
     return this.reg.models.filter((m) => m.agent === agent && !m.hidden);
   }
@@ -277,6 +292,7 @@ export class ModelRegistry {
     const prev = this.reg.models.filter((m) => m.agent === agent);
     const changes = diffRegistry(prev, cards);
     this.reg = {
+      ...this.reg,
       version: 1,
       fetchedAt: Date.now(),
       models: [...this.reg.models.filter((m) => m.agent !== agent), ...cards],

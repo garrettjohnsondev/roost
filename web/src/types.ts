@@ -62,8 +62,8 @@ export type ServerEvent =
   | { type: 'replay'; events: ServerEvent[]; meta: SessionMeta }
   | { type: 'session_meta'; meta: SessionMeta }
   | { type: 'user_message'; text: string; imageCount: number; ts: number }
-  | { type: 'assistant_delta'; delta: string; ts: number }
-  | { type: 'assistant_message'; text: string; ts: number }
+  | { type: 'assistant_delta'; delta: string; crew?: CrewInfo; ts: number }
+  | { type: 'assistant_message'; text: string; crew?: CrewInfo; ts: number }
   | { type: 'thinking_delta'; delta: string; ts: number }
   | { type: 'tool_start'; toolId: string; name: string; detail: string; expand?: ToolExpand; ts: number }
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
@@ -218,7 +218,7 @@ export interface GitStatusResult {
 
 export type ChatItem =
   | { kind: 'user'; text: string; imageCount: number; ts: number }
-  | { kind: 'assistant'; text: string; complete: boolean; ts: number }
+  | { kind: 'assistant'; text: string; complete: boolean; ts: number; crew?: CrewInfo }
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }

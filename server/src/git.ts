@@ -65,7 +65,7 @@ export async function getGitStatus(cwd: string): Promise<GitStatusResult> {
     const status = line.slice(0, 2);
     let path = line.slice(3);
     if (status.startsWith('R') || status.startsWith('C')) path = path.split(' -> ')[1] ?? path;
-    if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
+    path = unquoteGitPath(path);
     files.push({ path, status, untracked: status === '??' });
   }
 
@@ -152,4 +152,31 @@ export async function gitPush(cwd: string): Promise<string> {
   } catch (err: any) {
     throw new Error(truncate(String(err?.stderr || err?.message || err), 500));
   }
+}
+
+/** `git status --porcelain` quotes paths with special characters using C-style
+ *  escapes ("caf\\303\\251.txt"). Stripping only the quotes handed back a path
+ *  that does not exist. Decode the escapes into bytes, then UTF-8. */
+function unquoteGitPath(p: string): string {
+  if (!(p.startsWith('"') && p.endsWith('"'))) return p;
+  const inner = p.slice(1, -1);
+  const bytes: number[] = [];
+  const simple: Record<string, number> = { n: 10, t: 9, r: 13, '"': 34, '\\': 92, a: 7, b: 8, f: 12, v: 11 };
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if (c !== '\\') {
+      bytes.push(...Buffer.from(c, 'utf8'));
+      continue;
+    }
+    const n = inner[++i];
+    if (n === undefined) break;
+    if (/[0-7]/.test(n)) {
+      let oct = n;
+      while (oct.length < 3 && /[0-7]/.test(inner[i + 1] ?? '')) oct += inner[++i];
+      bytes.push(parseInt(oct, 8));
+    } else {
+      bytes.push(simple[n] ?? n.charCodeAt(0));
+    }
+  }
+  return Buffer.from(bytes).toString('utf8');
 }

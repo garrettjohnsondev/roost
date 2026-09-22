@@ -217,3 +217,20 @@ describe('claude roster', () => {
     expect(issues2[0].suggestion).toBe('max');
   });
 });
+
+import { ModelRegistry as PresenceRegistry } from '../src/registry.js';
+import { mkdtempSync as mkTmp } from 'node:fs';
+import { tmpdir as osTmp } from 'node:os';
+import { join as joinPath } from 'node:path';
+describe('vendor presence comes from the last fetch, not the cache', () => {
+  it('reports absent after a failed fetch even with a cached roster', () => {
+    const reg = new PresenceRegistry(mkTmp(joinPath(osTmp(), 'pocket-presence-')));
+    expect(reg.presence('codex')).toBe('unknown');
+    reg.update('codex', fromCodexModelList(CODEX_LIVE));
+    reg.noteFetch('codex', true);
+    expect(reg.presence('codex')).toBe('present');
+    reg.noteFetch('codex', false, 'not logged in');
+    expect(reg.all().some((m) => m.agent === 'codex')).toBe(true); // cache kept
+    expect(reg.presence('codex')).toBe('absent');
+  });
+});

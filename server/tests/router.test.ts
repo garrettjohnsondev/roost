@@ -47,3 +47,13 @@ describe('shouldRetriage', () => {
     expect(shouldRetriage('x'.repeat(300), 'light')).toBe(true);
   });
 });
+
+import { parseTriage as parseTriageSized } from '../src/router.js';
+describe('triage carries a size for the conference gate', () => {
+  it('reads a valid size and ignores an invalid one', () => {
+    expect(parseTriageSized('{"tier":"light","size":"small","reason":"rename"}').size).toBe('small');
+    expect(parseTriageSized('{"tier":"heavy","size":"enormous","reason":"x"}').size).toBeUndefined();
+    // Unknown size must never read as small: the gate never skips on a guess.
+    expect(parseTriageSized('{"tier":"standard","reason":"x"}').size).toBeUndefined();
+  });
+});

@@ -127,3 +127,14 @@ describe('claudeDeltas', () => {
     expect(out[0].priced).toBe(false);
   });
 });
+
+import { codexDelta as codexDeltaResumed } from '../src/usageDelta.js';
+describe('a resumed thread does not ledger its history as the first call', () => {
+  it('uses `last` when there is no baseline yet', () => {
+    // After a restart lastTotal is null and `total` is the whole prior thread.
+    const { delta, next } = codexDeltaResumed(null, { inputTokens: 5_000_000, outputTokens: 100_000 }, { inputTokens: 1_000, outputTokens: 50 });
+    expect(delta?.inTok).toBe(1_000);
+    expect(delta?.outTok).toBe(50);
+    expect(next.inputTokens).toBe(5_000_000); // the baseline is still the total
+  });
+});

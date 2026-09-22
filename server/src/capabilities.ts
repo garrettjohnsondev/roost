@@ -48,9 +48,16 @@ function usable(models: ModelCard[], agent: AgentKind): ModelCard[] {
     .sort((a, b) => rank(b) - rank(a));
 }
 
-export function vendorsPresent(models: ModelCard[]): AgentKind[] {
+/** Live signal from the registry: did this vendor answer its last roster fetch? */
+export type Presence = (agent: AgentKind) => 'present' | 'absent' | 'unknown';
+
+export function vendorsPresent(models: ModelCard[], presence?: Presence): AgentKind[] {
   const out: AgentKind[] = [];
-  for (const a of ['claude', 'codex'] as const) if (usable(models, a).length) out.push(a);
+  for (const a of ['claude', 'codex'] as const) {
+    // A cached roster plus a failed fetch means "was here, is not now".
+    if (presence && presence(a) === 'absent') continue;
+    if (usable(models, a).length) out.push(a);
+  }
   return out;
 }
 
@@ -58,11 +65,12 @@ export function vendorsPresent(models: ModelCard[]): AgentKind[] {
 export function reviewerFor(
   planner: { agent: AgentKind; model: string },
   models: ModelCard[],
+  presence?: Presence,
 ): ReviewChoice {
   const other: AgentKind = planner.agent === 'claude' ? 'codex' : 'claude';
 
   // 1. Another vendor entirely -- independent training, independent blind spots.
-  const otherSide = usable(models, other);
+  const otherSide = presence?.(other) === 'absent' ? [] : usable(models, other);
   if (otherSide.length) {
     return {
       agent: other, model: otherSide[0].id, strength: 'cross-vendor',
@@ -95,8 +103,8 @@ export function reviewerFor(
   return { agent: planner.agent, model: planner.model, strength: 'none', why: 'no usable models' };
 }
 
-export function capabilitiesFrom(models: ModelCard[]): Capabilities {
-  const vendors = vendorsPresent(models);
+export function capabilitiesFrom(models: ModelCard[], presence?: Presence): Capabilities {
+  const vendors = vendorsPresent(models, presence);
   const both = vendors.length > 1;
   const planner = vendors[0];
   return {
@@ -104,7 +112,7 @@ export function capabilitiesFrom(models: ModelCard[]): Capabilities {
     crossVendorReview: both,
     crossVendorRouting: both,
     reviewStrength: planner
-      ? reviewerFor({ agent: planner, model: '' }, models).strength
+      ? reviewerFor({ agent: planner, model: '' }, models, presence).strength
       : 'none',
   };
 }

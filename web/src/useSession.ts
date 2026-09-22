@@ -9,15 +9,18 @@ export interface SessionState {
   connected: boolean;
   usage: UsageInfo | null;
   pendingApproval: { requestId: string; title: string; detail: string } | null;
+  /** How many approvals are waiting in total; the bar shows the first. */
+  pendingApprovalCount: number;
   /** Set once the server tells us this session is gone for good (closed or idle-expired) —
    *  further reconnect attempts would be pointless, so the UI should offer a way back out. */
   closedReason: string | null;
   /** Free-text detail attached to the latest status event (e.g. consult progress). */
   statusMessage: string | null;
-  send: (msg: ClientMessage) => void;
+  /** false when the socket is not open -- the caller keeps the draft. */
+  send: (msg: ClientMessage) => boolean;
 }
 
-function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
+export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
   const next = [...items];
   const last = next[next.length - 1];
   switch (event.type) {
@@ -28,13 +31,17 @@ function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       if (last?.kind === 'assistant' && !last.complete) {
         next[next.length - 1] = { ...last, text: last.text + event.delta };
       } else {
-        next.push({ kind: 'assistant', text: event.delta, complete: false, ts: event.ts });
+        next.push({ kind: 'assistant', text: event.delta, complete: false, ts: event.ts, crew: event.crew });
       }
       break;
     case 'assistant_message': {
       const draftIndex = next.findLastIndex((i) => i.kind === 'assistant' && !i.complete);
-      if (draftIndex >= 0) next[draftIndex] = { kind: 'assistant', text: event.text, complete: true, ts: event.ts };
-      else next.push({ kind: 'assistant', text: event.text, complete: true, ts: event.ts });
+      if (draftIndex >= 0) {
+        const draft = next[draftIndex] as Extract<ChatItem, { kind: 'assistant' }>;
+        next[draftIndex] = { kind: 'assistant', text: event.text, complete: true, ts: event.ts, crew: event.crew ?? draft.crew };
+      } else {
+        next.push({ kind: 'assistant', text: event.text, complete: true, ts: event.ts, crew: event.crew });
+      }
       break;
     }
     case 'thinking_delta':
@@ -87,7 +94,9 @@ export function useSession(sessionId: string): SessionState {
   const [status, setStatus] = useState<SessionState['status']>('connecting');
   const [connected, setConnected] = useState(false);
   const [usage, setUsage] = useState<UsageInfo | null>(null);
-  const [pendingApproval, setPendingApproval] = useState<SessionState['pendingApproval']>(null);
+  // A queue, not a slot: two concurrent requests used to strand the first one
+  // with no way to answer it.
+  const [approvals, setApprovals] = useState<Array<NonNullable<SessionState['pendingApproval']>>>([]);
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const socketRef = useRef<SessionSocket | null>(null);
@@ -99,27 +108,27 @@ export function useSession(sessionId: string): SessionState {
     setClosedReason(null);
     setUsage(null);
     setStatusMessage(null);
-    setPendingApproval(null);
+    setApprovals([]);
     setItems([]);
     const handle = (event: ServerEvent) => {
       switch (event.type) {
         case 'replay': {
           setMeta(event.meta);
           let rebuilt: ChatItem[] = [];
-          let lastApproval: SessionState['pendingApproval'] = null;
+          const open: Array<NonNullable<SessionState['pendingApproval']>> = [];
           const resolved = new Set(
             event.events.filter((e) => e.type === 'approval_resolved').map((e: any) => e.requestId),
           );
           for (const e of event.events) {
             rebuilt = apply(rebuilt, e);
             if (e.type === 'approval_request' && !resolved.has(e.requestId)) {
-              lastApproval = { requestId: e.requestId, title: e.title, detail: e.detail };
+              open.push({ requestId: e.requestId, title: e.title, detail: e.detail });
             }
             if (e.type === 'usage') setUsage(e.usage);
             if (e.type === 'status') setStatus(e.state);
           }
           setItems(rebuilt);
-          setPendingApproval(lastApproval);
+          setApprovals(open);
           break;
         }
         case 'session_meta':
@@ -133,11 +142,11 @@ export function useSession(sessionId: string): SessionState {
           setStatusMessage(event.message ?? null);
           break;
         case 'approval_request':
-          setPendingApproval({ requestId: event.requestId, title: event.title, detail: event.detail });
+          setApprovals((q) => (q.some((a) => a.requestId === event.requestId) ? q : [...q, { requestId: event.requestId, title: event.title, detail: event.detail }]));
           setItems((prev) => apply(prev, event));
           break;
         case 'approval_resolved':
-          setPendingApproval((prev) => (prev?.requestId === event.requestId ? null : prev));
+          setApprovals((q) => q.filter((a) => a.requestId !== event.requestId));
           setItems((prev) => apply(prev, event));
           break;
         default:
@@ -155,9 +164,10 @@ export function useSession(sessionId: string): SessionState {
     status,
     connected,
     usage,
-    pendingApproval,
+    pendingApproval: approvals[0] ?? null,
+    pendingApprovalCount: approvals.length,
     closedReason,
     statusMessage,
-    send: (msg) => socketRef.current?.send(msg),
+    send: (msg) => socketRef.current?.send(msg) ?? false,
   };
 }

@@ -342,18 +342,27 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 ---
 
-## 12. Review backlog — confirmed, not yet shipped
+## 12. Review backlog — what shipped, what remains
 
-From the 2026-09-21 review. Each is real; none is silent data corruption or an unsafe action, which is why they follow the P0/P1 batches rather than lead them.
+From the 2026-09-21 review. Confirmed findings that were neither silent data corruption nor unsafe actions, so they followed the P0/P1 batches rather than led them.
 
-- **Size-gate the conference** (decision 3 has no enforcement): triage returns tier only; `runConsult` runs the full ceremony on every request.
-- **Assistant turns carry no crew badge** — Phase 1 promises avatar + name + role on *every* turn; only consult turns have it.
-- **First run defaults the project to the external volume**, not a configured project.
-- **Concurrent approvals strand all but the latest** in `useSession`; a draft typed while disconnected is discarded on Enter.
-- **Resumed Codex threads ledger the whole thread-cumulative total as the first call** (`lastTotal` starts null after restart) — the phantom-call bug in a new coat; needs the persisted counter.
-- **One writer is a decision, not a guard**: two sessions can hold the same working tree.
-- **Registry absence semantics**: a failed roster fetch keeps the previously persisted roster, so "vendor absent" is not yet the unambiguous signal §6 claims. Needs a per-vendor `lastFetchOk`.
-- **Preview/git parsing**: string-content user messages dropped from Claude previews; Codex previews truncate filenames at the first space; git's quoted filenames passed back unquoted.
-- **Notification "test" reports success before publish**; failed project save mutates live state.
-- **Observability**: no operator log of dispatches, routing decisions and gate outcomes beyond stdout — Phase 4's measurement depends on it.
-- **Web UI has no tests.** Highest value first: the `useSession` reducer (interleaved deltas, replay, session switch), then `UsagePanel` honesty states.
+**Shipped 2026-09-22:**
+- **Conference size gate** (decision 3): triage now returns a `size`; a `small` task keeps the plan and skips the cross-model review, labelled on the turn. Unknown size runs the full conference — the gate never skips on a guess. `consult.sizeGate` in config.
+- **Every assistant turn carries a crew badge** (Phase 1's promise), attached in `pushEvent` from the session's routed model and current role.
+- **First run defaults to a configured project**, not the external volume's root.
+- **Approvals are a queue**, so concurrent requests no longer strand all but the latest; the bar shows how many are waiting.
+- **A draft survives a disconnected send**: `send()` reports whether the socket was open and the composer keeps the text until it was.
+- **Resumed Codex threads no longer ledger their history as the first call** — with no baseline, the first notification records `last`, not `total`.
+- **One writer is warned, not just decided**: opening a second session on a project posts a notice and logs a gate decision. Blocking remains a config choice to add.
+- **Vendor presence is the last fetch's outcome**, not the presence of a cached roster (`registry.presence()`), and `reviewerFor` honours it.
+- **Preview and git parsing**: string-content user messages kept; Codex patch paths with spaces kept; only the engine's XML wrappers skipped; git's C-escaped quoted paths decoded.
+- **Notification "test" reports delivery, not attempt**; project add/remove persists before mutating live state.
+- **Built-in defaults** no longer point a fresh install at deleted Codex models or a `minimal` effort rung.
+- **Decisions log** (`.pocket-data/decisions.jsonl`): every route, reviewer choice, size-gate outcome, one-writer gate and dispatch, with timing — the record Phase 4's "does the conference earn its keep" needs.
+- **The web workspace has tests**: the chat reducer is exported and covered; `npm test` runs both workspaces.
+
+**Remaining:**
+- One-writer *blocking* (a `oneWriter: 'block'` option) once the notice has been lived with.
+- A visible "draft kept — not connected" note in the composer (the draft is kept; the composer does not yet say why the send did nothing).
+- UI tests for the `useSession` hook itself (session switch, replay) and `UsagePanel`'s honesty states — the reducer is covered, the hook is not.
+- An operator view of the decisions log (it is a file; nothing reads it yet).

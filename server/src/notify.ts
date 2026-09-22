@@ -19,20 +19,41 @@ export function notifyEnabled(): boolean {
 
 const lastSentPerKey = new Map<string, number>();
 
-export function sendNotification(key: string, title: string, body: string, opts: { minIntervalMs?: number } = {}): void {
+export interface NotifyResult {
+  ok: boolean;
+  status?: number;
+  error?: string;
+}
+
+/** Deliver and report the outcome. Callers that need the truth (the settings
+ *  "test" button) await this; chat paths use the fire-and-forget wrapper. */
+export async function sendNotificationAsync(key: string, title: string, body: string, opts: { minIntervalMs?: number } = {}): Promise<NotifyResult> {
   const notifications = config?.notifications;
-  if (!notifications?.topic) return;
+  if (!notifications?.topic) return { ok: false, error: 'notifications are not enabled' };
   const minInterval = opts.minIntervalMs ?? 0;
   const last = lastSentPerKey.get(key) ?? 0;
-  if (minInterval > 0 && Date.now() - last < minInterval) return;
+  if (minInterval > 0 && Date.now() - last < minInterval) return { ok: false, error: 'rate-limited' };
   lastSentPerKey.set(key, Date.now());
 
   const url = `${(notifications.url || 'https://ntfy.sh').replace(/\/$/, '')}/${notifications.topic}`;
-  void fetch(url, {
-    method: 'POST',
-    headers: { Title: title.replace(/[^\x20-\x7e]/g, ' ').slice(0, 200), Priority: 'high', Tags: 'iphone' },
-    body,
-  }).catch((err) => {
-    console.warn('[pocket] notification failed:', String(err?.message ?? err));
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Title: title.replace(/[^\x20-\x7e]/g, ' ').slice(0, 200), Priority: 'high', Tags: 'iphone' },
+      body,
+    });
+    if (!res.ok) return { ok: false, status: res.status, error: `ntfy answered ${res.status}` };
+    return { ok: true, status: res.status };
+  } catch (err: any) {
+    return { ok: false, error: String(err?.message ?? err) };
+  }
+}
+
+/** Fire-and-forget. Failures are logged, never thrown into a chat path. */
+export function sendNotification(key: string, title: string, body: string, opts: { minIntervalMs?: number } = {}): void {
+  void sendNotificationAsync(key, title, body, opts).then((r) => {
+    if (!r.ok && r.error !== 'rate-limited' && r.error !== 'notifications are not enabled') {
+      console.warn('[pocket] notification failed:', r.error);
+    }
   });
 }

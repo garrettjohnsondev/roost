@@ -44,7 +44,10 @@ export function extractClaudePreview(msgs: Array<{ type: string; message: unknow
   for (let i = msgs.length - 1; i >= 0 && i > msgs.length - 1 - SAFETY_CAP; i--) {
     if (messages.length >= MAX_MESSAGES && files.length >= MAX_FILES) break;
     const m = msgs[i];
-    const content = (m.message as any)?.content;
+    const raw = (m.message as any)?.content;
+    // A plain-string user message is the common case in Claude transcripts;
+    // requiring an array dropped every one of them from the preview.
+    const content = typeof raw === 'string' ? [{ type: 'text', text: raw }] : raw;
     if (!Array.isArray(content)) continue;
     const role = m.type === 'user' || m.type === 'assistant' ? m.type : null;
 
@@ -91,7 +94,9 @@ export function extractClaudePreview(msgs: Array<{ type: string; message: unknow
 // [^\s\\]+ rather than \S+: patch bodies arrive embedded in a JS string literal with
 // *literal* backslash-n escapes (not real newlines), which \S+ would happily swallow
 // along with the rest of the patch hunk that follows the path.
-const PATCH_HEADER = /\*\*\* (Update|Add|Delete) File: ([^\s\\]+)/g;
+// Lazy up to a literal \\n, a real newline, or the end -- so a path containing
+// a space is no longer cut at the space.
+const PATCH_HEADER = /\*\*\* (Update|Add|Delete) File: (.+?)(?=\\n|\r?\n|$)/g;
 
 export function getCodexPreview(cwd: string, id: string): PreviewResult {
   const path = getCodexRolloutPath(cwd, id);
@@ -122,7 +127,10 @@ export function extractCodexPreview(chunk: string): PreviewResult {
         .map((c: any) => c.text)
         .join('')
         .trim();
-      if (text && !text.startsWith('<')) messages.push({ role: p.role, text: truncate(text, 400) });
+      // Skip the engine's own XML wrappers, not every message that opens with markup.
+      if (text && !/^<(environment_context|user_instructions|permissions|system|turn_context|instructions)\b/i.test(text)) {
+        messages.push({ role: p.role, text: truncate(text, 400) });
+      }
     }
 
     if (p?.type === 'custom_tool_call' && typeof p.input === 'string') {

@@ -1,3 +1,4 @@
+import { logDecision } from './decisions.js';
 import { reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
 import { modelRegistry } from './registry.js';
 import { sanitizeAgentOutput } from './sanitize.js';
@@ -60,6 +61,8 @@ export class Session {
   private consultCancelled = false;
   pendingConsult?: { task: string; plan: string; critique: string };
   private standardModelFor: (agent: AgentKind) => string;
+  /** Decision 3: skip the cross-model review when triage sizes the task small. */
+  private sizeGate = true;
   routedModel?: string;
   model: string;
   effort: string;
@@ -94,6 +97,7 @@ export class Session {
     // Consult one-shots run on each agent's "standard" tier model — capable enough to
     // plan/review, without paying heavy-tier prices for a throwaway run.
     this.standardModelFor = (a: AgentKind) => config.autoRoute[a].standard.model;
+    this.sizeGate = config.consult?.sizeGate ?? true;
     const adapterOptions = {
       cwd,
       // In auto mode the concrete model is chosen per-message by the router; start the
@@ -197,6 +201,7 @@ export class Session {
       }
       if (changed) {
         this.pushEvent({ type: 'routed', model: target.model, tier, reason, ts: now() });
+        logDecision({ kind: 'route', sessionId: this.id, agent: this.agent, tier, model: target.model, effort: this.effort, reason });
         this.broadcastMeta();
       }
     } catch (err: any) {
@@ -205,6 +210,13 @@ export class Session {
   }
 
   private pushEvent(event: ServerEvent) {
+    // Every assistant turn carries who spoke, in what capacity, on which model
+    // -- Phase 1's promise. Only consult turns had it; ordinary replies did not.
+    // Deltas are left bare (the reducer folds them into the completed turn).
+    if (event.type === 'assistant_message' && !event.crew) {
+      const model = this.routedModel || (this.model && this.model !== 'auto' ? this.model : this.standardModelFor(this.agent));
+      event = { ...event, crew: crewMember(this.agent, model, this.currentRole) };
+    }
     this.transcript.push(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
     // Meaningful activity only — status/usage churn shouldn't bump a session to the top
@@ -365,10 +377,17 @@ export class Session {
     // vendor and simply failed on a single subscription. The planner is the
     // model the user actually chose, not a silent downgrade to standard.
     const plannerModel = this.model && this.model !== 'auto' ? this.model : (this.routedModel ?? this.standardModelFor(this.agent));
-    const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all());
+    const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all(), (a) => modelRegistry().presence(a));
     const other: AgentKind = choice.strength === 'none' ? (this.agent === 'claude' ? 'codex' : 'claude') : choice.agent;
     const reviewerModel = choice.strength === 'none' ? this.standardModelFor(other) : choice.model;
     const strengthLabel = REVIEW_STRENGTH_LABEL[choice.strength];
+    // Decision 3: below ~10 files / 3 independent pieces the conference costs
+    // more than it returns. Ask triage for a size; when it says small, keep
+    // the plan and skip the cross-model review -- and say so on the turn.
+    // Unknown size runs the full conference: the gate never skips on a guess.
+    const sized = this.sizeGate ? await triage(task, this.agent, this.autoRoute.light?.model) : null;
+    const skipReview = sized?.size === 'small';
+    logDecision({ kind: 'review', sessionId: this.id, planner: { agent: this.agent, model: plannerModel }, reviewer: { agent: other, model: reviewerModel }, strength: choice.strength, size: sized?.size ?? null, skipped: skipReview });
     try {
       const context = this.transcript
         .filter((e) => e.type === 'user_message' || e.type === 'assistant_message')
@@ -383,17 +402,22 @@ export class Session {
       const plan = sanitizeAgentOutput(await this.activeConsult.promise).text;
       this.pushEvent({ type: 'consult', phase: 'plan', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: plan, ts: now() });
 
-      this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
       let critique: string;
-      try {
-        this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), reviewerModel, 'critique');
-        critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
-      } catch (err: any) {
-        if (this.consultCancelled) throw err;
-        // A dead reviewer shouldn't cost the user a good plan — degrade to plan-only.
-        critique = `(Critique unavailable — ${truncate(String(err?.message ?? err), 200)}. Proceeding uses the plan as-is.)`;
+      if (skipReview) {
+        critique = `(Review skipped — triage sized this task small${sized?.reason ? `: ${sized.reason}` : ''}. Below ~10 files or 3 independent pieces the cross-model review costs more than it returns; proceeding uses the plan as-is.)`;
+        this.pushEvent({ type: 'consult', phase: 'critique', agent: this.agent, reviewStrength: 'Size gate — review skipped', text: critique, ts: now() });
+      } else {
+        this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
+        try {
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan), reviewerModel, 'critique');
+          critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
+        } catch (err: any) {
+          if (this.consultCancelled) throw err;
+          // A dead reviewer shouldn't cost the user a good plan — degrade to plan-only.
+          critique = `(Critique unavailable — ${truncate(String(err?.message ?? err), 200)}. Proceeding uses the plan as-is.)`;
+        }
+        this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: critique, ts: now() });
       }
-      this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: critique, ts: now() });
 
       this.pendingConsult = { task, plan, critique };
       if (this.sockets.size === 0) {
@@ -408,6 +432,11 @@ export class Session {
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
       this.broadcastMeta();
     }
+  }
+
+  /** A visible, non-error note on the session's status line. */
+  notice(message: string) {
+    this.pushEvent({ type: 'status', state: this.lastStatus, message, ts: now() });
   }
 
   reportError(message: string) {
@@ -559,7 +588,14 @@ export class SessionManager {
 
   create(agent: AgentKind, cwd: string, opts: { model?: string; resume?: string } = {}): Session {
     const session = new Session(agent, cwd, this.config, { ...opts, onChange: () => this.scheduleSave() });
+    // Decision 2, one writer: nothing here can stop two sessions editing one
+    // tree, but the person opening the second can be told before they do.
+    const others = [...this.sessions.values()].filter((s) => s.meta().cwd === cwd);
     this.sessions.set(session.id, session);
+    if (others.length) {
+      session.notice(`${others.length} other session${others.length > 1 ? 's are' : ' is'} open on this project — concurrent edits are not guarded; keep one session writing at a time.`);
+      logDecision({ kind: 'gate', sessionId: session.id, rule: 'one-writer', cwd, others: others.map((s) => s.id) });
+    }
     this.saveNow();
     return session;
   }

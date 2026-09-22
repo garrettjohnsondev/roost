@@ -5,8 +5,13 @@ import { repoRoot } from './config.js';
 
 export type Tier = 'light' | 'standard' | 'heavy';
 
+/** Decision 3's gate input: small = fewer than ~10 files AND fewer than 3
+ *  independent pieces. Unknown never counts as small. */
+export type TaskSize = 'small' | 'medium' | 'large';
+
 export interface TriageResult {
   tier: Tier;
+  size?: TaskSize;
   reason: string;
 }
 
@@ -15,7 +20,9 @@ const TRIAGE_PROMPT = `You are a dispatcher deciding how capable a coding agent 
 - standard: normal coding — implement a feature, fix a clear bug, write tests, small refactors
 - heavy: complex — architecture/design, large or cross-cutting refactors, gnarly debugging, performance/concurrency work, or the user explicitly asks for thorough/deep work
 
-Reply with ONLY this JSON, nothing else: {"tier":"light|standard|heavy","reason":"<max 8 words>"}
+Also estimate SIZE: small = touches fewer than ~10 files AND fewer than 3 independent pieces of work; large = 10+ files or 3+ independent pieces; medium = in between or unsure.
+
+Reply with ONLY this JSON, nothing else: {"tier":"light|standard|heavy","size":"small|medium|large","reason":"<max 8 words>"}
 
 Task:
 `;
@@ -28,7 +35,8 @@ export function parseTriage(text: string): TriageResult {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
       if (parsed.tier === 'light' || parsed.tier === 'standard' || parsed.tier === 'heavy') {
-        return { tier: parsed.tier, reason: String(parsed.reason ?? '').slice(0, 80) };
+        const size = parsed.size === 'small' || parsed.size === 'medium' || parsed.size === 'large' ? parsed.size : undefined;
+        return { tier: parsed.tier, size, reason: String(parsed.reason ?? '').slice(0, 80) };
       }
     } catch {
       /* fall through to keyword scan */

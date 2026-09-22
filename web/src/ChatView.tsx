@@ -198,7 +198,10 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
       {session.pendingApproval && (
         <div className="sheet-backdrop">
           <div className="sheet">
-            <h3>{session.pendingApproval.title}</h3>
+            <h3>
+              {session.pendingApproval.title}
+              {session.pendingApprovalCount > 1 ? ` · ${session.pendingApprovalCount - 1} more waiting` : ''}
+            </h3>
             <pre className="approval-detail">{session.pendingApproval.detail}</pre>
             <div className="sheet-actions">
               <button
@@ -362,6 +365,11 @@ function Message({ item }: { item: ChatItem }) {
     case 'assistant':
       return (
         <div className="msg assistant">
+          {item.crew && (
+            <div className="msg-crew">
+              <CrewChip crew={item.crew} sub={item.crew.model} />
+            </div>
+          )}
           <Markdown text={item.text} />
         </div>
       );
@@ -463,7 +471,7 @@ function Composer(props: {
   disabled: boolean;
   working: boolean;
   onInterrupt: () => void;
-  onSend: (text: string, images?: UserImage[]) => void;
+  onSend: (text: string, images?: UserImage[]) => boolean;
   onConsult: (text: string) => void;
 }) {
   const [text, setText] = useState('');
@@ -472,7 +480,10 @@ function Composer(props: {
 
   function send() {
     if (!text.trim() && images.length === 0) return;
-    props.onSend(text.trim(), images.length ? images.map(({ mediaType, data }) => ({ mediaType, data })) : undefined);
+    // A send while disconnected used to clear the box into the void; now the
+    // draft stays until a send actually goes out.
+    const sent = props.onSend(text.trim(), images.length ? images.map(({ mediaType, data }) => ({ mediaType, data })) : undefined);
+    if (!sent) return;
     setText('');
     setImages([]);
   }

@@ -1,3 +1,4 @@
+import { logDecision } from '../decisions.js';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import { AsyncQueue, truncate } from '../util.js';
@@ -92,20 +93,29 @@ export function runAgentTask(spec: AgentTaskSpec): AgentTaskRun {
     spec.agent === 'claude' ? runClaude(spec, timeoutMs, (c) => { cancel = c; })
       : runCodex(spec, timeoutMs, (c) => { cancel = c; });
 
-  const promise = raw.then((text) => {
-    const trimmed = text.trim();
-    if (!trimmed) throw new Error(`${spec.agent} dispatch returned no text`);
-    const capped = truncate(trimmed, maxChars);
-    const { text: clean, findings } = sanitizeAgentOutput(capped);
-    return {
-      text: clean,
-      agent: spec.agent,
-      model: spec.model,
-      ms: Date.now() - started,
-      truncated: capped.length < trimmed.length,
-      sanitized: findings,
-    };
-  });
+  const base = { kind: 'dispatch' as const, agent: spec.agent, model: spec.model, capability: spec.capability, role: spec.role, taskId: spec.taskId };
+  const promise = raw.then(
+    (text) => {
+      const trimmed = text.trim();
+      if (!trimmed) throw new Error(`${spec.agent} dispatch returned no text`);
+      const capped = truncate(trimmed, maxChars);
+      const { text: clean, findings } = sanitizeAgentOutput(capped);
+      const result: AgentTaskResult = {
+        text: clean,
+        agent: spec.agent,
+        model: spec.model,
+        ms: Date.now() - started,
+        truncated: capped.length < trimmed.length,
+        sanitized: findings,
+      };
+      logDecision({ ...base, ok: true, ms: result.ms, truncated: result.truncated, sanitized: findings.length });
+      return result;
+    },
+    (err) => {
+      logDecision({ ...base, ok: false, ms: Date.now() - started, error: String(err?.message ?? err) });
+      throw err;
+    },
+  );
 
   return { promise, cancel: () => cancel() };
 }

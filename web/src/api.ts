@@ -129,8 +129,12 @@ export class SessionSocket {
     };
   }
 
-  send(msg: ClientMessage) {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+  /** false when the socket is not open, so the caller keeps the draft instead
+   *  of clearing it into the void. */
+  send(msg: ClientMessage): boolean {
+    if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    this.ws.send(JSON.stringify(msg));
+    return true;
   }
 
   close() {

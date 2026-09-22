@@ -159,3 +159,21 @@ describe('the flat-key usage fallback ignores non-window siblings', () => {
     expect(keys.some((k) => k.includes('extra_usage'))).toBe(false);
   });
 });
+
+describe('built-in defaults route to models that exist', () => {
+  it('passes the live-roster audit with an empty config', async () => {
+    const { fromCodexModelList, auditRoutes } = await import('../src/registry.js');
+    const eff = (...r: string[]) => r.map((x) => ({ reasoningEffort: x }));
+    const cards = fromCodexModelList([
+      { id: 'gpt-6-astra', model: 'gpt-6-astra', displayName: 'GPT-6-Astra', isDefault: true,
+        description: 'Our most capable model for complex, demanding work.', supportedReasoningEfforts: eff('low', 'medium', 'high', 'xhigh', 'max', 'ultra') },
+      { id: 'gpt-5.6-terra', model: 'gpt-5.6-terra', displayName: 'GPT-5.6-Terra',
+        description: 'Balanced agentic coding model for everyday work.', supportedReasoningEfforts: eff('low', 'medium', 'high', 'xhigh', 'max', 'ultra') },
+      { id: 'gpt-5.6-luna', model: 'gpt-5.6-luna', displayName: 'GPT-5.6-Luna',
+        description: 'Fast and affordable agentic coding model.', supportedReasoningEfforts: eff('low', 'medium', 'high', 'xhigh', 'max') },
+    ]);
+    // The previous DEFAULTS pointed a fresh install at a deleted model.
+    const issues = auditRoutes(loadConfig().autoRoute as any, cards).filter((i) => i.agent === 'codex');
+    expect(issues).toEqual([]);
+  });
+});

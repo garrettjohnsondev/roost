@@ -13,7 +13,7 @@ import { generateAvatar, listCustom, avatarDir, AvatarGenError } from './avatars
 import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
 import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
-import { initNotify, sendNotification } from './notify.js';
+import { initNotify, sendNotification, sendNotificationAsync } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
 import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
@@ -146,8 +146,11 @@ app.post('/api/projects', (req, res) => {
     const resolved = realpathSync(String(path ?? ''));
     if (!statSync(resolved).isDirectory()) throw new Error('not a directory');
     if (!config.projects.includes(resolved)) {
-      config.projects.push(resolved);
-      saveConfig(config);
+      // Persist first, then mutate: a failed save used to leave the project in
+      // memory, so the retry "succeeded" against state that never reached disk.
+      const next = [...config.projects, resolved];
+      saveConfig({ ...config, projects: next });
+      config.projects = next;
     }
     res.json({ projects: config.projects });
   } catch (err: any) {
@@ -157,8 +160,14 @@ app.post('/api/projects', (req, res) => {
 
 app.delete('/api/projects', (req, res) => {
   const path = String(req.query.path ?? '');
-  config.projects = config.projects.filter((p) => p !== path);
-  saveConfig(config);
+  const next = config.projects.filter((p) => p !== path);
+  try {
+    saveConfig({ ...config, projects: next });
+  } catch (err: any) {
+    res.status(500).json({ error: `could not save config: ${err?.message ?? err}` });
+    return;
+  }
+  config.projects = next;
   res.json({ projects: config.projects });
 });
 
@@ -296,12 +305,17 @@ app.post('/api/notifications', (req, res) => {
   res.json({ notifications: config.notifications });
 });
 
-app.post('/api/notifications/test', (_req, res) => {
+app.post('/api/notifications/test', async (_req, res) => {
   if (!config.notifications.topic) {
     res.status(400).json({ error: 'notifications are not enabled' });
     return;
   }
-  sendNotification(`test:${Date.now()}`, 'Pocket test', 'Notifications are working.');
+  // Report what happened, not what was attempted: "sent" used to mean "asked".
+  const r = await sendNotificationAsync(`test:${Date.now()}`, 'Pocket test', 'Notifications are working.');
+  if (!r.ok) {
+    res.status(502).json({ error: r.error ?? 'notification was not accepted' });
+    return;
+  }
   res.json({ sent: true });
 });
 
@@ -333,7 +347,7 @@ app.post('/api/avatars/generate', async (req, res) => {
 app.get('/api/models', (_req, res) => {
   const reg = modelRegistry();
   const models = reg.all().map((m) => ({ ...m, suggested: classify(m) }));
-  const caps = capabilitiesFrom(reg.all());
+  const caps = capabilitiesFrom(reg.all(), (a) => reg.presence(a));
   res.json({
     fetchedAt: reg.fetchedAt(),
     models,
@@ -349,7 +363,7 @@ app.get('/api/models', (_req, res) => {
 
 app.get('/api/review-plan', (req, res) => {
   const agent = req.query.agent === 'codex' ? 'codex' : 'claude';
-  const choice = reviewerFor({ agent, model: String(req.query.model ?? '') }, modelRegistry().all());
+  const choice = reviewerFor({ agent, model: String(req.query.model ?? '') }, modelRegistry().all(), (a) => modelRegistry().presence(a));
   res.json({ ...choice, label: REVIEW_STRENGTH_LABEL[choice.strength] });
 });
 

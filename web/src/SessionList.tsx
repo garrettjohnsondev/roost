@@ -100,7 +100,9 @@ export function SessionList(props: {
   const [showSettings, setShowSettings] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
   const [agent, setAgent] = useState<AgentKind>('claude');
-  const defaultProject = () => recent?.[0]?.path ?? config.primaryVolume ?? config.projects[0] ?? '';
+  // A configured project outranks the bare external volume: first run used to
+  // land on a disk root with "Start session" pointed at it.
+  const defaultProject = () => recent?.[0]?.path ?? config.projects[0] ?? config.primaryVolume ?? '';
   const [cwd, setCwd] = useState(defaultProject());
   const [model, setModel] = useState(config.claude.defaultModel);
   const [resumable, setResumable] = useState<Resumable[]>([]);
