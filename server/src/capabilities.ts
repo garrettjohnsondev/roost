@@ -103,6 +103,27 @@ export function reviewerFor(
   return { agent: planner.agent, model: planner.model, strength: 'none', why: 'no usable models' };
 }
 
+/** What actually reviews when reviewerFor() finds nothing usable -- typically
+ *  a process whose roster has not been fetched yet. The configured model on
+ *  the other vendor is a perfectly good reviewer; what it is NOT is verified
+ *  present, and the label must say so rather than claim "no reviewer" while
+ *  one runs. The dogfood run logged strength=none for a review Codex Terra
+ *  performed; that is this function's reason to exist. */
+export function resolveReviewer(
+  choice: ReviewChoice,
+  configured: { agent: AgentKind; model: string },
+): { agent: AgentKind; model: string; strength: ReviewStrength | 'cross-vendor-unverified'; label: string } {
+  if (choice.strength !== 'none') {
+    return { agent: choice.agent, model: choice.model, strength: choice.strength, label: REVIEW_STRENGTH_LABEL[choice.strength] };
+  }
+  return {
+    agent: configured.agent,
+    model: configured.model,
+    strength: 'cross-vendor-unverified',
+    label: `${REVIEW_STRENGTH_LABEL['cross-vendor']} — roster not fetched, using the configured model`,
+  };
+}
+
 export function capabilitiesFrom(models: ModelCard[], presence?: Presence): Capabilities {
   const vendors = vendorsPresent(models, presence);
   const both = vendors.length > 1;

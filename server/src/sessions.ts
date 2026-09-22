@@ -10,7 +10,7 @@ import type { BudgetConfig, AutoRouteConfig as OtherRouteConfig } from './config
 import type { Surplus } from './quota.js';
 import type { SurplusInfo } from './protocol.js';
 import { logDecision } from './decisions.js';
-import { reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
+import { reviewerFor, resolveReviewer } from './capabilities.js';
 import { modelRegistry } from './registry.js';
 import { sanitizeAgentOutput } from './sanitize.js';
 import { shouldApplyEffort } from './routing.js';
@@ -532,16 +532,20 @@ export class Session {
     // model the user actually chose, not a silent downgrade to standard.
     const plannerModel = this.model && this.model !== 'auto' ? this.model : (this.routedModel ?? this.standardModelFor(this.agent));
     const choice = reviewerFor({ agent: this.agent, model: plannerModel }, modelRegistry().all(), (a) => modelRegistry().presence(a));
-    const other: AgentKind = choice.strength === 'none' ? (this.agent === 'claude' ? 'codex' : 'claude') : choice.agent;
-    const reviewerModel = choice.strength === 'none' ? this.standardModelFor(other) : choice.model;
-    const strengthLabel = REVIEW_STRENGTH_LABEL[choice.strength];
+    const configuredOther: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    // An empty or unfetched roster must not be reported as "no reviewer" while
+    // the configured one goes on to review anyway.
+    const resolved = resolveReviewer(choice, { agent: configuredOther, model: this.standardModelFor(configuredOther) });
+    const other: AgentKind = resolved.agent;
+    const reviewerModel = resolved.model;
+    const strengthLabel = resolved.label;
     // Decision 3: below ~10 files / 3 independent pieces the conference costs
     // more than it returns. Ask triage for a size; when it says small, keep
     // the plan and skip the cross-model review -- and say so on the turn.
     // Unknown size runs the full conference: the gate never skips on a guess.
     const sized = this.sizeGate ? await triage(task, this.agent, this.autoRoute.light?.model) : null;
     const skipReview = sized?.size === 'small';
-    logDecision({ kind: 'review', sessionId: this.id, planner: { agent: this.agent, model: plannerModel }, reviewer: { agent: other, model: reviewerModel }, strength: choice.strength, size: sized?.size ?? null, skipped: skipReview });
+    logDecision({ kind: 'review', sessionId: this.id, planner: { agent: this.agent, model: plannerModel }, reviewer: { agent: other, model: reviewerModel }, strength: resolved.strength, size: sized?.size ?? null, skipped: skipReview });
     try {
       const context = this.transcript
         .filter((e) => e.type === 'user_message' || e.type === 'assistant_message')

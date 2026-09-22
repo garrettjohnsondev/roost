@@ -86,3 +86,17 @@ describe('a single model available', () => {
     expect(capabilitiesFrom([]).vendors).toEqual([]);
   });
 });
+
+import { resolveReviewer } from '../src/capabilities.js';
+describe('an unfetched roster is not "no reviewer"', () => {
+  it('falls back to the configured model on the other vendor and says so', () => {
+    const r = resolveReviewer({ agent: 'claude', model: '', strength: 'none', why: 'no usable models' }, { agent: 'codex', model: 'gpt-5.6-terra' });
+    expect(r).toMatchObject({ agent: 'codex', model: 'gpt-5.6-terra', strength: 'cross-vendor-unverified' });
+    expect(r.label).toMatch(/roster not fetched/);
+  });
+
+  it('passes a real choice through untouched', () => {
+    const r = resolveReviewer({ agent: 'codex', model: 'gpt-6-astra', strength: 'cross-vendor', why: 'x' }, { agent: 'codex', model: 'gpt-5.6-terra' });
+    expect(r).toMatchObject({ model: 'gpt-6-astra', strength: 'cross-vendor' });
+  });
+});
