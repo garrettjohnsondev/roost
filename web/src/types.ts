@@ -96,6 +96,8 @@ export interface SessionMeta {
   routedModel?: string;
   consultPending?: boolean;
   mode: SessionMode;
+  /** The person picked the mode; otherwise it is the configured default. */
+  modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
   agentSessionId?: string;

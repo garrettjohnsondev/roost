@@ -109,7 +109,8 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
               {session.meta?.title ?? '…'} <span className="chat-title-chevron">▾</span>
             </div>
             <div className="chat-title-sub">
-              {agent} · {currentModelLabel} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
+              {session.meta?.mode ? <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span> : null} {agent} ·{' '}
+              {currentModelLabel} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
               {!session.connected && ' · reconnecting…'}
             </div>
           </div>

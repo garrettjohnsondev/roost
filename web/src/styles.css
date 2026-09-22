@@ -1880,3 +1880,7 @@ button {
 .models-issue { color: #d9a441; }
 .models-roster { opacity: 0.8; }
 .models-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.10); }
+.mode-tag.build { background: rgba(109,40,217,0.25); }
+.mode-tag.plan { background: rgba(217,164,65,0.25); }

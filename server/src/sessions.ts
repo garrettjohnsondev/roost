@@ -24,7 +24,7 @@ import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
 import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
 import { sendNotification } from './notify.js';
-import { shouldRetriage, triage, type Tier } from './router.js';
+import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
 import { callLedger } from './ledger.js';
 import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
@@ -49,6 +49,7 @@ interface SessionOpts {
     routedModel?: string;
     pendingConsult?: ConsultState;
     mode?: SessionMode;
+    modeExplicit?: boolean;
   };
   onChange?: () => void;
 }
@@ -91,6 +92,8 @@ export class Session {
   effort: string;
   approvals: ApprovalSetting;
   mode: SessionMode;
+  modeExplicit = false;
+  private escalate = true;
   private maxReviewRounds = 1;
   private autoProceed = false;
   private verifyAfterProceed = true;
@@ -119,11 +122,26 @@ export class Session {
     this.model = opts.model ?? (opts.resume ? '' : agentConfig.defaultModel);
     this.effort = opts.restore?.effort ?? '';
     this.approvals = opts.restore?.approvals ?? 'ask';
-    this.mode = opts.restore?.mode ?? (this.model === 'auto' ? 'auto' : 'chat');
+    // A stored mode sticks only if the PERSON chose it. Everything persisted
+    // before this fix carries mode:'chat' because that was the accidental
+    // default -- the model was 'sonnet', not the literal string 'auto', so the
+    // old line below fell through to chat and the session never triaged,
+    // never used a cheap model, and never convened the two vendors:
+    //   this.mode = restore?.mode ?? (this.model === 'auto' ? 'auto' : 'chat')
+    this.mode = (opts.restore?.modeExplicit ? opts.restore.mode : undefined) ?? config.consult?.defaultMode ?? 'auto';
+    this.modeExplicit = opts.restore?.modeExplicit ?? false;
+    // Auto and build route per message, which requires the sentinel. Whatever
+    // concrete model the session had becomes the starting point the router
+    // moves from, so a resumed chat continues where it was and then re-triages.
+    if ((this.mode === 'auto' || this.mode === 'build') && this.model !== 'auto') {
+      if (this.model) this.routedModel = this.model;
+      this.model = 'auto';
+      this.lastTier = undefined;
+    }
     this.resumedFrom = opts.resume;
     this.onChange = opts.onChange;
     this.autoRoute = config.autoRoute[agent];
-    this.routedModel = opts.restore?.routedModel;
+    this.routedModel = opts.restore?.routedModel ?? this.routedModel;
     this.pendingConsult = opts.restore?.pendingConsult;
     // Consult one-shots run on each agent's "standard" tier model — capable enough to
     // plan/review, without paying heavy-tier prices for a throwaway run.
@@ -132,6 +150,7 @@ export class Session {
     this.budget = config.budget;
     this.maxReviewRounds = Math.max(1, Math.min(2, config.consult?.maxReviewRounds ?? 1));
     this.autoProceed = config.consult?.autoProceed ?? false;
+    this.escalate = config.consult?.escalateToConference ?? true;
     this.verifyAfterProceed = config.consult?.verifyAfterProceed ?? true;
     this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
     try {
@@ -207,6 +226,7 @@ export class Session {
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
       mode: this.mode,
+      modeExplicit: this.modeExplicit || undefined,
       planPath: this.pendingConsult?.planPath,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
@@ -218,9 +238,10 @@ export class Session {
   /** Auto-mode dispatcher: cheap Haiku triage picks the tier, tier picks model+effort.
    *  First message always triages; follow-ups only when they plausibly outgrow the
    *  current tier. Any routing failure falls through silently — the message must send. */
-  private async routeFor(text: string): Promise<void> {
-    if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return;
-    const { tier, reason } = await triage(text, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage'));
+  private async routeFor(text: string): Promise<TriageResult | null> {
+    if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return null;
+    const triaged = await triage(text, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage'));
+    const { tier, reason } = triaged;
     this.lastTier = tier;
     // Quota-aware: the tier triage asked for is modulated by live headroom on
     // THIS session's vendor -- a chat is bound to one adapter, so the other
@@ -251,7 +272,7 @@ export class Session {
     if (decision.refused) {
       // The user's own message still goes out; routing just has nothing to pick.
       this.notice(`Routing refused: ${decision.reason}. Sending on the current model.`);
-      return;
+      return triaged;
     }
     const target = { model: decision.model, effort: decision.effort };
     try {
@@ -291,6 +312,7 @@ export class Session {
     } catch (err: any) {
       this.reportError(`Auto-routing to ${target.model} failed (${String(err?.message ?? err)}) — continuing on current model.`);
     }
+    return triaged;
   }
 
   private pushEvent(event: ServerEvent) {
@@ -369,9 +391,22 @@ export class Session {
           await this.runConsult(msg.text, { planOnly: this.mode === 'plan' });
           break;
         }
-        if (this.autoMode) await this.routeFor(msg.text);
-        await this.adapter.sendUserMessage(msg.text, msg.images);
-        this.broadcastMeta();
+        {
+          const triaged = this.autoMode ? await this.routeFor(msg.text) : null;
+          // A large task is where the conference earns its keep -- the same
+          // size gate that skips ceremony on small work, read the other way.
+          // Nothing executes without Proceed, so this costs a plan and a
+          // review, not control.
+          if (this.escalate && triaged?.size === 'large' && !this.consultRunning && !msg.images?.length) {
+            const planner = crewMember(this.agent, this.routedModel ?? this.standardModelFor(this.agent), 'planner').name;
+            this.notice(`This looks like a large task (${triaged.reason}) — ${planner} will plan it and the other engine will review before anything runs. Tap Dismiss on the bar to just chat instead.`);
+            logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', tier: triaged.tier, size: triaged.size, reason: triaged.reason });
+            await this.runConsult(msg.text);
+            break;
+          }
+          await this.adapter.sendUserMessage(msg.text, msg.images);
+          this.broadcastMeta();
+        }
         break;
       case 'approval_response': {
         // Validated here, once. A malformed decision reaching an adapter used
@@ -482,6 +517,7 @@ export class Session {
         const m = msg.mode;
         if (m !== 'chat' && m !== 'auto' && m !== 'plan' && m !== 'build') break;
         this.mode = m;
+        this.modeExplicit = true;
         if ((m === 'auto' || m === 'build') && this.model !== 'auto') {
           this.routedModel = this.model || undefined;
           this.model = 'auto';
@@ -730,6 +766,8 @@ interface PersistedSession {
   resumedFrom?: string;
   pendingConsult?: ConsultState;
   mode?: SessionMode;
+  /** The person picked this mode; otherwise the configured default applies. */
+  modeExplicit?: boolean;
 }
 
 export class SessionManager {
@@ -782,6 +820,7 @@ export class SessionManager {
       resumedFrom: s.resumedFrom,
       pendingConsult: s.pendingConsult,
       mode: s.mode,
+      modeExplicit: s.modeExplicit,
     }));
     try {
       const path = statePath();
@@ -835,6 +874,7 @@ export class SessionManager {
             routedModel: entry.routedModel,
             pendingConsult: entry.pendingConsult,
             mode: entry.mode,
+            modeExplicit: entry.modeExplicit,
           },
           onChange: () => this.scheduleSave(),
         });

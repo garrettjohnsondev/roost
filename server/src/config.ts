@@ -70,6 +70,15 @@ export interface ConsultConfig {
   autoProceed: boolean;
   /** Run the project gates when the executor's turn ends after a Proceed. */
   verifyAfterProceed: boolean;
+  /** What a session starts in. 'auto' is the point of the product: triage
+   *  every message, run cheap models on cheap work. 'chat' is one model with
+   *  no ceremony, which is what every session silently defaulted to before. */
+  defaultMode: 'chat' | 'auto' | 'plan' | 'build';
+  /** In auto mode, a task triage sizes LARGE runs the conference -- plan,
+   *  cross-model review, reconcile -- instead of a plain turn. This is what
+   *  makes the two vendors actually talk without the user hunting for a
+   *  button. Still gated by the human on Proceed. */
+  escalateToConference: boolean;
 }
 
 export interface GuardsConfig {
@@ -123,7 +132,7 @@ const DEFAULTS: PocketConfig = {
     maxDispatchesPerTask: 40,
     maxTaskTokens: null,
   },
-  consult: { sizeGate: true, maxReviewRounds: 1, autoProceed: false, verifyAfterProceed: true },
+  consult: { sizeGate: true, maxReviewRounds: 1, autoProceed: false, verifyAfterProceed: true, defaultMode: 'auto', escalateToConference: true },
   guards: { oneWriter: 'warn' },
   claude: { models: ['sonnet', 'opus', 'haiku', 'fable'], defaultModel: 'sonnet', efforts: ['low', 'medium', 'high', 'xhigh', 'max'] },
   codex: { models: [], defaultModel: '', efforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] }, // no Codex model exposes 'minimal'

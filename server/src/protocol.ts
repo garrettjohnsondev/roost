@@ -106,6 +106,8 @@ export interface SessionMeta {
   /** True while a completed consult awaits the user's Proceed/Dismiss decision. */
   consultPending?: boolean;
   mode: SessionMode;
+  /** The person picked the mode; otherwise it is the configured default. */
+  modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
   /** Underlying agent session/thread id, once known (resumable later). */
