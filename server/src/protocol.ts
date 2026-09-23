@@ -121,6 +121,9 @@ export interface SessionMeta {
   /** Who last worked here, newest first, at most three — the crew the UI wakes
    *  when you open the session. */
   recentCrew?: CrewInfo[];
+  /** The last thing said in this session and who said it, for the home screen's
+   *  conversation card. Speaker is a crew name, or null when it was you. */
+  lastLine?: { speaker: string | null; color?: string; text: string };
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.

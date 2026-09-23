@@ -22,7 +22,7 @@ import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resu
 import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
-import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona } from './crew.js';
+import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
 import { loadMe, saveMe } from './me.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
@@ -458,7 +458,9 @@ app.post('/api/me', (req, res) => {
 });
 
 app.get('/api/crew', (_req, res) => {
-  res.json({ crew: allPersonas(), overrides: loadOverrides() });
+  // The dispatcher is a role, not a routed model, so allPersonas() never lists it —
+  // and the home screen's crew strip would have been missing the one it greets you with.
+  res.json({ crew: allPersonas(), overrides: loadOverrides(), dispatcher: DISPATCHER });
 });
 
 app.post('/api/crew', (req, res) => {

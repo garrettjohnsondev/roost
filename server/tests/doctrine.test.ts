@@ -255,7 +255,7 @@ describe('the only things that repeat are states that persist', () => {
     // justified.
     const css = read('web/src/styles.css');
     const looping = [...css.matchAll(/\n([^\n{}]+)\{[^}]*\binfinite\b/g)].map((m) => m[1].trim());
-    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-b/, /spin|pulse|working|loading/];
+    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /spin|pulse|working|loading/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -304,5 +304,36 @@ describe('the roadmap does not flatter itself', () => {
     const s = read('scripts/roadmap-stats.mjs');
     expect(s).toMatch(/failed === 0 \? `\*\*\$\{passed\} tests green` : `\*\*\$\{passed\} passing, \$\{failed\} FAILING`/);
     expect(s).toMatch(/process\.exit\(failed === 0 && tc \? 0 : 1\)/);
+  });
+})
+
+describe('one drawing on screen at a time', () => {
+  // The frames are transparent PNGs, so an upper frame does not hide a lower one.
+  // The first version kept idle drawn under the typing frame (a typing owl with
+  // four wings) and stacked sleep over blink over idle in the wake-up (a
+  // sleeping owl with a standing owl's ears behind it). It shipped because it
+  // was checked by reasoning; it was caught by rendering. These pin the rule.
+  it('alternates a two-frame pose in exact antiphase', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/@keyframes sprite-cut \{\s*0%, 49\.99% \{ opacity: 0; \}\s*50%, 100% \{ opacity: 1; \}/);
+    expect(css).toMatch(/@keyframes sprite-cut-a \{\s*0%, 49\.99% \{ opacity: 1; \}\s*50%, 100% \{ opacity: 0; \}/);
+    expect(css).toMatch(/\.crew-sprite \.frame-a \{\s*animation: sprite-cut-a/);
+  });
+
+  it('draws only the pose itself when a pose is held', () => {
+    const c = read('web/src/ChatView.tsx');
+    const s = c.slice(c.indexOf('export function SpriteAvatar('), c.indexOf('export function SpriteAvatar(') + 1600);
+    // held branch renders exactly one <img>, with no idle frame beneath it
+    const held = s.slice(s.indexOf(') : ('), s.indexOf(')}', s.indexOf(') : (')));
+    expect((held.match(/<img/g) ?? []).length).toBe(1);
+    expect(held).not.toMatch(/-idle\.webp/);
+  });
+
+  it('gives each wake-up frame its own window and hides it outside', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/@keyframes wake-hide \{\s*0%, 54\.99% \{ opacity: 1; \}\s*55%, 100% \{ opacity: 0; \}/);
+    expect(css).toMatch(/@keyframes wake-blink-window \{\s*0%, 54\.99% \{ opacity: 0; \}\s*55%, 74\.99% \{ opacity: 1; \}\s*75%, 100% \{ opacity: 0; \}/);
+    expect(css).toMatch(/@keyframes wake-show-late \{\s*0%, 74\.99% \{ opacity: 0; \}\s*75%, 100% \{ opacity: 1; \}/);
+    expect(css).toMatch(/\.crew-wake-frames \.wake-idle \{ animation: wake-show-late/);
   });
 })

@@ -15,19 +15,28 @@
   color-scheme: light;
 }
 
+/* Roost — the design canvas's palette, by ROLE, not just by colour:
+   roost #0f1729 is the ground; the crew speak on bubble #1c2740; hairlines are
+   seam #38477a; lamp #f4b63f means "you, and attention"; chalk is text. Cards sit
+   on a hard offset shadow — the board calls a soft blur under every card the
+   SaaS-kit tell. This is the default theme; the light one remains a choice. */
 [data-theme='dark'] {
-  --bg: #0b0d10;
-  --surface: #14181d;
-  --surface-2: #1c2128;
-  --border: #2a313a;
-  --text: #e6e9ec;
-  --text-dim: #8b949e;
-  --accent: #4c8dff;
-  --accent-text: #ffffff;
-  --claude: #d97748;
-  --codex: #10a37f;
+  --bg: #0f1729;
+  --surface: #131c33;
+  --surface-2: #1c2740;
+  --border: #2b3a63;
+  --seam: #38477a;
+  --text: #e9edf6;
+  --text-dim: #93a3c6;
+  --accent: #f4b63f;
+  --accent-text: #0f1729;
+  --claude: #b85a30;
+  --codex: #2f8f6b;
   --danger: #e5534b;
-  --ok: #3fb950;
+  --ok: #3d9c78;
+  --shadow-hard: 3px 3px 0 #0a1020;
+  --font-display: 'Silkscreen', ui-monospace, monospace;
+  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
   color-scheme: dark;
 }
 
@@ -1810,13 +1819,23 @@ button {
 .crew-sprite .frame-b {
   animation: sprite-cut 0.62s steps(1, end) infinite;
 }
+/* frame-a is the exact complement of frame-b, so one drawing is on screen at a
+   time. Leaving frame-a always visible drew both poses at once. */
+.crew-sprite .frame-a {
+  animation: sprite-cut-a 0.62s steps(1, end) infinite;
+}
 @keyframes sprite-cut {
   0%, 49.99% { opacity: 0; }
   50%, 100% { opacity: 1; }
 }
+@keyframes sprite-cut-a {
+  0%, 49.99% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
 /* Respect the system setting: hold the pose instead of cutting between frames. */
 @media (prefers-reduced-motion: reduce) {
   .crew-sprite .frame-b { animation: none; opacity: 1; }
+  .crew-sprite .frame-a { animation: none; opacity: 0; }
 }
 
 /* Name large, model small underneath. */
@@ -2044,9 +2063,15 @@ button {
   height: 100%;
   image-rendering: pixelated;
 }
-/* Sleep holds, then cuts away at 55%; blink covers the next beat, then cuts too. */
+/* Each frame owns a window and is invisible outside it — sleep [0,55%),
+   blink [55%,75%), idle from 75% — so exactly one drawing shows at a time. */
 .crew-wake-frames .wake-sleep { animation: wake-hide 900ms steps(1, end) both; }
-.crew-wake-frames .wake-blink { animation: wake-hide-late 900ms steps(1, end) both; }
+.crew-wake-frames .wake-blink { animation: wake-blink-window 900ms steps(1, end) both; }
+.crew-wake-frames .wake-idle { animation: wake-show-late 900ms steps(1, end) both; }
+/* A missing frame shortens the sequence rather than leaving a gap. */
+.crew-wake-frames.no-sleep .wake-blink { animation: wake-hide-late 900ms steps(1, end) both; }
+.crew-wake-frames.no-blink .wake-idle { animation: wake-show 900ms steps(1, end) both; }
+.crew-wake-frames.no-sleep.no-blink .wake-idle { animation: none; opacity: 1; }
 .crew-wake-name {
   font-size: 11px;
   font-weight: 650;
@@ -2059,6 +2084,19 @@ button {
 @keyframes wake-hide-late {
   0%, 74.99% { opacity: 1; }
   75%, 100% { opacity: 0; }
+}
+@keyframes wake-blink-window {
+  0%, 54.99% { opacity: 0; }
+  55%, 74.99% { opacity: 1; }
+  75%, 100% { opacity: 0; }
+}
+@keyframes wake-show {
+  0%, 54.99% { opacity: 0; }
+  55%, 100% { opacity: 1; }
+}
+@keyframes wake-show-late {
+  0%, 74.99% { opacity: 0; }
+  75%, 100% { opacity: 1; }
 }
 /* Slumped and low, then up. Translate only — no scale, which on pixel art at a
    non-integer factor would blur every frame of the rise. */
@@ -2073,6 +2111,7 @@ button {
   .crew-wake-member { animation: none; }
   .crew-wake-frames .wake-sleep,
   .crew-wake-frames .wake-blink { animation: none; opacity: 0; }
+  .crew-wake-frames .wake-idle { animation: none; opacity: 1; }
 }
 
 /* ---- Poses that move when they arrive -------------------------------------
@@ -2178,3 +2217,78 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .tool-detail.typing { animation: none; }
 }
+
+/* ============================================================================
+   Roost surfaces — the design canvas, applied to the app.
+   Everything here is scoped to the Roost theme so the light theme is untouched.
+   ========================================================================= */
+
+[data-theme='dark'] body { font-family: var(--font-body); }
+
+/* Display type: Silkscreen, for names, headings and labels — the board sets
+   every crew name and every section label in it. Body stays Atkinson
+   Hyperlegible, chosen for reading at arm's length on a phone. */
+[data-theme='dark'] h1,
+[data-theme='dark'] h2,
+[data-theme='dark'] h3,
+[data-theme='dark'] .crew-ident-name,
+[data-theme='dark'] .crew-wake-name,
+[data-theme='dark'] .verify-badge,
+[data-theme='dark'] .usage-block-label,
+[data-theme='dark'] .mode-tag {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+[data-theme='dark'] .page-header h1 { font-size: 30px; }
+[data-theme='dark'] .card h2 { font-size: 15px; color: var(--accent); text-transform: uppercase; }
+
+/* Cards: crisp corners on a hard offset shadow, like the board's tiles. A soft
+   blur under every card is the look the board names as the kit tell. */
+[data-theme='dark'] .card,
+[data-theme='dark'] .sheet,
+[data-theme='dark'] .consult-bar,
+[data-theme='dark'] .compact-offer,
+[data-theme='dark'] .surplus-bar {
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-hard);
+}
+[data-theme='dark'] .sheet { border-radius: 2px 2px 0 0; }
+
+/* The thread. The crew speak on the bubble colour with a seam hairline; you
+   speak in lamp — the board's colour for "you, and attention". Square-ish, with
+   one tucked corner pointing at the speaker. */
+[data-theme='dark'] .msg { border-radius: 3px; }
+[data-theme='dark'] .msg.assistant {
+  background: var(--surface-2);
+  border: 1px solid var(--seam);
+  border-top-left-radius: 0;
+}
+[data-theme='dark'] .msg.user {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-bottom-right-radius: 0;
+  font-weight: 700;
+}
+
+/* Chips and controls: flat, sharp, seam-edged; active in lamp. */
+[data-theme='dark'] .chip { border-radius: 2px; border-color: var(--seam); background: var(--surface-2); color: var(--text); }
+[data-theme='dark'] .chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+[data-theme='dark'] .tool-chip { border-radius: 2px; background: var(--surface); border: 1px solid var(--border); }
+[data-theme='dark'] .routed-chip { border-radius: 2px; background: transparent; border: 1px dashed var(--seam); }
+
+/* Inputs read as part of the room, not as a white box dropped into it. */
+[data-theme='dark'] textarea,
+[data-theme='dark'] input[type='text'],
+[data-theme='dark'] input:not([type]) {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--seam);
+  border-radius: 2px;
+}
+[data-theme='dark'] textarea:focus,
+[data-theme='dark'] input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Links and focus are lamp, as on the board. */
+[data-theme='dark'] a { color: var(--accent); }

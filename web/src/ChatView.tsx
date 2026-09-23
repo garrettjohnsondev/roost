@@ -494,16 +494,24 @@ export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek';
  *  animation IS. Motion only ever reflects real state: `type` while a reply is
  *  actually streaming, `think` while the engine is actually reasoning. Nothing
  *  loops on its own schedule. */
-function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: number }) {
+export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: number }) {
   const [failed, setFailed] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} />;
   const moving = pose === 'type' || pose === 'think';
+  const base = `/crew/${crew.sprite}`;
+  // Exactly ONE drawing visible at any moment. The frames are transparent, so a
+  // frame stacked over another does not hide it — the first version kept idle
+  // drawn underneath and a typing owl had four wings. A two-frame pose now
+  // alternates both frames in antiphase; a held pose draws only itself.
   return (
     <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
-      <img src={`/crew/${crew.sprite}-idle.webp`} alt="" onError={() => setFailed(true)} />
-      {moving && <img className="frame-b" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />}
-      {!moving && pose !== 'idle' && (
-        <img className="frame-static" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />
+      {moving ? (
+        <>
+          <img className="frame-a" src={`${base}-idle.webp`} alt="" onError={() => setFailed(true)} />
+          <img className="frame-b" src={`${base}-${pose}.webp`} alt="" />
+        </>
+      ) : (
+        <img src={`${base}-${pose}.webp`} alt="" onError={() => setFailed(true)} />
       )}
     </span>
   );
@@ -540,8 +548,14 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
           style={{ animationDelay: `${i * 220}ms` }}
           title={`${c.name} — ${c.model || c.agent}`}
         >
-          <span className="crew-wake-frames" style={{ animationDelay: `${i * 220}ms` }}>
-            <img src={`/crew/${c.sprite}-idle.webp`} alt="" />
+          <span
+            className={`crew-wake-frames${missing[`${c.sprite}-sleep`] ? ' no-sleep' : ''}${missing[`${c.sprite}-blink`] ? ' no-blink' : ''}`}
+            style={{ animationDelay: `${i * 220}ms` }}
+          >
+            {/* Each frame owns a window and is invisible outside it: sleep, then
+                blink, then idle. They used to be stacked with the upper ones
+                fading out, which drew a standing owl's ears behind a sleeping one. */}
+            <img className="wake-idle" src={`/crew/${c.sprite}-idle.webp`} alt="" style={{ animationDelay: `${i * 220}ms` }} />
             {!missing[`${c.sprite}-blink`] && (
               <img
                 className="wake-blink"

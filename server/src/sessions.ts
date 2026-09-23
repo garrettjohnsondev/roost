@@ -249,6 +249,7 @@ export class Session {
       boost: this.boost || undefined,
       contextOffer: this.contextOffer,
       recentCrew: this.recentCrew(),
+      lastLine: this.lastLine(),
       autoCompact: this.autoCompact || undefined,
       surplus: toSurplusInfo(quotaStore().surplus(this.agent, this.budget)),
     };
@@ -879,6 +880,20 @@ export class Session {
     }
   }
 
+  /** The last line said, read backwards off the transcript like recentCrew so it
+   *  cannot drift from what happened. Markdown is flattened to one line — the
+   *  home card has room for a sentence, not a code block. */
+  private lastLine(): { speaker: string | null; color?: string; text: string } | undefined {
+    for (let i = this.transcript.length - 1; i >= 0; i--) {
+      const e = this.transcript[i] as any;
+      if (e.type === 'user_message' && e.text) return { speaker: null, text: oneLine(e.text) };
+      if ((e.type === 'assistant_message' || e.type === 'consult') && e.text) {
+        return { speaker: e.crew?.name ?? null, color: e.crew?.color, text: oneLine(e.text) };
+      }
+    }
+    return undefined;
+  }
+
   /** Who last worked in this session, newest first, at most three.
    *
    *  Read backwards off the transcript rather than tracked separately, so it can
@@ -1124,4 +1139,15 @@ export class SessionManager {
     this.saveNow();
     return true;
   }
+}
+
+/** Markdown to a single readable line: code fences and markup dropped, whitespace
+ *  collapsed, capped. */
+function oneLine(s: string, max = 140): string {
+  const flat = s
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[#>*_`~\[\]()!|-]{1,3}/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return flat.length > max ? flat.slice(0, max - 1).trimEnd() + '…' : flat;
 }
