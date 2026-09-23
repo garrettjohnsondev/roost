@@ -11,3 +11,8 @@ web/public/avatars/raw-*.png
 
 # Per-task plan files written by build/plan mode; working artifacts, not source.
 .pocket/plans/
+
+# Vendored third-party skills installed by `npx skills add`. The LOCKFILE is
+# committed so the install is reproducible; the copied skill text is not ours.
+.agents/skills/
+.claude/skills/
