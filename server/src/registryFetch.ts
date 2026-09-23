@@ -1,6 +1,7 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { sendNotification } from './notify.js';
+import { describeDrift, loadAliases, noteResolution, saveAliases } from './aliasDrift.js';
 import {
   modelRegistry, fromCodexModelList, fromClaudeModelInfo,
   type ModelCard, type RegistryChange,
@@ -93,6 +94,29 @@ export async function refreshRegistry(cwd: string): Promise<RegistryChange[]> {
   });
 
   for (const c of changes) console.log(`[roost] ${describeChange(c)}`);
+
+  // Alias drift, from the roster rather than from a chat turn.
+  //
+  // The session hook catches this too, but only once you next use an agent —
+  // which is the wrong moment. The registry already knows: on 2026-09-22 the
+  // roster's `opus[1m]` went from resolving to claude-opus-5 to claude-opus-5-5
+  // with no id changing, and that is the only visible trace of a Claude release.
+  // Checking it here means the announcement lands when the model changes, not
+  // when you happen to open a session.
+  {
+    const store = loadAliases();
+    const drifts: string[] = [];
+    for (const card of reg.all()) {
+      if (!card.resolvedId) continue;
+      const d = noteResolution(store, { agent: card.agent, alias: card.id, resolved: card.resolvedId, at: Date.now() });
+      if (d) drifts.push(describeDrift(d));
+    }
+    saveAliases(store);
+    for (const line of drifts) console.log(`[roost] ${line}`);
+    if (drifts.length) {
+      sendNotification('alias-drift', drifts.length === 1 ? 'A model changed underneath an alias' : `${drifts.length} models changed`, drifts.join('\n'), { minIntervalMs: 60 * 60_000 });
+    }
+  }
 
   const loud = changes.filter(isNoteworthy);
   if (loud.length) {
