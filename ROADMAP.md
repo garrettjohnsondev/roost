@@ -388,15 +388,15 @@ Written 2026-09-22, after the rename. Everything above this line ships; everythi
 | # | Board demo | What it would report | In app |
 |---|---|---|---|
 | 1 | The stamp | a verify gate passing, landing with weight instead of appearing | ✅ |
-| 2 | Fuel actually draining | a quota window moving, animated from the real delta | ❌ |
-| 3 | Use it or lose it | a window about to reset with headroom left | ❌ |
-| 4 | Context rot, visible | colour draining from a crew member as their context fills | ❌ |
-| 5 | Commands type themselves | a dispatched command arriving character by character | ❌ |
-| 6 | The job folds | a finished chapter collapsing into its named row | ❌ |
+| 2 | Fuel actually draining | a quota window moving, animated from the real delta | ✅ |
+| 3 | Use it or lose it | a window about to reset with headroom left | ✅ |
+| 4 | Context rot, visible | colour draining from a crew member as their context fills | ✅ |
+| 5 | Commands type themselves | a dispatched command arriving character by character | ✅ |
+| 6 | The job folds | a finished chapter collapsing into its named row | ❌ — needs chapters, 12d |
 | 7 | An agent that needs you | an approval waiting — the `peek` pose | ✅ |
 | 8 | Finishing is worth something | a verify passing — the `cheer` pose | ✅ |
 
-**Three of the eight now ship** (1, 7, 8), built from frames that already existed: `cheer` on a gate that passed, `peek` while an approval waits, and the badge stamping rather than fading in. The remaining five need either new art or new plumbing.
+**Seven of the eight ship.** The eighth, the fold, is blocked on something real rather than on effort: the app has no chapters to fold — turns are one flat list — so it waits for 12d. Every one-shot fires only for items that arrived LIVE: opening a session replays its history, and a stamp and a cheer for every past verify the moment you open it would be motion reporting yesterday. Where history ends comes from the replay itself (`replayedCount`), not a clock — the phone's and the Mac's need not agree.
 
 **The constraint that makes this good rather than noisy**, and it is not negotiable: *motion reports state, it never decorates.* Every animation in the app is tied to something that actually happened, holds when it is done, and does not loop. Ambient movement on its own schedule is the commonest tell of a generated interface, and `doctrine.test.ts` fails the build on `infinite` in the wake-up block for exactly this reason. Fun and honest are not in tension here — the wake-up is the proof. What makes it land is that the crew really was idle and really did just get woken by you.
 

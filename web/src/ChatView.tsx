@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -164,6 +165,16 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       </div>
       {session.meta?.surplus && !session.meta.boost && (
         <div className="surplus-bar">
+          {/* Use it or lose it. The blocks that will expire unused pulse; the
+              ones already spent sit still. This repeats, and deliberately: the
+              risk persists until the window resets or you take the boost, and
+              either one removes the surplus from the meta and unmounts this —
+              so the pulse ends because its cause ended. */}
+          <span className="expiry-blocks" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className={`expiry-block${i >= 10 - expiringBlocks(session.meta!.surplus!.headroomPct) ? ' expiring' : ''}`} />
+            ))}
+          </span>
           <span>
             Spend it before it resets — {session.meta.surplus.headroomPct}% of your {session.meta.surplus.label} vanishes in{' '}
             {fmtMinutes(session.meta.surplus.minutesLeft)}.
@@ -192,6 +203,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           className={`context-bar ${session.context.pressure}`}
           title={session.context.categories?.map((c) => `${c.name}: ${fmtTokens(c.tokens)}`).join('\n')}
         >
+          {session.meta?.crew?.sprite && (
+            <span className="context-face" style={{ '--rot': rotFor(session.context.percent) } as React.CSSProperties}>
+              <SpriteAvatar crew={session.meta.crew} pose="idle" size={22} />
+            </span>
+          )}
           <span>
             Context {session.context.percent != null ? `${session.context.percent}%` : 'no data'}
             {session.context.usedTokens != null && session.context.maxTokens != null
@@ -245,7 +261,12 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       )}
 
-      <div className="messages" ref={scrollRef}>
+      <div
+        className="messages"
+        ref={scrollRef}
+        data-live-agent={session.meta?.agent}
+        style={{ '--rot': rotFor(session.context?.percent) } as React.CSSProperties}
+      >
         {(recap || recapLoading) && (
           <div className="recap-card">
             <div className="recap-header">Picking up from before</div>
@@ -257,7 +278,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           <CrewWakeUp crew={session.meta.recentCrew} />
         )}
         {session.items.map((item, i) => (
-          <Message key={i} item={item} crew={session.meta?.crew} me={me} />
+          <Message key={i} item={item} crew={session.meta?.crew} me={me} fresh={i >= session.replayedCount} />
         ))}
         {session.status === 'working' && !session.closedReason && (
           <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
@@ -478,7 +499,7 @@ function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: 
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} />;
   const moving = pose === 'type' || pose === 'think';
   return (
-    <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}`} style={{ width: size, height: size }}>
+    <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
       <img src={`/crew/${crew.sprite}-idle.webp`} alt="" onError={() => setFailed(true)} />
       {moving && <img className="frame-b" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />}
       {!moving && pose !== 'idle' && (
@@ -597,7 +618,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew, me }: { item: ChatItem; crew?: CrewInfo; me?: Me | null }) {
+function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: CrewInfo; me?: Me | null; fresh?: boolean }) {
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -631,7 +652,7 @@ function Message({ item, crew, me }: { item: ChatItem; crew?: CrewInfo; me?: Me 
     case 'thinking':
       return <ThinkingBlock text={item.text} open={item.open} crew={crew} />;
     case 'tool':
-      return <ToolChip item={item} />;
+      return <ToolChip item={item} fresh={fresh} />;
     case 'approval':
       return (
         <div className="tool-chip approval">
@@ -655,7 +676,7 @@ function Message({ item, crew, me }: { item: ChatItem; crew?: CrewInfo; me?: Me 
     case 'verify': {
       const r = item.report;
       return (
-        <div className={`verify-msg ${r.passed ? 'pass' : 'fail'}`}>
+        <div className={`verify-msg ${r.passed ? 'pass' : 'fail'}${fresh ? ' fresh' : ''}`}>
           <div className="verify-head">
             {/* Finishing is worth something. The cheer frame has existed, shipped
                 and unused, since the sprite work; this is the event it was drawn
@@ -728,7 +749,7 @@ function RenameField({ current, onRename }: { current: string; onRename: (title:
   );
 }
 
-function ToolChip({ item }: { item: Extract<ChatItem, { kind: 'tool' }> }) {
+function ToolChip({ item, fresh = false }: { item: Extract<ChatItem, { kind: 'tool' }>; fresh?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const expandable = Boolean(item.expand && (item.expand.before || item.expand.after || item.expand.raw));
   return (
@@ -738,7 +759,16 @@ function ToolChip({ item }: { item: Extract<ChatItem, { kind: 'tool' }> }) {
         onClick={() => expandable && setExpanded((v) => !v)}
       >
         <span className="tool-name">{item.name}</span>
-        <span className="tool-detail">{item.detail}</span>
+        {/* Commands type themselves — the ones being issued NOW. A replayed
+            transcript's commands are history and just appear. The reveal is a
+            stepped clip, so each step shows whole characters, and its length is
+            capped: a 400-character command must not take eight seconds to read. */}
+        <span
+          className={`tool-detail${fresh ? ' typing' : ''}`}
+          style={fresh ? ({ '--steps': typeSteps(item.detail), '--dur': `${typeDurationMs(item.detail)}ms` } as React.CSSProperties) : undefined}
+        >
+          {item.detail}
+        </span>
         {item.done && item.endDetail && <span className="tool-detail"> · {item.endDetail}</span>}
         {!item.done && <span className="spinner" />}
         {expandable && <span className="tool-expand-hint">{expanded ? '▴' : '▾'}</span>}

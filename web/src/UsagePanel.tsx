@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import type { AgentUsage, UsageSnapshot, WeightEstimate } from './types';
 import { fmtAgo, fmtCountdown, barColor, headroomNote } from './usageView';
+import { fuelBlocks } from './motion';
 
 function WeightLines({ usage, weights }: { usage: AgentUsage; weights: WeightEstimate[] }) {
   if (!weights.length) return null;
@@ -21,7 +22,7 @@ function WeightLines({ usage, weights }: { usage: AgentUsage; weights: WeightEst
   );
 }
 
-function AgentUsageBlock({ label, usage, weights = [] }: { label: string; usage: AgentUsage; weights?: WeightEstimate[] }) {
+function AgentUsageBlock({ label, usage, prev, weights = [] }: { label: string; usage: AgentUsage; prev?: AgentUsage; weights?: WeightEstimate[] }) {
   const note = headroomNote(usage);
   const stale = usage.headroom === 'stale';
   if (usage.windows.length === 0) {
@@ -53,11 +54,18 @@ function AgentUsageBlock({ label, usage, weights = [] }: { label: string; usage:
             </span>
           </div>
           {w.usedPercent != null && (
-            <div className="usage-bar-track">
-              <div
-                className="usage-bar-fill"
-                style={{ width: `${Math.min(100, w.usedPercent)}%`, background: barColor(w.usedPercent, w.status, usage.headroom) }}
-              />
+            // Fuel you can watch leave. Twenty blocks, and the ones spent since the
+            // last reading flare and then settle — an abstract percentage becomes
+            // a thing that went. Keyed on the reading so a new spend replays the
+            // flare, and it plays once: no timer, no loop.
+            <div className="fuel-blocks" key={`${w.key}:${w.usedPercent}`}>
+              {(fuelBlocks(prev?.windows.find((p) => p.key === w.key)?.usedPercent, w.usedPercent) ?? []).map((b, bi) => (
+                <span
+                  key={bi}
+                  className={`fuel-block ${b}`}
+                  style={b === 'free' ? undefined : { background: barColor(w.usedPercent!, w.status, usage.headroom) }}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -67,7 +75,9 @@ function AgentUsageBlock({ label, usage, weights = [] }: { label: string; usage:
 }
 
 export function UsagePanel() {
-  const [usage, setUsage] = useState<UsageSnapshot | null>(null);
+  const [snap, setSnap] = useState<{ now: UsageSnapshot | null; prev: UsageSnapshot | null }>({ now: null, prev: null });
+  const usage = snap.now;
+  const setUsage = (next: UsageSnapshot | null) => setSnap((s) => ({ prev: s.now, now: next }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadedOnce, setLoadedOnce] = useState(false);
@@ -115,8 +125,8 @@ export function UsagePanel() {
       {usage ? (
         <>
           <div className="usage-grid">
-            <AgentUsageBlock label="Claude" usage={usage.claude} weights={weights.filter((w) => w.agent === 'claude')} />
-            <AgentUsageBlock label="Codex" usage={usage.codex} weights={weights.filter((w) => w.agent === 'codex')} />
+            <AgentUsageBlock label="Claude" usage={usage.claude} prev={snap.prev?.claude} weights={weights.filter((w) => w.agent === 'claude')} />
+            <AgentUsageBlock label="Codex" usage={usage.codex} prev={snap.prev?.codex} weights={weights.filter((w) => w.agent === 'codex')} />
           </div>
           <div className="usage-updated">Updated {fmtAgo(usage.fetchedAt)}</div>
         </>

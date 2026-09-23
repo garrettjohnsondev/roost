@@ -4,6 +4,8 @@ import type { ChatItem, ClientMessage, ServerEvent, SessionMeta, UsageInfo, Cont
 
 export interface SessionState {
   items: ChatItem[];
+  /** Items before this index are replayed history; see SessionCore. */
+  replayedCount: number;
   meta: SessionMeta | null;
   status: 'idle' | 'working' | 'connecting' | 'error';
   connected: boolean;
@@ -101,10 +103,17 @@ export interface SessionCore {
   approvals: Array<NonNullable<SessionState['pendingApproval']>>;
   /** The engine's own context window, as last reported. null = no data. */
   context: ContextInfo | null;
+  /** How many items the last replay produced. Items at or past this index
+   *  arrived LIVE; the ones before it are history rebuilt when the session was
+   *  opened. Motion keys off this, never off timestamps: a stamp or a cheer
+   *  replaying for every past verify the moment you open a session would be
+   *  motion reporting yesterday, and the phone's clock and the Mac's need not
+   *  agree closely enough for a time window to tell the two apart. */
+  replayedCount: number;
 }
 
 export function initialCore(): SessionCore {
-  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [], context: null };
+  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [], context: null, replayedCount: 0 };
 }
 
 /** Everything the phone shows for a session, as a pure function of the events
@@ -133,7 +142,7 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
           statusMessage = e.message ?? null;
         }
       }
-      return { items, meta: event.meta, status, statusMessage, usage, approvals, context };
+      return { items, meta: event.meta, status, statusMessage, usage, approvals, context, replayedCount: items.length };
     }
     case 'session_meta':
       return { ...prev, meta: event.meta };
@@ -185,6 +194,7 @@ export function useSession(sessionId: string): SessionState {
     closedReason,
     statusMessage: core.statusMessage,
     context: core.context,
+    replayedCount: core.replayedCount,
     send: (msg) => socketRef.current?.send(msg) ?? false,
   };
 }

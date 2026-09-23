@@ -2081,7 +2081,9 @@ button {
 
 /* Finishing is worth something. A hop, once, when the pass lands — then still.
    `both` and no iteration count: it celebrates and stops, like a person. */
-.crew-sprite.pose-cheer { animation: cheer-hop 620ms cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+/* Only for a verdict arriving now. Opening a session replays every past verify,
+   and a cheer for each of them would be celebrating yesterday. */
+.verify-msg.fresh .crew-sprite.pose-cheer { animation: cheer-hop 620ms cubic-bezier(0.3, 1.5, 0.5, 1) both; }
 @keyframes cheer-hop {
   0% { transform: translateY(4px); }
   45% { transform: translateY(-7px); }
@@ -2102,7 +2104,7 @@ button {
 /* The stamp. The badge lands, it does not fade in — a gate result should arrive
    with the weight of a verdict. Scales the TEXT badge only, never the sprite
    beside it: pixel art at a non-integer scale blurs, even for 300ms. */
-.verify-msg.pass .verify-badge { animation: stamp-land 420ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.verify-msg.pass.fresh .verify-badge { animation: stamp-land 420ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
 @keyframes stamp-land {
   0% { transform: scale(1.8); opacity: 0; }
   55% { transform: scale(0.94); opacity: 1; }
@@ -2115,7 +2117,64 @@ button {
 .approval-head { display: flex; align-items: center; gap: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .crew-sprite.pose-cheer,
+  .verify-msg.fresh .crew-sprite.pose-cheer,
   .crew-sprite.pose-peek,
-  .verify-msg.pass .verify-badge { animation: none; }
+  .verify-msg.pass.fresh .verify-badge { animation: none; }
+}
+
+/* ---- Fuel, rot and expiry — three more of the eight ------------------------ */
+
+/* Fuel actually draining. Twenty blocks in the old track's footprint. The
+   blocks spent since the last reading FLARE — bright, lifted — then settle into
+   the ordinary used colour. `both`, once: the flare reports a spend and stops. */
+.fuel-blocks { display: flex; gap: 2px; height: 8px; margin-top: 4px; }
+.fuel-block { flex: 1 1 0; border-radius: 1px; background: color-mix(in srgb, var(--text-dim) 18%, transparent); }
+.fuel-block.spent { animation: fuel-flare 1.6s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+@keyframes fuel-flare {
+  0%   { filter: brightness(2.2) saturate(1.4); transform: translateY(-2px); box-shadow: 0 0 6px currentColor; }
+  35%  { filter: brightness(1.8) saturate(1.3); transform: translateY(-1px); }
+  100% { filter: none; transform: none; box-shadow: none; }
+}
+
+/* Context rot, visible. The live agent's faces lose colour and light past
+   `degrading`, and get them back when the context drains — the same trip the
+   compaction offer is about, shown on the character before the number.
+   An EASED transition is right here and nowhere else in the sprite work: it is
+   a colour grade over one drawn frame, not a fade between two frames, so it
+   invents no in-between drawing. */
+.messages[data-live-agent="claude"] .crew-sprite[data-agent="claude"],
+.messages[data-live-agent="codex"] .crew-sprite[data-agent="codex"],
+.context-face .crew-sprite {
+  filter: saturate(calc(1 - var(--rot, 0) * 0.85)) brightness(calc(1 - var(--rot, 0) * 0.3));
+  transition: filter 1.4s ease;
+}
+.context-face { display: inline-flex; align-items: center; margin-right: 6px; }
+.context-bar { align-items: center; }
+
+/* Use it or lose it. Expiring capacity breathes; kept capacity does not. */
+.expiry-blocks { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.expiry-block { width: 7px; height: 12px; border-radius: 1px; background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.expiry-block.expiring { background: #f4b63f; animation: expire-breathe 1.7s ease-in-out infinite; }
+@keyframes expire-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.28; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fuel-block.spent,
+  .expiry-block.expiring { animation: none; }
+  .context-face .crew-sprite,
+  .messages .crew-sprite { transition: none; }
+}
+
+/* Commands type themselves. A stepped clip reveals the command left to right in
+   whole-character jumps — a clip rather than a width, so it works on any font
+   and leaves the chip's own truncation alone. Plays once, on a live command. */
+.tool-detail.typing { animation: type-in var(--dur, 600ms) steps(var(--steps, 24), end) both; }
+@keyframes type-in {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-detail.typing { animation: none; }
 }

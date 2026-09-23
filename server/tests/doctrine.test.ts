@@ -216,7 +216,7 @@ describe('motion reports state — including the one case that repeats', () => {
     // Scaling pixel art on a non-integer factor blurs it, even for 300ms — so
     // the stamp scales the TEXT badge and leaves the crew member alone.
     const css = read('web/src/styles.css');
-    expect(css).toMatch(/\.verify-msg\.pass \.verify-badge \{ animation: stamp-land/);
+    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge \{ animation: stamp-land/);
     expect(css).not.toMatch(/\.verify-msg\.pass \.crew-sprite \{ animation/);
   });
 
@@ -236,10 +236,58 @@ describe('motion reports state — including the one case that repeats', () => {
   });
 
   it('holds every new pose still under reduced motion', () => {
+    // Every reduced-motion block, not just the last: reading only the final one
+    // broke the moment a later feature added its own.
     const css = read('web/src/styles.css');
-    const rm = css.slice(css.lastIndexOf('@media (prefers-reduced-motion'));
-    for (const sel of ['pose-cheer', 'pose-peek', 'verify-badge']) {
+    const rm = css.split('@media (prefers-reduced-motion').slice(1).map((b) => b.slice(0, 600)).join('\n');
+    for (const sel of ['pose-cheer', 'pose-peek', 'verify-badge', 'fuel-block.spent', 'expiry-block.expiring', 'tool-detail.typing']) {
       expect(rm, sel).toContain(sel);
     }
+  });
+})
+
+describe('the only things that repeat are states that persist', () => {
+  it('names every infinite animation, and each one has a cause that ends', () => {
+    // Waiting approval (peek) ends when you answer. Expiring surplus ends at the
+    // reset or when you take the boost. Typing and thinking end when the reply
+    // or the reasoning does. Loading spinners end when the load does. Anything
+    // else looping is decoration, and this list is where it would have to be
+    // justified.
+    const css = read('web/src/styles.css');
+    const looping = [...css.matchAll(/\n([^\n{}]+)\{[^}]*\binfinite\b/g)].map((m) => m[1].trim());
+    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-b/, /spin|pulse|working|loading/];
+    const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
+    expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
+  });
+
+  it('never flares fuel on a first sighting or a reset', () => {
+    // Pinned in the web workspace's motion.test.ts; restated here as doctrine so
+    // the rule sits beside the others it shares a reason with.
+    const m = read('web/src/motion.ts');
+    expect(m).toMatch(/prev == null \|\| !Number\.isFinite\(prev\) \|\| prev > now \? usedN/);
+  });
+
+  it('never greys out a character because the meter is offline', () => {
+    expect(read('web/src/motion.ts')).toMatch(/if \(percent == null \|\| !Number\.isFinite\(percent\)\) return 0;/);
+  });
+})
+
+describe('replayed history does not perform', () => {
+  it('knows where history ends from the replay itself, not from a clock', () => {
+    // The phone's clock and the Mac's need not agree closely enough for a time
+    // window to separate "just happened" from "happened before you opened this".
+    const s = read('web/src/useSession.ts');
+    expect(s).toMatch(/replayedCount: items\.length/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/fresh=\{i >= session\.replayedCount\}/);
+  });
+
+  it('gates every one-shot on freshness', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.verify-msg\.fresh \.crew-sprite\.pose-cheer \{ animation/);
+    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge \{ animation/);
+    expect(css).toMatch(/\.tool-detail\.typing \{ animation/);
+    // …and none of them fire on the un-gated selector.
+    expect(css).not.toMatch(/\n\.crew-sprite\.pose-cheer \{ animation/);
+    expect(css).not.toMatch(/\n\.verify-msg\.pass \.verify-badge \{ animation/);
   });
 })

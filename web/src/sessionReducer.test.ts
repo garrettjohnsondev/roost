@@ -69,3 +69,28 @@ describe('context meter', () => {
     expect(initialCore().context).toBeNull();
   });
 });
+
+describe('replayedCount — where history ends', () => {
+  it('marks everything from a replay as history, and anything after as live', async () => {
+    const { reduceSessionEvent, initialCore } = await import('./useSession');
+    const ts = 1;
+    let c = reduceSessionEvent(initialCore(), {
+      type: 'replay',
+      meta: null as any,
+      events: [
+        { type: 'user_message', text: 'a', imageCount: 0, ts },
+        { type: 'tool_start', toolId: 't1', name: 'Bash', detail: 'ls', ts },
+      ],
+    } as any);
+    expect(c.replayedCount).toBe(2);
+    c = reduceSessionEvent(c, { type: 'tool_start', toolId: 't2', name: 'Bash', detail: 'pwd', ts } as any);
+    expect(c.items.length).toBe(3);
+    // the new one is past the boundary, so it is live
+    expect(c.items.length - 1 >= c.replayedCount).toBe(true);
+  });
+
+  it('starts at zero, so a session with no replay treats everything as live', async () => {
+    const { initialCore } = await import('./useSession');
+    expect(initialCore().replayedCount).toBe(0);
+  });
+});
