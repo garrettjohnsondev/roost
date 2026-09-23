@@ -2398,3 +2398,42 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 [data-theme='dark'] .me-avatar { width: 34px; height: 34px; border-radius: 2px; border: 1px solid var(--seam); }
 [data-theme='dark'] .me-monogram { background: #2b3960 !important; color: var(--text); }
 [data-theme='dark'] .crew-row-face .crew-avatar { border-radius: 2px; border: 1px solid var(--seam); object-fit: cover; }
+
+/* ---- Chapters: the thread folded into its jobs ----------------------------- */
+.chapter { display: flex; flex-direction: column; align-self: stretch; }
+.chapter-row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 10px; border: 1px solid var(--border); border-radius: 2px;
+  background: var(--surface); box-shadow: var(--shadow-hard, none);
+}
+.chapter-faces { display: inline-flex; flex-shrink: 0; }
+.chapter-faces .crew-sprite + .crew-sprite,
+.chapter-faces .crew-avatar + .crew-avatar { margin-left: -8px; }
+.chapter-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.chapter-name {
+  font-family: var(--font-display, inherit); font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text);
+}
+.chapter-sub { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chapter-status { font-family: var(--font-display, inherit); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; color: var(--text-dim); }
+.chapter-status.verified { color: var(--ok); }
+.chapter-status.needs-work { color: var(--danger); }
+.chapter-status.awaiting { color: var(--accent); }
+.chapter-caret { color: var(--text-dim); flex-shrink: 0; }
+
+/* Folding needs no pixel height: the body is a one-row grid whose track goes
+   from 1fr to 0fr — the same fix the Effects board's fold tile needed. */
+.chapter-body { display: grid; grid-template-rows: 1fr; }
+.chapter-inner { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding-top: 10px; }
+.chapter.folded .chapter-body { grid-template-rows: 0fr; }
+.chapter.folded .chapter-inner { padding-top: 0; }
+/* The Effects board's eighth demo: a job that closes live folds itself — once,
+   after 1.8s, so the stamp and the cheer are seen first. */
+.chapter.folded.folding .chapter-body { animation: chapter-fold 700ms cubic-bezier(0.6, 0, 0.3, 1) 1.8s both; }
+.chapter.folded.folding .chapter-inner { animation: chapter-fold-pad 700ms cubic-bezier(0.6, 0, 0.3, 1) 1.8s both; }
+@keyframes chapter-fold { from { grid-template-rows: 1fr; } to { grid-template-rows: 0fr; } }
+@keyframes chapter-fold-pad { from { padding-top: 10px; } to { padding-top: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .chapter.folded.folding .chapter-body,
+  .chapter.folded.folding .chapter-inner { animation: none; }
+}

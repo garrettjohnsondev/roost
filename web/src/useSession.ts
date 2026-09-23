@@ -168,13 +168,15 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
   }
 }
 
-export function useSession(sessionId: string): SessionState {
+export function useSession(sessionId: string | null): SessionState {
   const [core, setCore] = useState<SessionCore>(initialCore);
   const [connected, setConnected] = useState(false);
   const [closedReason, setClosedReason] = useState<string | null>(null);
   const socketRef = useRef<SessionSocket | null>(null);
 
   useEffect(() => {
+    // No id: a fixture is being rendered, so there is nothing to connect to.
+    if (!sessionId) return;
     setClosedReason(null);
     setCore(initialCore());
     const handle = (event: ServerEvent) => setCore((prev) => reduceSessionEvent(prev, event));

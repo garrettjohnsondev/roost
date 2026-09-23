@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**374 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 339/339, web 35/35 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**386 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 342/342, web 44/44 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -387,7 +387,7 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 2. **The Roost logo is not liked** *(call-out, 2026-09-23)*. Direction to be chosen with the owner before anything is generated — three candidates were drawn once already and the chosen one missed.
    - *Home*: done 2026-09-23 — palette, type, crew strip with real sleep/awake state, conversation card, compact fuel.
    - *Thread*: done 2026-09-23 — the face beside the bubble (52px), name and model on one line above it, bubbles with the board's square tails, your square avatar; verified on a live Opus 5.5 turn at a true phone viewport.
-3. **Chapters** (12d) — a model for grouping the thread into jobs, which the last motion demo, the fold, is waiting on.
+3. ~~**Chapters**~~ — done 2026-09-23. A job runs from its first message until a verify passes, then folds into its named row (faces, name after the work, who and how many turns, status). A job that closes live stays open 1.8s so the stamp and cheer are seen, then folds; replayed history arrives folded. Client-side only: it changes what you see, never what the agents remember. The board's day grouping and week-folding are not built — transcripts do not survive a restart, so a thread rarely spans days yet. `?fixture=chapters` and `?fixture=chapters-live` render it on demand.
 4. **Faces for the other eight** (12b) — **Wren first**: Wren is Sonnet, the default chat model, so the crew member who speaks most has no drawn face.
 5. **Triage is failing to parse** *(found 2026-09-23; pulled forward because if it were routine, auto-routing would be silently off)*: one sample only — the decisions log holds a single route. A direct call to the classifier WORKS (Haiku thinks, then replies with fenced JSON the parser handles), so it did not reproduce. Made diagnosable instead of guessed at: a fallback now logs the model's raw reply, an empty reply reports "returned nothing" rather than "unparseable", and the SDK's final `result` text is used when no text block arrives. Reopen when a `triage-fallback` row appears in the decisions log.
 
@@ -406,7 +406,7 @@ Written 2026-09-22, after the rename. Everything above this line ships; everythi
 | 3 | Use it or lose it | a window about to reset with headroom left | ✅ |
 | 4 | Context rot, visible | colour draining from a crew member as their context fills | ✅ |
 | 5 | Commands type themselves | a dispatched command arriving character by character | ✅ |
-| 6 | The job folds | a finished chapter collapsing into its named row | ❌ — needs chapters, 12d |
+| 6 | The job folds | a finished chapter collapsing into its named row | ✅ |
 | 7 | An agent that needs you | an approval waiting — the `peek` pose | ✅ |
 | 8 | Finishing is worth something | a verify passing — the `cheer` pose | ✅ |
 

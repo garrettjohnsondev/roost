@@ -338,3 +338,27 @@ describe('one drawing on screen at a time', () => {
     expect(css).toMatch(/\.crew-wake-frames \.wake-idle \{ animation: wake-show-late/);
   });
 })
+
+describe('chapters change what you see, never what the agents remember', () => {
+  it('derives chapters on the client, from the items alone', () => {
+    // The board: "this only changes what you see, never what the agents
+    // remember." So nothing about chapters may reach the server or the engines.
+    const ch = read('web/src/chapters.ts');
+    expect(ch).not.toMatch(/fetch\(|send\(|WebSocket/);
+    for (const f of ['server/src/sessions.ts', 'server/src/protocol.ts']) {
+      expect(read(f), f).not.toMatch(/chapter/i);
+    }
+  });
+
+  it('folds a job that closed live only after the celebration has been seen', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.chapter\.folded\.folding \.chapter-body \{ animation: chapter-fold 700ms [^;]* 1\.8s both; \}/);
+    // and replayed history arrives already folded — no performance
+    expect(read('web/src/ChatView.tsx')).toMatch(/foldingNow=\{ch\.status === 'verified' && ch\.end - 1 >= session\.replayedCount\}/);
+  });
+
+  it('folds with a grid track, never a pixel height a font can outgrow', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/@keyframes chapter-fold \{ from \{ grid-template-rows: 1fr; \} to \{ grid-template-rows: 0fr; \} \}/);
+  });
+})

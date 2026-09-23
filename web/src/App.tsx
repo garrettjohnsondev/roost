@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
+import { FIXTURES } from './fixtures';
 import { api } from './api';
 import { useTheme } from './theme';
 import type { RoostConfigResponse } from './types';
@@ -29,6 +30,13 @@ export function App() {
   useEffect(() => {
     api.config().then(setConfig).catch((e) => setError(String(e.message ?? e)));
   }, []);
+
+  // Design review: `?fixture=<name>` renders a canned thread through the real
+  // ChatView, with no socket and no server calls.
+  const fixtureName = new URLSearchParams(window.location.search).get('fixture');
+  if (fixtureName && FIXTURES[fixtureName] && config) {
+    return <ChatView sessionId="fixture" config={config} onBack={() => {}} onSwitch={() => {}} fixture={FIXTURES[fixtureName]()} />;
+  }
 
   if (error) return <div className="center-note">Cannot reach the Roost server: {error}</div>;
   if (!config) return <div className="center-note">Connecting…</div>;

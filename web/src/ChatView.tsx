@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
+import { chaptersOf, type Chapter } from './chapters';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
-import { useSession } from './useSession';
+import { useSession, type SessionState } from './useSession';
 import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage } from './types';
 
 const SWITCHER_LIMIT = 5;
@@ -50,9 +51,11 @@ function SessionSwitcher(props: { currentId: string; onPick: (id: string) => voi
   );
 }
 
-export function ChatView(props: { sessionId: string; config: RoostConfigResponse; onBack: () => void; onSwitch: (id: string) => void }) {
-  const { sessionId, config, onBack, onSwitch } = props;
-  const session = useSession(sessionId);
+export function ChatView(props: { sessionId: string; config: RoostConfigResponse; onBack: () => void; onSwitch: (id: string) => void; fixture?: SessionState }) {
+  const { sessionId, config, onBack, onSwitch, fixture } = props;
+  // A fixture is a canned thread for design review — no socket, no server calls.
+  const live = useSession(fixture ? null : sessionId);
+  const session = fixture ?? live;
   const [showSettings, setShowSettings] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showGit, setShowGit] = useState(false);
@@ -278,9 +281,33 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {session.meta?.recentCrew && session.meta.recentCrew.length > 0 && (
           <CrewWakeUp crew={session.meta.recentCrew} />
         )}
-        {session.items.map((item, i) => (
-          <Message key={i} item={item} crew={session.meta?.crew} me={me} fresh={i >= session.replayedCount} />
-        ))}
+        {(() => {
+          // The thread folded into the jobs it did (the Chapters board). One job
+          // renders as a plain conversation; with more than one, each gets its
+          // named row, and a verified job folds into it.
+          const chapters = chaptersOf(session.items);
+          const many = chapters.length > 1;
+          return chapters.map((ch, ci) => {
+            const rows = session.items.slice(ch.start, ch.end).map((item, k) => {
+              const i = ch.start + k;
+              return <Message key={i} item={item} crew={session.meta?.crew} me={me} fresh={i >= session.replayedCount} />;
+            });
+            const last = ci === chapters.length - 1;
+            const awaiting = last && (!!session.pendingApproval || !!session.meta?.consultPending);
+            if (ch.status !== 'verified' && !many) return <React.Fragment key={ch.start}>{rows}</React.Fragment>;
+            return (
+              <ChapterFold
+                key={ch.start}
+                chapter={ch}
+                awaiting={awaiting}
+                // it closed LIVE, so it folds visibly — after the celebration
+                foldingNow={ch.status === 'verified' && ch.end - 1 >= session.replayedCount}
+              >
+                {rows}
+              </ChapterFold>
+            );
+          });
+        })()}
         {session.status === 'working' && !session.closedReason && (
           <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
         )}
@@ -959,4 +986,42 @@ function fmtTokens(n: number): string {
 export function crewAsking(title: string, crew?: CrewInfo | null): string {
   if (!crew?.name) return title;
   return title.replace(/^(Claude|Codex)(?=\s)/, crew.name);
+}
+
+/** One job's row, and the job folded behind it (the Chapters board).
+ *
+ *  A verified job folds; an open one stays open. The fold is the last of the
+ *  Effects board's eight: when a job closes LIVE it collapses into its named row
+ *  — after a pause long enough for the stamp and the cheer, or the celebration
+ *  would be tucked out of sight the instant it happened. A job that closed
+ *  before you opened the session is simply folded; replayed history does not
+ *  perform. Tapping the row opens or closes it, and that choice wins over the
+ *  default. Nothing here touches what the agents remember. */
+function ChapterFold({ chapter, awaiting, foldingNow, children }: { chapter: Chapter; awaiting: boolean; foldingNow: boolean; children: React.ReactNode }) {
+  const [choice, setChoice] = useState<boolean | null>(null); // true = open, false = folded
+  const verified = chapter.status === 'verified';
+  const folded = choice === null ? verified : !choice;
+  const status = verified ? 'Verified' : chapter.status === 'needs-work' ? 'Needs work' : awaiting ? 'Awaiting you' : 'In progress';
+  return (
+    <div className={`chapter ${folded ? 'folded' : 'open'}${foldingNow && choice === null ? ' folding' : ''}`}>
+      <button className="chapter-row" onClick={() => setChoice(folded)} aria-expanded={!folded}>
+        <span className="chapter-faces">
+          {chapter.crew.slice(0, 3).map((c) => (
+            <SpriteAvatar key={c.name} crew={c} pose="idle" size={28} />
+          ))}
+        </span>
+        <span className="chapter-text">
+          <span className="chapter-name">{chapter.name}</span>
+          <span className="chapter-sub">
+            {chapter.crew.map((c) => c.name).join(', ') || 'You'} · {chapter.turns} turn{chapter.turns === 1 ? '' : 's'}
+          </span>
+        </span>
+        <span className={`chapter-status ${chapter.status}${awaiting ? ' awaiting' : ''}`}>{status}</span>
+        <span className="chapter-caret" aria-hidden="true">{folded ? '▸' : '▾'}</span>
+      </button>
+      <div className="chapter-body">
+        <div className="chapter-inner">{children}</div>
+      </div>
+    </div>
+  );
 }
