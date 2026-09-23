@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
+import { nameColor } from './color';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -482,7 +483,7 @@ export function avatarUrl(avatar?: string): string | null {
 
 /** The poses the drawn sets ship. `idle` is the resting frame every animation
  *  cuts back to. */
-export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek';
+export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep';
 
 /** A drawn crew member, animated by CUTTING between two frames rather than
  *  cross-fading them.
@@ -575,7 +576,7 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
               />
             )}
           </span>
-          <span className="crew-wake-name" style={{ color: c.color }}>{c.name}</span>
+          <span className="crew-wake-name" style={{ color: nameColor(c.color) }}>{c.name}</span>
         </span>
       ))}
     </div>
@@ -590,7 +591,7 @@ function CrewHeader({ crew, pose, size = 46 }: { crew: CrewInfo; pose: Pose; siz
     <div className="crew-header">
       <SpriteAvatar crew={crew} pose={pose} size={size} />
       <span className="crew-ident">
-        <span className="crew-ident-name" style={{ color: crew.color }}>{crew.name}</span>
+        <span className="crew-ident-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
         <span className="crew-ident-sub">
           {crew.model || crew.agent}
           {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
@@ -625,7 +626,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   return (
     <span className="crew-chip" title={`${crew.name} · ${crew.roleLabel} · ${crew.model || crew.agent}`}>
       <CrewAvatar crew={crew} />
-      <span className="crew-name" style={{ color: crew.color }}>{crew.name}</span>
+      <span className="crew-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
       <span className="crew-role">{crew.roleLabel}</span>
       {sub && <span className="crew-sub">{sub}</span>}
     </span>
@@ -681,7 +682,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       return (
         <div className="routed-chip">
           {item.crew && <SpriteAvatar crew={item.crew} pose="idle" size={22} />}
-          {item.crew && <strong style={{ color: item.crew.color }}>{item.crew.name}</strong>}
+          {item.crew && <strong style={{ color: nameColor(item.crew.color) }}>{item.crew.name}</strong>}
           {item.crew ? ' sent this to ' : `⚡ ${item.tier} · routed to `}
           <strong>{item.model}</strong>
           {item.reason ? ` — ${item.reason}` : ''}

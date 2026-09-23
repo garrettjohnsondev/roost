@@ -74,7 +74,58 @@ function AgentUsageBlock({ label, usage, prev, weights = [] }: { label: string; 
   );
 }
 
-export function UsagePanel() {
+/** The board's FUEL line: per vendor, the TIGHTEST window only — the one that
+ *  will stop you first — as blocks, with when it resets. The full table is one
+ *  tap away; the home screen should not open on a spreadsheet. */
+function FuelSummary({ usage, prev, onExpand }: { usage: UsageSnapshot; prev: UsageSnapshot | null; onExpand: () => void }) {
+  const rows = (['claude', 'codex'] as const).map((agent) => {
+    const u = usage[agent];
+    const known = u.windows.filter((w) => w.usedPercent != null);
+    // `known` holds only windows with a reading, so the comparison needs no
+    // fallback — and a zero default on a percent is exactly what the doctrine bans.
+    const tight = known.sort((a, b) => b.usedPercent! - a.usedPercent!)[0];
+    const was = tight ? prev?.[agent]?.windows.find((w) => w.key === tight.key)?.usedPercent : undefined;
+    return { agent, u, tight, was };
+  });
+  return (
+    <section className="card fuel">
+      <div className="usage-header">
+        <h2>Fuel</h2>
+        <button className="chip" onClick={onExpand}>Details</button>
+      </div>
+      {rows.map(({ agent, u, tight, was }) => (
+        <div key={agent} className={`fuel-row${u.headroom === 'stale' ? ' usage-window-stale' : ''}`}>
+          <div className="fuel-row-top">
+            <span className={`fuel-agent ${agent}`}>{agent}</span>
+            {tight ? (
+              <span className="fuel-pct">{tight.usedPercent}%</span>
+            ) : (
+              // Unknown renders as unknown — never as an empty, reassuring bar.
+              <span className="fuel-pct fuel-none">no data</span>
+            )}
+          </div>
+          {tight && (
+            <div className="fuel-when">
+              {tight.label}
+              {tight.resetsAt ? ` · ${fmtCountdown(tight.resetsAt)}` : ''}
+              {u.headroom === 'stale' ? ` · seen ${fmtAgo(tight.observedAt)}` : ''}
+            </div>
+          )}
+          {tight && (
+            <div className="fuel-blocks" key={`${tight.key}:${tight.usedPercent}`}>
+              {(fuelBlocks(was, tight.usedPercent) ?? []).map((b, i) => (
+                <span key={i} className={`fuel-block ${b}`} style={b === 'free' ? undefined : { background: barColor(tight.usedPercent!, tight.status, u.headroom) }} />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export function UsagePanel({ compact = false }: { compact?: boolean }) {
+  const [expanded, setExpanded] = useState(!compact);
   const [snap, setSnap] = useState<{ now: UsageSnapshot | null; prev: UsageSnapshot | null }>({ now: null, prev: null });
   const usage = snap.now;
   const setUsage = (next: UsageSnapshot | null) => setSnap((s) => ({ prev: s.now, now: next }));
@@ -112,6 +163,9 @@ export function UsagePanel() {
   }
 
   if (!loadedOnce) return null;
+  if (compact && !expanded && usage) {
+    return <FuelSummary usage={usage} prev={snap.prev} onExpand={() => setExpanded(true)} />;
+  }
 
   return (
     <section className="card usage-card">

@@ -6,8 +6,60 @@ import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
 import { DecisionsPanel } from './DecisionsPanel';
+import { SpriteAvatar, type Pose } from './ChatView';
+import { nameColor } from './color';
 import type { Theme } from './theme';
-import type { AgentKind, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
+import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
+
+/** The crew, as the board draws them: faces first, before any number.
+ *
+ *  Their pose is their real state and nothing else. Working in a live session:
+ *  typing. Present in one: awake. Otherwise they are asleep — which is what makes
+ *  waking them, when a session opens, mean something. Only the characters with
+ *  drawn faces are shown; the rest would be pool avatars standing in for art
+ *  that does not exist yet. */
+function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
+  const [crew, setCrew] = useState<CrewInfo[]>([]);
+  useEffect(() => {
+    fetch('/api/crew')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const seen = new Set<string>();
+        const drawn: CrewInfo[] = [];
+        for (const p of [...(d.crew ?? []), ...(d.dispatcher ? [d.dispatcher] : [])]) {
+          if (!p.sprite || seen.has(p.name)) continue;
+          seen.add(p.name);
+          drawn.push({ name: p.name, color: p.color, sprite: p.sprite, avatar: p.avatar, agent: p.suite ?? 'claude',
+            initial: (p.name[0] ?? 'A').toUpperCase(), role: '', roleLabel: '', tier: p.tier, model: '' });
+        }
+        setCrew(drawn);
+      })
+      .catch(() => { /* the strip is a greeting, not a dependency */ });
+  }, []);
+  if (!crew.length) return null;
+  const poseOf = (name: string): Pose => {
+    if (sessions.some((s) => s.state === 'working' && s.crew?.name === name)) return 'type';
+    if (sessions.some((s) => s.crew?.name === name || s.recentCrew?.some((c) => c.name === name))) return 'idle';
+    return 'sleep';
+  };
+  return (
+    <section className="crew-strip" aria-label="The crew">
+      <div className="crew-strip-faces">
+        {crew.map((c) => {
+          const pose = poseOf(c.name);
+          return (
+            <div key={c.name} className={`crew-strip-member ${pose}`} title={`${c.name} — ${pose === 'sleep' ? 'asleep' : pose === 'type' ? 'working' : 'awake'}`}>
+              <SpriteAvatar crew={c} pose={pose} size={58} />
+              <span className="crew-strip-name" style={{ color: pose === 'sleep' ? undefined : nameColor(c.color) }}>{c.name}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="crew-strip-label">The crew</div>
+    </section>
+  );
+}
 
 function ChangesBadge({ summary, onOpen }: { summary?: GitSummary; onOpen: () => void }) {
   if (!summary || (summary.files === 0 && summary.ahead === 0)) return null;
@@ -207,7 +259,7 @@ export function SessionList(props: {
             <img className="brand-icon" src="/icon-192.png" alt="" />
             <div>
               <h1>Roost</h1>
-              <span className="subtitle">your laptop, in your roost</span>
+              <span className="subtitle">your crew, mid-conversation</span>
             </div>
           </div>
           <button className="ghost" onClick={() => setShowSettings(true)}>
@@ -216,23 +268,32 @@ export function SessionList(props: {
         </div>
       </header>
 
-      <UsagePanel />
-      <DecisionsPanel />
+      <CrewStrip sessions={sessions} />
 
       {sessions.length > 0 && (
         <section className="card">
-          <h2>Active now</h2>
+          <h2>Now</h2>
           <p className="section-hint">
-            Live and instantly ready. Closes automatically after {config.sessionIdleTimeoutHours}h with no activity, or tap ✕.
+            Closes after {config.sessionIdleTimeoutHours}h idle, or tap ✕.
           </p>
           {sessions.map((s) => (
             <div key={s.id} className="session-row">
-              <button className="session-open" onClick={() => onOpen(s.id)}>
-                <span className={`agent-dot ${s.agent}`} />
-                <span className="session-title">{s.title}</span>
-                <span className="session-sub">
-                  {s.agent} · {shortPath(s.cwd)} · {fmtAgo(s.updatedAt)}
+              <button className="session-open convo" onClick={() => onOpen(s.id)}>
+                <span className="convo-top">
+                  <span className="convo-project">{projectName(s.cwd)}</span>
+                  <span className="convo-time">{fmtAgo(s.updatedAt)}</span>
                 </span>
+                <span className="session-title">{s.title}</span>
+                {s.lastLine && (
+                  <span className="convo-line">
+                    <strong style={{ color: nameColor(s.lastLine.color) ?? 'var(--accent)' }}>{s.lastLine.speaker ?? 'You'}:</strong> {s.lastLine.text}
+                  </span>
+                )}
+                {s.state === 'working' && s.crew && (
+                  <span className="convo-typing">
+                    {s.crew.name} is typing<span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>
+                  </span>
+                )}
               </button>
               <ChangesBadge summary={gitSummaries[s.cwd]} onOpen={() => setGitSheetFor(s.cwd)} />
               {s.state === 'working' ? (
@@ -252,9 +313,11 @@ export function SessionList(props: {
         </section>
       )}
 
+      <UsagePanel compact />
+
       {visibleRecent.length > 0 && (
         <section className="card">
-          <h2>Recent</h2>
+          <h2>Earlier</h2>
           <p className="section-hint">History from past sessions. Tap one to see a free recap before reopening it.</p>
           <div className="recent-list">
             {visibleRecent.map((p) => (
@@ -262,10 +325,8 @@ export function SessionList(props: {
                 <button className="recent-main" disabled={busy} onClick={() => setPreviewing(p)}>
                   <span className={`agent-dot ${p.lastAgent}`} />
                   <span className="recent-info">
-                    <span className="recent-project">{shortPath(p.path)}</span>
-                    <span className="recent-title">
-                      {p.lastAgent} · {p.lastTitle}
-                    </span>
+                    <span className="recent-title">{p.lastTitle}</span>
+                    <span className="recent-project">{projectName(p.path)} · {p.lastAgent}</span>
                   </span>
                   <span className="recent-time">{fmtAgo(p.lastActivity)}</span>
                 </button>
@@ -278,7 +339,7 @@ export function SessionList(props: {
 
       <section className="card">
         <button className="new-session-toggle" onClick={() => setShowNewSession((v) => !v)}>
-          <h2>Start something new</h2>
+          <h2>Start something</h2>
           <span className="ghost">{showNewSession ? '︿' : '﹀'}</span>
         </button>
         {showNewSession && (
@@ -376,6 +437,14 @@ export function SessionList(props: {
         />
       )}
 
+      {/* The harness's own record of what it decided and why. It is the evidence
+          Phase 4 needs, not something to greet you with — so it lives at the
+          bottom, folded, rather than second on the page. */}
+      <details className="card ledger">
+        <summary>What the crew decided</summary>
+        <DecisionsPanel />
+      </details>
+
       {showSettings && (
         <GlobalSettings
           theme={theme}
@@ -403,4 +472,10 @@ export function SessionList(props: {
       )}
     </div>
   );
+}
+
+/** The last path segment — "agent sync", not "/Volumes/PortableSSD/agent sync". */
+function projectName(cwd: string): string {
+  const parts = cwd.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? cwd;
 }

@@ -255,7 +255,8 @@ describe('the only things that repeat are states that persist', () => {
     // justified.
     const css = read('web/src/styles.css');
     const looping = [...css.matchAll(/\n([^\n{}]+)\{[^}]*\binfinite\b/g)].map((m) => m[1].trim());
-    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /spin|pulse|working|loading/];
+    // typing-dots: shown only while a session's state is `working`, so it ends when the turn does.
+    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /typing-dots/, /spin|pulse|working|loading/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
