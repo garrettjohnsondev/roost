@@ -379,6 +379,17 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 ## 12. Open — what is not built yet
 
+### 12.0 Where we are — the working order
+
+Kept here so a fix never becomes a detour that loses the thread. Work top to bottom; add call-outs here the moment they are raised, not after.
+
+1. **The app does not look like the boards** *(call-out, 2026-09-23)*. On the phone it says Roost and shows the crew, but almost nothing else matches the design canvas — the palette, the type, the thread, home, chapters, the gauge. The motion shipped into an interface that still looks like the old Pocket. This is 12d, and it is the main event rather than a side item.
+2. **The Roost logo is not liked** *(call-out, 2026-09-23)*. Direction to be chosen with the owner before anything is generated — three candidates were drawn once already and the chosen one missed.
+3. **Chapters** (12d) — a model for grouping the thread into jobs, which the last motion demo, the fold, is waiting on.
+4. **Faces for the other eight** (12b).
+
+
+
 Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
 
 ### 12a. Motion — the stream with the most pull behind it
