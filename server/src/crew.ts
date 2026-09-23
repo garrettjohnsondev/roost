@@ -84,7 +84,7 @@ const DEFAULTS: Persona[] = [
   { match: 'nano', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png', sprite: 'tuck' },
   { match: 'luna', suite: 'codex', name: 'Bly', tier: 'worker', color: '#5b7c99', avatar: '/avatars/honeybee.png', sprite: 'bly' },
   { match: 'terra', suite: 'codex', name: 'Rue', tier: 'worker', color: '#2d6a4f', avatar: '/avatars/hot-air-balloon.png', sprite: 'rue' },
-  { match: 'astra', suite: 'codex', name: 'Nell', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png' },
+  { match: 'astra', suite: 'codex', name: 'Nell', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png', sprite: 'nell' },
   { match: 'sol', suite: 'codex', name: 'Juno', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png', sprite: 'juno' },
   { match: 'codex', suite: 'codex', name: 'Juno', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png', sprite: 'juno' },
   { match: 'gpt-5.5', suite: 'codex', name: 'Otto', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png', sprite: 'otto' },
