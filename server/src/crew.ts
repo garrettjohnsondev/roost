@@ -74,7 +74,7 @@ export interface CrewMember extends Persona {
  *  that share a name (Tuck, Juno, Otto) share a face: one identity, one look. */
 const DEFAULTS: Persona[] = [
   // --- Claude ---
-  { match: 'fable', suite: 'claude', name: 'Bram', tier: 'flagship', color: '#5b45c7', avatar: '/avatars/fox.png' },
+  { match: 'fable', suite: 'claude', name: 'Bram', tier: 'flagship', color: '#5b45c7', avatar: '/avatars/fox.png', sprite: 'bram' },
   { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72', avatar: '/avatars/narwhal.png', sprite: 'ollie' },
   { match: 'haiku', suite: 'claude', name: 'Moss', tier: 'worker', color: '#205a1d', avatar: '/avatars/mountain-goat.png', sprite: 'moss' },
   { match: 'sonnet', suite: 'claude', name: 'Wren', tier: 'worker', color: '#673eb4', avatar: '/avatars/compass-rose.png', sprite: 'wren' },
