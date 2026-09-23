@@ -91,7 +91,7 @@ const DEFAULTS: Persona[] = [
 
   // Suite defaults, last.
   { match: '', suite: 'codex', name: 'Otto', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png', sprite: 'otto' },
-  { match: '', suite: 'claude', name: 'Fig', tier: 'worker', color: '#0f766e', avatar: '/avatars/owl.png' },
+  { match: '', suite: 'claude', name: 'Fig', tier: 'worker', color: '#0f766e', avatar: '/avatars/owl.png', sprite: 'fig' },
 ];
 
 /** Pip is not a model — Pip is the dispatcher.
