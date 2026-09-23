@@ -334,7 +334,13 @@ export class Session {
       const taskKind = classifyKind(text);
       const effortPick = chooseEffort({
         tier: decision.tier, kind: taskKind, agent: this.agent, headroom: mine.headroom.state,
-        surplus: this.boost && !!mine.surplus, configured: target.effort ?? null, supported: card?.efforts ?? null, adaptive: false,
+        surplus: this.boost && !!mine.surplus, configured: target.effort ?? null, supported: card?.efforts ?? null,
+        // Opus 5.5 and Fable 5.1 have adaptive thinking ALWAYS ON. chooseEffort
+        // has handled this since Phase 4b -- it returns 'model chooses its own
+        // thinking budget' -- and the branch was unreachable because this call
+        // site passed a hardcoded false. Forcing a fixed effort onto a model
+        // that budgets its own is the exact thing that code exists to avoid.
+        adaptive: card?.adaptiveThinking ?? false,
       });
       const newEffort = effortPick.effort;
       // chooseEffort's reason was computed every turn and dropped on the floor,

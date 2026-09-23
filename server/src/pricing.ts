@@ -32,10 +32,33 @@ export interface PricedTokens {
 
 /** First hit wins, so narrower patterns come first. There is deliberately NO
  *  catch-all: an unmatched model returns basis 'unknown' and costs null. */
+/** Rates from the official model table, read 2026-09-22, in $/MTok.
+ *
+ *  The previous three rows were stale in two different ways and both produced
+ *  confident wrong numbers rather than honest nulls: sonnet was priced at 3/15
+ *  against a published 2/10, and ONE row matched /opus|fable/ at 15/75 while
+ *  those are two models at 4/20 and 10/50 — overstating Opus by nearly 4x.
+ *
+ *  Each pattern matches two things and nothing else: the pinned id
+ *  (`claude-opus-5-5`) and the BARE ALIAS anchored at the start (`opus`,
+ *  `opus[1m]`), because Roost's own registry exposes Claude as aliases and a
+ *  version-only pattern would leave every real call unpriced.
+ *
+ *  A legacy model — `claude-opus-5`, `claude-sonnet-4-5`, `claude-fable-5` —
+ *  deliberately matches NOTHING and comes back `unknown` with a null cost. That
+ *  is the correct answer rather than a gap: this file does not have their
+ *  published rates, and an alias-shaped pattern that swallowed them would price
+ *  a legacy Opus at its successor's rate. Claude reports its own authoritative
+ *  cost per call anyway; this table is the fallback for when it does not. */
 const PRICE_TABLE: Array<{ match: RegExp; label: string } & Price> = [
-  { match: /haiku/i, label: 'claude-haiku', input: 1, output: 5 },
-  { match: /sonnet/i, label: 'claude-sonnet', input: 3, output: 15 },
-  { match: /opus|fable/i, label: 'claude-opus-class', input: 15, output: 75 },
+  { match: /haiku-4-5|^haiku/i, label: 'claude-haiku-4-5', input: 1, output: 5, cacheRead: 0.1 },
+  { match: /sonnet-5|^sonnet/i, label: 'claude-sonnet-5', input: 2, output: 10, cacheRead: 0.2 },
+  // Cache reads are NOT a flat 10% of input: the published rate is 2.5% on
+  // Fable 5.1 and 5% on Opus 5.5. The generic fallback below would have charged
+  // both at 10%, overstating a cached Fable read by 4x — and cached reads are
+  // most of the input on a long agent session, so it is not a rounding error.
+  { match: /fable-5-1|^fable/i, label: 'claude-fable-5-1', input: 10, output: 50, cacheRead: 0.25 },
+  { match: /opus-5-5|^opus/i, label: 'claude-opus-5-5', input: 4, output: 20, cacheRead: 0.2 },
 ];
 
 interface OverrideRow extends Price {

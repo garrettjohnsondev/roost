@@ -85,8 +85,8 @@ describe('savings — the honesty contract', () => {
     expect(s.soloUsd).toBeGreaterThan(s.actualUsd);
     expect(s.savedPct).toBeGreaterThan(0);
     expect(s.basis).toBe('sdk');
-    // 1M in + 100k out at opus 15/75 = 15 + 7.5
-    expect(s.soloUsd).toBeCloseTo(22.5, 2);
+    // 1M in + 100k out at the published Opus 5.5 rate of 4/20 = 4 + 2
+    expect(s.soloUsd).toBeCloseTo(6, 2);
   });
 
   it('returns null when the work was already done at flagship rates', () => {
