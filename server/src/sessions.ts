@@ -367,7 +367,12 @@ export class Session {
       }
       if (changed) {
         const why = [reason, decision.reason, effortReason].filter(Boolean).join('; ');
-        this.pushEvent({ type: 'routed', model: target.model, tier: decision.tier, reason: why, ts: now() });
+        this.pushEvent({
+          type: 'routed', model: target.model, tier: decision.tier, reason: why,
+          // Pip dispatched this, so Pip says it. Until now the routing turn was
+          // the only one in the thread with nobody's name on it.
+          crew: crewMember(t.agent, t.model, 'dispatcher'), ts: now(),
+        });
         this.broadcastMeta();
       }
     } catch (err: any) {
@@ -803,6 +808,16 @@ export class Session {
   /** One-shots (triage, plan, review, reconcile, diff review) were invisible
    *  to the ledger -- the orchestrator's own turns are the line item nobody
    *  budgets for, and they were not even counted. */
+  /** The crew hat behind each orchestrator role, so per-PERSONA spend names a
+   *  person rather than inheriting the live chat's. Triage is Pip's: the
+   *  dispatcher is the one deciding who goes in. */
+  private static LEDGER_ROLE: Record<string, CrewRole> = {
+    triage: 'dispatcher',
+    plan: 'planner',
+    reconcile: 'planner',
+    review: 'reviewer',
+  };
+
   private ledgerCall(d: CallDelta, role: string): void {
     const priced =
       d.costUsd != null
@@ -816,7 +831,7 @@ export class Session {
       agent: d.agent,
       model: d.model,
       role,
-      persona: crewMember(d.agent, d.model, this.currentRole as CrewRole).name,
+      persona: crewMember(d.agent, d.model, Session.LEDGER_ROLE[role] ?? 'executor').name,
       tier: this.lastTier,
       inTok: d.inTok,
       outTok: d.outTok,

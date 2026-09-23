@@ -4,11 +4,11 @@ import { dataDir } from './config.js';
 import type { AgentKind } from './protocol.js';
 
 /** Every model is a named crew member, so the chat reads like a team rather
- *  than a list of model ids: "Sending Larry in to build the UI." Ported from
+ *  than a list of model ids: "Sending Moss in to build the UI." Ported from
  *  agent-sync's personas.js, which already had the idea and the cast.
  *
  *  PERSONA is WHO (tied to suite + model). ROLE is WHAT HAT they are wearing on
- *  this task. The same model is Sunny whether she is planning or reviewing;
+ *  this task. The same model is Wren whether they are planning or reviewing;
  *  the role badge is what changes. */
 
 export type CrewRole = 'chat' | 'planner' | 'reviewer' | 'executor' | 'explorer' | 'tester' | 'dispatcher';
@@ -53,14 +53,17 @@ export interface CrewMember extends Persona {
 
 /** Order matters — first match wins, so narrower ids come first.
  *
- *  Naming rule: a model that HAS a name of its own keeps it (Fable, Sol, Luna,
- *  Terra, Astra) — that way a newly released model gets an obvious persona and
- *  nothing is silently absorbed into another character. Unnamed//generic models
- *  wear the cast's names (Sunny, Larry, Bolt, Rex, Ace).
+ *  Naming rule, REVERSED from the first cut: the crew owns its names and the
+ *  vendors own theirs. Borrowing a model's id for a persona (Fable, Sol, Luna,
+ *  Terra, Astra) meant your crew got renamed whenever OpenAI or Anthropic
+ *  renamed a model, and it made half the cast words rather than names. Now every
+ *  persona is a name from one family — short, warm, a little old-fashioned — and
+ *  `match` is purely the routing key. A model rename moves a model between
+ *  characters; it never renames a character.
  *
  *  The bug this ordering fixes: a generic /gpt-5/ pattern swallowed
  *  gpt-5.6-luna, gpt-5.6-terra AND gpt-5.5, so three distinct models all
- *  rendered as Sol. */
+ *  rendered as one persona. */
 /** Every crew member arrives with a face. Thirty avatars were generated,
  *  deployed and served -- and assigned to nobody, so all fourteen rendered as
  *  monogram letters and you would have had to hand-pick a face for each in
@@ -68,28 +71,39 @@ export interface CrewMember extends Persona {
  *
  *  Each face is the unused pool avatar whose background is nearest the
  *  persona's established colour, so the name chip and the face agree. Personas
- *  that share a name (Bolt, Sol, Rex) share a face: one identity, one look. */
+ *  that share a name (Tuck, Juno, Otto) share a face: one identity, one look. */
 const DEFAULTS: Persona[] = [
-  // --- Claude, named ---
-  { match: 'fable', suite: 'claude', name: 'Fable', tier: 'flagship', color: '#5b45c7', avatar: '/avatars/fox.png' },
-  { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72', avatar: '/avatars/narwhal.png' , sprite: 'ollie'},
-  { match: 'haiku', suite: 'claude', name: 'Larry', tier: 'worker', color: '#205a1d', avatar: '/avatars/mountain-goat.png' , sprite: 'larry'},
-  { match: 'sonnet', suite: 'claude', name: 'Sunny', tier: 'worker', color: '#673eb4', avatar: '/avatars/compass-rose.png' },
+  // --- Claude ---
+  { match: 'fable', suite: 'claude', name: 'Bram', tier: 'flagship', color: '#5b45c7', avatar: '/avatars/fox.png' },
+  { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72', avatar: '/avatars/narwhal.png', sprite: 'ollie' },
+  { match: 'haiku', suite: 'claude', name: 'Moss', tier: 'worker', color: '#205a1d', avatar: '/avatars/mountain-goat.png', sprite: 'moss' },
+  { match: 'sonnet', suite: 'claude', name: 'Wren', tier: 'worker', color: '#673eb4', avatar: '/avatars/compass-rose.png' },
 
-  // --- Codex, named models keep their own names ---
-  { match: 'mini', suite: 'codex', name: 'Bolt', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
-  { match: 'nano', suite: 'codex', name: 'Bolt', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
-  { match: 'luna', suite: 'codex', name: 'Luna', tier: 'worker', color: '#5b7c99', avatar: '/avatars/honeybee.png' },
-  { match: 'terra', suite: 'codex', name: 'Terra', tier: 'worker', color: '#2d6a4f', avatar: '/avatars/hot-air-balloon.png' },
-  { match: 'astra', suite: 'codex', name: 'Astra', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png' },
-  { match: 'sol', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' , sprite: 'sol'},
-  { match: 'codex', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' , sprite: 'sol'},
-  { match: 'gpt-5.5', suite: 'codex', name: 'Rex', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png' },
+  // --- Codex ---
+  { match: 'mini', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
+  { match: 'nano', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
+  { match: 'luna', suite: 'codex', name: 'Bly', tier: 'worker', color: '#5b7c99', avatar: '/avatars/honeybee.png' },
+  { match: 'terra', suite: 'codex', name: 'Rue', tier: 'worker', color: '#2d6a4f', avatar: '/avatars/hot-air-balloon.png' },
+  { match: 'astra', suite: 'codex', name: 'Nell', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png' },
+  { match: 'sol', suite: 'codex', name: 'Juno', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png', sprite: 'juno' },
+  { match: 'codex', suite: 'codex', name: 'Juno', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png', sprite: 'juno' },
+  { match: 'gpt-5.5', suite: 'codex', name: 'Otto', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png' },
 
   // Suite defaults, last.
-  { match: '', suite: 'codex', name: 'Rex', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png' },
-  { match: '', suite: 'claude', name: 'Ace', tier: 'worker', color: '#0f766e', avatar: '/avatars/owl.png' },
+  { match: '', suite: 'codex', name: 'Otto', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png' },
+  { match: '', suite: 'claude', name: 'Fig', tier: 'worker', color: '#0f766e', avatar: '/avatars/owl.png' },
 ];
+
+/** Pip is not a model — Pip is the dispatcher.
+ *
+ *  Every other persona answers "which model is this"; Pip answers "who is
+ *  running this". Pip does the triage, says which crew member is going in, and
+ *  is the one who greets you, so the identity belongs to the ROLE rather than to
+ *  any engine. Carried over from agent-sync, where Pip was the concierge on the
+ *  setup screen and the only character the product had a voice for. */
+export const DISPATCHER: Persona = {
+  match: '', name: 'Pip', tier: 'worker', color: '#c9803a', avatar: '/avatars/beacon.png',
+};
 
 const overridesFile = () => join(dataDir(), 'crew.json');
 
@@ -135,12 +149,14 @@ export function personaFor(agent: AgentKind, model: string | undefined | null): 
   const list = allPersonas().filter((p) => !p.suite || p.suite === agent);
   return (
     list.find((p) => p.match && m.includes(p.match.toLowerCase())) ??
-    list.find((p) => p.match === '') ?? { match: '', name: 'Agent', tier: 'worker', color: '#6b7280' }
+    list.find((p) => p.match === '') ?? { match: '', name: 'Crew', tier: 'worker', color: '#6b7280' }
   );
 }
 
 export function crewMember(agent: AgentKind, model: string | undefined | null, role: CrewRole): CrewMember {
-  const p = personaFor(agent, model);
+  // The one role that is a WHO rather than a hat: whoever is dispatching is Pip,
+  // whichever engine the triage call happened to run on.
+  const p = role === 'dispatcher' ? DISPATCHER : personaFor(agent, model);
   return {
     ...p,
     role,
@@ -154,7 +170,7 @@ export function crewMember(agent: AgentKind, model: string | undefined | null, r
 /** Roster text for flagship prompts, so they narrate with names instead of
  *  model ids. Straight port of agent-sync's rosterBlock(). */
 export function rosterBlock(resources: { claudeModels?: string[]; codexAvailable?: boolean; codexModels?: string[] }): string {
-  const lines = ['## Your crew (use these names when talking to the human — e.g. "Sending Larry in to build the UI")'];
+  const lines = ['## Your crew (use these names when talking to the human — e.g. "Sending Moss in to build the UI")'];
   for (const model of resources.claudeModels ?? []) {
     const p = personaFor('claude', model);
     lines.push(`- ${p.name} — claude ${model} (${p.tier})`);

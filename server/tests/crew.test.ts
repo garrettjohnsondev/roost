@@ -14,24 +14,24 @@ afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
 describe('personaFor', () => {
   it('names the Claude cast', () => {
-    expect(personaFor('claude', 'claude-fable-5').name).toBe('Fable');
+    expect(personaFor('claude', 'claude-fable-5').name).toBe('Bram');
     expect(personaFor('claude', 'claude-opus-5').name).toBe('Ollie');
-    expect(personaFor('claude', 'claude-sonnet-4-5').name).toBe('Sunny');
-    expect(personaFor('claude', 'claude-haiku-4-5').name).toBe('Larry');
+    expect(personaFor('claude', 'claude-sonnet-4-5').name).toBe('Wren');
+    expect(personaFor('claude', 'claude-haiku-4-5').name).toBe('Moss');
   });
 
   it('names the Codex cast', () => {
-    expect(personaFor('codex', 'gpt-5.6-sol').name).toBe('Sol');
-    expect(personaFor('codex', 'gpt-5-codex').name).toBe('Sol');
-    expect(personaFor('codex', 'gpt-5.4-mini').name).toBe('Bolt');
+    expect(personaFor('codex', 'gpt-5.6-sol').name).toBe('Juno');
+    expect(personaFor('codex', 'gpt-5-codex').name).toBe('Juno');
+    expect(personaFor('codex', 'gpt-5.4-mini').name).toBe('Tuck');
   });
 
-  // A generic /gpt-5/ pattern used to swallow all three of these into Sol.
+  // A generic /gpt-5/ pattern used to swallow all three of these into Juno.
   it('gives every named model its own identity', () => {
-    expect(personaFor('codex', 'gpt-5.6-luna').name).toBe('Luna');
-    expect(personaFor('codex', 'gpt-5.6-terra').name).toBe('Terra');
-    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Astra');
-    expect(personaFor('codex', 'gpt-5.5').name).toBe('Rex');
+    expect(personaFor('codex', 'gpt-5.6-luna').name).toBe('Bly');
+    expect(personaFor('codex', 'gpt-5.6-terra').name).toBe('Rue');
+    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Nell');
+    expect(personaFor('codex', 'gpt-5.5').name).toBe('Otto');
     const names = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-5.6-sol'].map((m) => personaFor('codex', m).name);
     expect(new Set(names).size).toBe(4); // no two models share a face
   });
@@ -39,23 +39,23 @@ describe('personaFor', () => {
   // The model actually running on this machine, which appears in NEITHER of
   // pocket.config.json's two disagreeing model lists.
   it('recognises gpt-6-astra rather than falling through to the suite default', () => {
-    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Astra');
+    expect(personaFor('codex', 'gpt-6-astra').name).toBe('Nell');
     expect(personaFor('codex', 'gpt-6-astra').tier).toBe('flagship');
   });
 
-  it('checks mini before the flagship patterns so gpt-5.4-mini is not Sol', () => {
-    expect(personaFor('codex', 'gpt-5.4-mini').name).toBe('Bolt');
-    expect(personaFor('codex', 'gpt-6-nano').name).toBe('Bolt');
+  it('checks mini before the flagship patterns so gpt-5.4-mini is not Juno', () => {
+    expect(personaFor('codex', 'gpt-5.4-mini').name).toBe('Tuck');
+    expect(personaFor('codex', 'gpt-6-nano').name).toBe('Tuck');
   });
 
   it('falls back to a per-suite default rather than guessing', () => {
-    expect(personaFor('codex', 'something-unheard-of').name).toBe('Rex');
-    expect(personaFor('claude', 'something-unheard-of').name).toBe('Ace');
+    expect(personaFor('codex', 'something-unheard-of').name).toBe('Otto');
+    expect(personaFor('claude', 'something-unheard-of').name).toBe('Fig');
   });
 
   it('never leaks a persona across suites', () => {
     // 'sonnet' is a Claude row; a codex model must not pick it up.
-    expect(personaFor('codex', 'sonnet-ish-model').name).not.toBe('Sunny');
+    expect(personaFor('codex', 'sonnet-ish-model').name).not.toBe('Wren');
   });
 
   it('carries a brand colour for every default', () => {
@@ -73,7 +73,7 @@ describe('crewMember', () => {
   });
 
   it('provides a monogram initial for the avatar fallback', () => {
-    expect(crewMember('claude', 'haiku', 'executor').initial).toBe('L');
+    expect(crewMember('claude', 'haiku', 'executor').initial).toBe('M');
   });
 });
 
@@ -92,22 +92,22 @@ describe('overrides', () => {
     resetCrewCache();
     expect(personaFor('claude', 'llama-4-maverick').name).toBe('Llama');
     // ...without clobbering the built-ins
-    expect(personaFor('claude', 'claude-fable-5').name).toBe('Fable');
+    expect(personaFor('claude', 'claude-fable-5').name).toBe('Bram');
   });
 
   it('survives a corrupt overrides file', () => {
     writeFileSync(join(tmp, '.pocket-data', 'crew.json'), '{not json');
     resetCrewCache();
-    expect(personaFor('claude', 'claude-fable-5').name).toBe('Fable');
+    expect(personaFor('claude', 'claude-fable-5').name).toBe('Bram');
   });
 });
 
 describe('rosterBlock', () => {
   it('lists names for the prompt so flagships narrate with them', () => {
     const block = rosterBlock({ claudeModels: ['haiku', 'sonnet'], codexAvailable: true, codexModels: ['gpt-6-astra'] });
-    expect(block).toMatch(/Larry — claude haiku/);
-    expect(block).toMatch(/Sunny — claude sonnet/);
-    expect(block).toMatch(/Astra — codex gpt-6-astra/);
+    expect(block).toMatch(/Moss — claude haiku/);
+    expect(block).toMatch(/Wren — claude sonnet/);
+    expect(block).toMatch(/Nell — codex gpt-6-astra/);
   });
 
   it('omits codex entirely when it is not available', () => {
@@ -140,3 +140,40 @@ describe('the crew arrives wearing faces', () => {
     expect(distinct.size).toBe(byName.size);
   });
 });
+
+describe('Pip is the dispatcher, not a model', () => {
+  it('answers to the dispatcher role on either engine', () => {
+    // Every other persona answers "which model is this". Pip answers "who is
+    // running this", so the identity follows the ROLE, not the engine that
+    // happened to run the triage call.
+    expect(crewMember('claude', 'claude-haiku-4-5', 'dispatcher').name).toBe('Pip');
+    expect(crewMember('codex', 'gpt-5.4-mini', 'dispatcher').name).toBe('Pip');
+  });
+
+  it('leaves every other role to the model persona', () => {
+    expect(crewMember('claude', 'claude-haiku-4-5', 'executor').name).toBe('Moss');
+    expect(crewMember('codex', 'gpt-5-codex', 'planner').name).toBe('Juno');
+  });
+
+  it('is not reachable by model id — no model may become Pip', () => {
+    for (const m of ['pip', 'gpt-5-pip', 'claude-pip-1', '', 'anything']) {
+      expect(personaFor('claude', m).name).not.toBe('Pip');
+      expect(personaFor('codex', m).name).not.toBe('Pip');
+    }
+  });
+})
+
+describe('the crew owns its names, the vendors own theirs', () => {
+  it('shares no name with any model id it routes', () => {
+    // The old rule borrowed model ids for personas, so a vendor rename renamed
+    // your crew. Nothing in the pool may be a substring of a model id again.
+    const ids = ['claude-fable-5-1', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5',
+                 'gpt-5.6-sol', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-5.5', 'gpt-5-codex'];
+    const names = [...new Set([...allPersonas().map((p) => p.name), 'Pip'])];
+    for (const n of names) {
+      for (const id of ids) {
+        expect(id.includes(n.toLowerCase()), `${n} appears inside model id ${id}`).toBe(false);
+      }
+    }
+  });
+})

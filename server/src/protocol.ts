@@ -179,7 +179,7 @@ export type ServerEvent =
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
-  | { type: 'routed'; model: string; tier: string; reason: string; ts: number }
+  | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; ts: number }
   | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }

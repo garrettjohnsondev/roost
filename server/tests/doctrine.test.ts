@@ -133,3 +133,26 @@ describe('the crew animates by cutting, not fading', () => {
     expect((crew.match(/sprite: '/g) ?? []).length).toBe(4); // sol appears twice
   });
 })
+
+describe('per-persona spend names the right person', () => {
+  it('credits an orchestrator call to its own role, not the live chat’s', () => {
+    // ledgerCall(d, 'triage') recorded the role correctly and then derived the
+    // PERSONA from this.currentRole, so a triage, plan or review call was
+    // credited to whoever was chatting. Half of Phase 4's "per-role and
+    // per-persona spend" was one bucket wearing two labels.
+    const s = read('server/src/sessions.ts');
+    const body = s.slice(s.indexOf('private ledgerCall('), s.indexOf('private ledgerCall(') + 1400);
+    expect(body).toMatch(/persona: crewMember\(d\.agent, d\.model, Session\.LEDGER_ROLE\[role\]/);
+    expect(body).not.toMatch(/persona: crewMember\(d\.agent, d\.model, this\.currentRole/);
+  });
+
+  it('files triage under the dispatcher so Pip is credited for routing', () => {
+    expect(read('server/src/sessions.ts')).toMatch(/triage: 'dispatcher'/);
+  });
+
+  it('puts a name on the routing turn', () => {
+    // It was the only line in the thread with nobody's name on it, which is odd
+    // for the decision that picks who does the work.
+    expect(read('server/src/sessions.ts')).toMatch(/crew: crewMember\(t\.agent, t\.model, 'dispatcher'\)/);
+  });
+})

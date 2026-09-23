@@ -18,11 +18,11 @@ describe('session reducer', () => {
   it('tracks usage, status and its message', () => {
     const c = reduce([
       { type: 'usage', usage: { inputTokens: 10, outputTokens: 2 }, ts },
-      { type: 'status', state: 'working', message: 'Sunny is drafting a plan…', ts },
+      { type: 'status', state: 'working', message: 'Wren is drafting a plan…', ts },
     ]);
     expect(c.usage).toEqual({ inputTokens: 10, outputTokens: 2 });
     expect(c.status).toBe('working');
-    expect(c.statusMessage).toBe('Sunny is drafting a plan…');
+    expect(c.statusMessage).toBe('Wren is drafting a plan…');
     expect(reduceSessionEvent(c, { type: 'status', state: 'idle', ts }).statusMessage).toBeNull();
   });
 

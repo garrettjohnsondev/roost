@@ -77,7 +77,7 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       break;
     }
     case 'routed':
-      next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, ts: event.ts });
+      next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, crew: event.crew, ts: event.ts });
       break;
     case 'consult':
       next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });

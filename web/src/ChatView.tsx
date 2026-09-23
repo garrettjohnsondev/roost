@@ -545,9 +545,15 @@ function Message({ item, crew }: { item: ChatItem; crew?: CrewInfo }) {
         </div>
       );
     case 'routed':
+      // The dispatcher's own turn. It used to be the only line in the thread
+      // with nobody's name on it, which is odd for the decision that picks who
+      // does the work.
       return (
         <div className="routed-chip">
-          ⚡ {item.tier} · routed to <strong>{item.model}</strong>
+          {item.crew && <SpriteAvatar crew={item.crew} pose="idle" size={22} />}
+          {item.crew && <strong style={{ color: item.crew.color }}>{item.crew.name}</strong>}
+          {item.crew ? ' sent this to ' : `⚡ ${item.tier} · routed to `}
+          <strong>{item.model}</strong>
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
