@@ -302,9 +302,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       {session.pendingApproval && (
         <div className="sheet-backdrop">
           <div className="sheet">
-            <h3>
-              {session.pendingApproval.title}
-              {session.pendingApprovalCount > 1 ? ` · ${session.pendingApprovalCount - 1} more waiting` : ''}
+            <h3 className="approval-head">
+              {/* An agent that needs you. The peek pose — crouched, leaning in,
+                  reading — is what "I am waiting on you" looks like, and it has
+                  been drawn and unreferenced until now. */}
+              {session.meta?.crew?.sprite && (
+                <SpriteAvatar crew={session.meta.crew} pose="peek" size={34} />
+              )}
+              <span>
+                {session.pendingApproval.title}
+                {session.pendingApprovalCount > 1 ? ` · ${session.pendingApprovalCount - 1} more waiting` : ''}
+              </span>
             </h3>
             <pre className="approval-detail">{session.pendingApproval.detail}</pre>
             <div className="sheet-actions">
@@ -470,7 +478,7 @@ function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: 
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} />;
   const moving = pose === 'type' || pose === 'think';
   return (
-    <span className={`crew-sprite${moving ? ' moving' : ''}`} style={{ width: size, height: size }}>
+    <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}`} style={{ width: size, height: size }}>
       <img src={`/crew/${crew.sprite}-idle.webp`} alt="" onError={() => setFailed(true)} />
       {moving && <img className="frame-b" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />}
       {!moving && pose !== 'idle' && (
@@ -649,6 +657,13 @@ function Message({ item, crew, me }: { item: ChatItem; crew?: CrewInfo; me?: Me 
       return (
         <div className={`verify-msg ${r.passed ? 'pass' : 'fail'}`}>
           <div className="verify-head">
+            {/* Finishing is worth something. The cheer frame has existed, shipped
+                and unused, since the sprite work; this is the event it was drawn
+                for. Only on a PASS — a failed gate gets no celebration, which is
+                the whole point of having a gate. */}
+            {r.passed && crew?.sprite && (
+              <SpriteAvatar crew={crew} pose="cheer" size={30} />
+            )}
             <span className="verify-badge">{r.passed ? 'PASSED' : 'FAILED'}</span> {r.summary}
           </div>
           {r.tampered && <div className="verify-tamper">Gate definitions changed during this session — this result cannot be trusted.</div>}

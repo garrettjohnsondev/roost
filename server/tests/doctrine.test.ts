@@ -199,3 +199,47 @@ describe('the wake-up runs once, then stops', () => {
     expect(read('server/src/sessions.ts')).toMatch(/seen\.has\(c\.name\)/);
   });
 })
+
+describe('motion reports state — including the one case that repeats', () => {
+  const block = (name: string) => {
+    const css = read('web/src/styles.css');
+    const i = css.indexOf(name);
+    return css.slice(i, css.indexOf('@keyframes', i + name.length + 40));
+  };
+
+  it('celebrates once and stops, like a person', () => {
+    expect(block('.crew-sprite.pose-cheer')).toMatch(/both/);
+    expect(block('.crew-sprite.pose-cheer')).not.toMatch(/infinite/);
+  });
+
+  it('stamps the badge, never the sprite beside it', () => {
+    // Scaling pixel art on a non-integer factor blurs it, even for 300ms — so
+    // the stamp scales the TEXT badge and leaves the crew member alone.
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.verify-msg\.pass \.verify-badge \{ animation: stamp-land/);
+    expect(css).not.toMatch(/\.verify-msg\.pass \.crew-sprite \{ animation/);
+  });
+
+  it('only celebrates a gate that actually passed', () => {
+    // A failed gate getting a cheer would undo the reason for having a gate.
+    const c = read('web/src/ChatView.tsx');
+    expect(c).toMatch(/\{r\.passed && crew\?\.sprite && \(/);
+  });
+
+  it('lets exactly one pose repeat, because its state persists', () => {
+    // An approval waits until you answer, so the motion waits with it. This is
+    // the rule applied, not an exception: every other animation in the app ends
+    // because the thing it reports ends.
+    const css = read('web/src/styles.css');
+    const repeating = [...css.matchAll(/\.crew-sprite\.pose-([a-z]+) \{ animation:[^}]*infinite/g)].map((m) => m[1]);
+    expect(repeating).toEqual(['peek']);
+  });
+
+  it('holds every new pose still under reduced motion', () => {
+    const css = read('web/src/styles.css');
+    const rm = css.slice(css.lastIndexOf('@media (prefers-reduced-motion'));
+    for (const sel of ['pose-cheer', 'pose-peek', 'verify-badge']) {
+      expect(rm, sel).toContain(sel);
+    }
+  });
+})

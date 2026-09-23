@@ -375,7 +375,53 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 ---
 
-## 12. Review backlog — what shipped, what remains
+## 12. Open — what is not built yet
+
+Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
+
+### 12a. Motion — the stream with the most pull behind it
+
+**The `Effects` board is a proposal, not a feature.** It demonstrates eight pieces of information-carrying motion. Roost's stylesheet contains **six** `@keyframes` — `spin`, `pulse`, and the four added with the crew (`sprite-cut`, `wake-rise`, `wake-hide`, `wake-hide-late`). **None of the eight board demos exist in the app.** The gap, named honestly:
+
+| # | Board demo | What it would report | In app |
+|---|---|---|---|
+| 1 | The stamp | a verify gate passing, landing with weight instead of appearing | ✅ |
+| 2 | Fuel actually draining | a quota window moving, animated from the real delta | ❌ |
+| 3 | Use it or lose it | a window about to reset with headroom left | ❌ |
+| 4 | Context rot, visible | colour draining from a crew member as their context fills | ❌ |
+| 5 | Commands type themselves | a dispatched command arriving character by character | ❌ |
+| 6 | The job folds | a finished chapter collapsing into its named row | ❌ |
+| 7 | An agent that needs you | an approval waiting — the `peek` pose | ✅ |
+| 8 | Finishing is worth something | a verify passing — the `cheer` pose | ✅ |
+
+**Three of the eight now ship** (1, 7, 8), built from frames that already existed: `cheer` on a gate that passed, `peek` while an approval waits, and the badge stamping rather than fading in. The remaining five need either new art or new plumbing.
+
+**The constraint that makes this good rather than noisy**, and it is not negotiable: *motion reports state, it never decorates.* Every animation in the app is tied to something that actually happened, holds when it is done, and does not loop. Ambient movement on its own schedule is the commonest tell of a generated interface, and `doctrine.test.ts` fails the build on `infinite` in the wake-up block for exactly this reason. Fun and honest are not in tension here — the wake-up is the proof. What makes it land is that the crew really was idle and really did just get woken by you.
+
+**Beyond the eight**, motion that would carry information Roost already has and currently renders as text:
+- **A handoff between vendors** — the Claude member stepping back as the Codex member steps in, on a cross-vendor review. Roost does this several times a task and it reads as a flat list of turns.
+- **Effort, visible** — the `think` pose held longer and heavier at `xhigh` than at `low`. The chooser's reason is now in the transcript; the body language is not.
+- **Someone being sent out** — a dispatched subagent leaving the roll-call and returning with something.
+- **The gate refusing** — a dispatch blocked at 98% quota should *look* refused, not print a sentence.
+- **Sleeping on idle** — the crew drifting back to the `sleep` pose after a long quiet spell, so waking them means something. This is the one case where a timer is arguably legitimate; it needs care, because it is also the one closest to ambient decoration.
+
+### 12b. Faces for the other eight
+
+Three of eleven personas have drawn sets: **Ollie**, **Moss**, **Juno**. **Bram, Wren, Fig, Tuck, Bly, Rue, Nell** and **Otto** render as pool avatars, and **Pip** — the dispatcher, the character with the most screen time after the rename — has no drawn face at all. Six poses each at roughly 0.04% of the Codex weekly window per image; the full set is about 54 images.
+
+### 12c. The design canvas is stale
+
+`claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn` still says **Pocket** throughout and shows **Sol** and **Larry**, who no longer exist. Nine boards. It is the reference for work not yet built, so it being wrong is a live hazard rather than cosmetic.
+
+### 12d. The reference boards' language is not in the app
+
+`Home`, `Chapters`, `Control`, `Context` and `Roadmap` propose a visual language — the fuel gauge, the folded chapter, the effort control, the context meter — that the app's panels do not use. Deferred deliberately when the thread was chosen first.
+
+### 12e. The roadmap still drifts by hand
+
+This file claimed 114 tests at 200, then 200 at 275, then 275 at 305 — twice in a single session. The `Roadmap` board's proposal is to generate phases from the status table, the count from the suite and corrections from the log, so it cannot flatter anyone. Not built.
+
+## 13. Review backlog — what shipped, what remains
 
 From the 2026-09-21 review. Confirmed findings that were neither silent data corruption nor unsafe actions, so they followed the P0/P1 batches rather than led them.
 
