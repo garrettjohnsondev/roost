@@ -409,19 +409,19 @@ Written 2026-09-22, after the rename. Everything above this line ships; everythi
 
 ### 12b. Faces for the other eight
 
-Three of eleven personas have drawn sets: **Ollie**, **Moss**, **Juno**. **Bram, Wren, Fig, Tuck, Bly, Rue, Nell** and **Otto** render as pool avatars, and **Pip** — the dispatcher, the character with the most screen time after the rename — has no drawn face at all. Six poses each at roughly 0.04% of the Codex weekly window per image; the full set is about 54 images.
+**Pip has a face** (2026-09-23): seven poses, framed within the crew's own range (89–99% of the frame, like the others), so the dispatcher wakes, types, thinks and cheers with everyone else. Four drawn crew now — Ollie, Moss, Juno, Pip. **Bram, Wren, Fig, Tuck, Bly, Rue, Nell** and **Otto** are still on pool avatars, about 56 images at roughly 0.04% of the Codex weekly window each.
 
-### 12c. The design canvas is stale
+### 12c. ~~The design canvas is stale~~ — done 2026-09-23
 
-`claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn` still says **Pocket** throughout and shows **Sol** and **Larry**, who no longer exist. Nine boards. It is the reference for work not yet built, so it being wrong is a live hazard rather than cosmetic.
+Version 16 says Roost throughout. Every "Larry" was renamed by what the row DOES rather than by find-and-replace: the one sizing the job is now **Pip** — with Pip's face and colour on the rows where the name is a label — and the one doing work is **Moss**. The Codex reviewer is **Juno** on `gpt-5.6-sol` rather than on Nell's model, and Ollie's model line reads `opus 5.5`. The first pass reported "no retired names left" and was wrong: it matched case-sensitively and the boards set names in Silkscreen capitals.
 
 ### 12d. The reference boards' language is not in the app
 
 `Home`, `Chapters`, `Control`, `Context` and `Roadmap` propose a visual language — the fuel gauge, the folded chapter, the effort control, the context meter — that the app's panels do not use. Deferred deliberately when the thread was chosen first.
 
-### 12e. The roadmap still drifts by hand
+### 12e. ~~The roadmap still drifts by hand~~ — done 2026-09-23
 
-This file claimed 114 tests at 200, then 200 at 275, then 275 at 305 — twice in a single session. The `Roadmap` board's proposal is to generate phases from the status table, the count from the suite and corrections from the log, so it cannot flatter anyone. Not built.
+`npm run roadmap` writes the status line from both suites and the typecheck, with a provenance comment, and writes "N passing, M FAILING" and exits 1 rather than claiming green over a red suite. A doctrine test fails if the machine marker is missing. The phases table and corrections log are still hand-kept; the count was the part that kept lying.
 
 ## 13. Review backlog — what shipped, what remains
 

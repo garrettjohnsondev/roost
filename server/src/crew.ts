@@ -102,7 +102,7 @@ const DEFAULTS: Persona[] = [
  *  any engine. Carried over from agent-sync, where Pip was the concierge on the
  *  setup screen and the only character the product had a voice for. */
 export const DISPATCHER: Persona = {
-  match: '', name: 'Pip', tier: 'worker', color: '#c9803a', avatar: '/avatars/beacon.png',
+  match: '', name: 'Pip', tier: 'worker', color: '#c9803a', avatar: '/avatars/beacon.png', sprite: 'pip',
 };
 
 const overridesFile = () => join(dataDir(), 'crew.json');

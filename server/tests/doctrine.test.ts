@@ -130,7 +130,7 @@ describe('the crew animates by cutting, not fading', () => {
     const c = read('web/src/ChatView.tsx');
     expect(c).toMatch(/if \(!crew\.sprite \|\| failed\) return <CrewAvatar crew=\{crew\} \/>/);
     const crew = read('server/src/crew.ts');
-    expect((crew.match(/sprite: '/g) ?? []).length).toBe(4); // sol appears twice
+    expect((crew.match(/sprite: '/g) ?? []).length).toBe(5); // juno appears twice; pip is the dispatcher
   });
 })
 
