@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-quota-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-quota-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { QuotaStore, normalizePct } = await import('../src/quota.js');
 const { loadConfig } = await import('../src/config.js');
@@ -30,7 +30,7 @@ describe('normalizePct', () => {
 });
 
 describe('codex sparse updates', () => {
-  // The live Pocket bug: `c.codex = codexSnapshotToUsage(snap)` replaced the whole
+  // The live bug: `c.codex = codexSnapshotToUsage(snap)` replaced the whole
   // object, and account/rateLimits/updated is documented as a SPARSE rolling
   // update whose nulls must NOT clear previously observed values.
   it('a sparse push does not erase secondary or planType', () => {
@@ -188,7 +188,7 @@ describe('claude structured usage read', () => {
 });
 
 describe('claude window canonicalization', () => {
-  // The exact eight rows observed in .pocket-data/quota-history.jsonl on
+  // The exact eight rows observed in .roost-data/quota-history.jsonl on
   // 2026-09-21: the streaming event path and the structured usage read each
   // described the same three limits in their own vocabulary.
   const events = [

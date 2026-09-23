@@ -223,7 +223,7 @@ function runCodex(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => v
   return (async () => {
     try {
       await rpc.request('initialize', {
-        clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+        clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' },
         capabilities: null,
       });
       rpc.notify('initialized');

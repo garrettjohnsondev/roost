@@ -3,10 +3,10 @@ import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
 import { api } from './api';
 import { useTheme } from './theme';
-import type { PocketConfigResponse } from './types';
+import type { RoostConfigResponse } from './types';
 
 export function App() {
-  const [config, setConfig] = useState<PocketConfigResponse | null>(null);
+  const [config, setConfig] = useState<RoostConfigResponse | null>(null);
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useTheme();
@@ -15,7 +15,7 @@ export function App() {
     api.config().then(setConfig).catch((e) => setError(String(e.message ?? e)));
   }, []);
 
-  if (error) return <div className="center-note">Cannot reach the Pocket server: {error}</div>;
+  if (error) return <div className="center-note">Cannot reach the Roost server: {error}</div>;
   if (!config) return <div className="center-note">Connecting…</div>;
 
   return activeSession ? (

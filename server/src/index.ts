@@ -29,7 +29,9 @@ const config = loadConfig();
 initNotify(config);
 const manager = new SessionManager(config);
 manager.restore();
-const token = process.env.POCKET_TOKEN;
+// Both spellings: renaming the variable without accepting the old one would
+// silently drop an exported token and leave the server open.
+const token = process.env.ROOST_TOKEN ?? process.env.POCKET_TOKEN;
 
 /** Mounted external volumes, boot disk excluded — used both as folder-browser
  *  shortcuts and to default new setups onto external storage (e.g. a project SSD)
@@ -65,7 +67,7 @@ function authorized(req: express.Request): boolean {
 /** Browser-origin defence. A same-origin page sends no Origin or one whose
  *  host matches ours; a cross-site page -- or a DNS-rebound one -- cannot forge
  *  that. Non-browser clients send no Origin and pass. Without this, a server
- *  running without POCKET_TOKEN could be driven by any web page the phone
+ *  running without ROOST_TOKEN could be driven by any web page the phone
  *  happened to visit, and "driven" here means running agents in full-auto. */
 function originAllowed(req: { headers: Record<string, any> }): boolean {
   const origin = req.headers.origin;
@@ -322,7 +324,7 @@ app.post('/api/notifications/test', async (_req, res) => {
     return;
   }
   // Report what happened, not what was attempted: "sent" used to mean "asked".
-  const r = await sendNotificationAsync(`test:${Date.now()}`, 'Pocket test', 'Notifications are working.');
+  const r = await sendNotificationAsync(`test:${Date.now()}`, 'Roost test', 'Notifications are working.');
   if (!r.ok) {
     res.status(502).json({ error: r.error ?? 'notification was not accepted' });
     return;
@@ -560,12 +562,12 @@ function printTailscaleUrl(port: number) {
   const candidates = ['tailscale', '/Applications/Tailscale.app/Contents/MacOS/Tailscale'];
   const tryNext = (i: number) => {
     if (i >= candidates.length) {
-      console.log('[pocket] tailscale CLI not found — find your Mac\'s address in the Tailscale menu bar app');
+      console.log('[roost] tailscale CLI not found — find your Mac\'s address in the Tailscale menu bar app');
       return;
     }
     execFile(candidates[i], ['ip', '-4'], (err, stdout) => {
       const ip = stdout?.trim().split('\n')[0] ?? '';
-      if (!err && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) console.log(`[pocket] on your phone, open:  http://${ip}:${port}`);
+      if (!err && /^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) console.log(`[roost] on your phone, open:  http://${ip}:${port}`);
       else tryNext(i + 1);
     });
   };
@@ -601,9 +603,9 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
 }
 
 httpServer.listen(config.port, '0.0.0.0', () => {
-  console.log(`[pocket] listening on http://localhost:${config.port}`);
-  console.log(`[pocket] projects: ${config.projects.join(', ')}`);
-  if (!token) console.log('[pocket] no POCKET_TOKEN set — keep this server tailnet-only');
+  console.log(`[roost] listening on http://localhost:${config.port}`);
+  console.log(`[roost] projects: ${config.projects.join(', ')}`);
+  if (!token) console.log('[roost] no ROOST_TOKEN set — keep this server tailnet-only');
   printTailscaleUrl(config.port);
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
   startRegistryRefresh(config.projects[0] ?? process.cwd());

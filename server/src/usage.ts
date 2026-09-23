@@ -149,7 +149,7 @@ async function fetchCodexUsage(cwd: string): Promise<{ ok: boolean; error?: stri
     onExit: () => {},
   });
   try {
-    await rpc.request('initialize', { clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' }, capabilities: null });
+    await rpc.request('initialize', { clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' }, capabilities: null });
     rpc.notify('initialized');
     const res = await rpc.request('account/rateLimits/read', {});
     const snap = res?.rateLimits;

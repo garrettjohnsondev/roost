@@ -161,7 +161,7 @@ function codexOneShotCancellable(cwd: string, prompt: string, model: string, onU
   const promise = (async () => {
     try {
       await rpc.request('initialize', {
-        clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+        clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' },
         capabilities: null,
       });
       rpc.notify('initialized');

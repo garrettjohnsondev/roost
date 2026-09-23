@@ -3,10 +3,10 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-policy-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-process.env.POCKET_LEGACY_PRICES = '';
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-policy-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+process.env.ROOST_LEGACY_PRICES = '';
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { QuotaStore } = await import('../src/quota.js');
 const { CallLedger } = await import('../src/ledger.js');

@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-verify-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-verify-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { gatesFrom, gateFingerprint, runGate, verifyTask, checkImages } = await import('../src/verify.js');
 const { parseProjectFile } = await import('../src/projectFile.js');

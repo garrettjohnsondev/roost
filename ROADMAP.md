@@ -1,4 +1,4 @@
-# Pocket — Roadmap
+# Roost — Roadmap
 
 *Written for whoever picks this up next: Garrett, or an agent working in this repo. It exists so the reasoning behind each decision survives the chat log it came from. Cited claims are graded **[A]** peer-reviewed/replicated, **[B]** preprint or systematic study, **[C]** vendor claim, **[D]** practitioner anecdote.*
 
@@ -8,7 +8,7 @@
 
 **One chat, with a project loaded, where a named crew of Claude and Codex agents plan, review, and dispatch the right workers — Haiku to Fable, minimal to Sol — with a transparent fuel gauge across every subscription and routing that spends the right quota at the right time.**
 
-Pocket already had the hard part: a mobile PWA reachable over Tailscale that drives both engines on the *right* transports — Claude in-process via `@anthropic-ai/claude-agent-sdk`, Codex via `codex app-server` JSON-RPC. What it lacked was orchestration. What `agent sync` had was orchestration, buried under 1.34 GB of art and shelling out to CLIs. This repo is the merge, keeping Pocket's transports and porting agent-sync's *ideas* — mostly as prompts and policies, not as code.
+Roost already had the hard part: a mobile PWA reachable over Tailscale that drives both engines on the *right* transports — Claude in-process via `@anthropic-ai/claude-agent-sdk`, Codex via `codex app-server` JSON-RPC. What it lacked was orchestration. What `agent sync` had was orchestration, buried under 1.34 GB of art and shelling out to CLIs. This repo is the merge, keeping Roost's transports and porting agent-sync's *ideas* — mostly as prompts and policies, not as code.
 
 ### The frame — read this before proposing anything
 
@@ -54,7 +54,7 @@ task typed in one chat (project loaded)
    ↓  TRIAGE (cheap)      tier + task kind + size estimate
 small? ──yes──→ one agent, no ceremony              ← the Rails lesson (§5)
    ↓ no
-PLAN        primary writes .pocket/plans/<id>.md    ← a FILE, not a chat message
+PLAN        primary writes .roost/plans/<id>.md    ← a FILE, not a chat message
 REVIEW      the OTHER vendor, CLEAN context:
             task + plan file + criteria only — never the author's reasoning
 RECONCILE   primary filters findings against requirements  ← prevents scope creep
@@ -64,7 +64,7 @@ VERIFY      harness runs the checks; evidence = command + output + exit code
 REVIEW DIFF fresh context, diff + criteria only
 ```
 
-Every step renders in the one chat as a named, badged turn. Pocket already draws another model's turn inline via `pushEvent({ type: 'consult', phase, agent, text })`.
+Every step renders in the one chat as a named, badged turn. Roost already draws another model's turn inline via `pushEvent({ type: 'consult', phase, agent, text })`.
 
 ---
 
@@ -93,7 +93,7 @@ Not because "debate makes it smarter" — that's contested at matched compute. B
 
 ## 5. Load-bearing decisions
 
-1. **Build in Pocket, not agent-sync.** Every quota bug in agent-sync was downstream of scraping CLIs instead of using supported protocols. Pocket made the other choice.
+1. **Build in Roost, not agent-sync.** Every quota bug in agent-sync was downstream of scraping CLIs instead of using supported protocols. Roost made the other choice.
 2. **One writer, always.** Subagents read or advise. The only supported parallel-write pattern anywhere is a *tournament* (competing implementations, pick one, discard the rest) — not a team.
 3. **Size-gate the ceremony.** Below **10+ files or 3+ independent pieces** (Anthropic's published threshold), skip the conference. On a coherent mid-size Rails build, solo Opus scored **97 in 18m for $4** while every mixed config tied or lost, slower and dearer — and the orchestrator's own turns added **~$11 across 14 dispatches**.
 4. **Delegation propensity is miscalibrated in both directions.** Given a free choice, models in one study delegated *zero* times; Opus 5 over-delegates enough that Anthropic prompts it down. **Gate on measured size, never on the model's self-assessment.**
@@ -167,7 +167,7 @@ So `reviewerFor(planner)` picks, in order:
 
 ### ✅ Phase 4c — Context metering *(done)*
 Three windows, and conflating them is how long sessions rot:
-1. **Pocket's transcript** — ours. Currently RAM-only, capped 5,000 events, lost on restart.
+1. **Roost's transcript** — ours. Currently RAM-only, capped 5,000 events, lost on restart.
 2. **Each engine's session** — theirs. Degrades *before* it overflows.
 3. **Subagent contexts** — fresh, discarded. Where the savings live.
 
@@ -220,12 +220,12 @@ Definitions are therefore named for **tasks, not jobs**: `explore`, `plan`, `rev
 
 **Acceptance criteria travel with the task and are stated to outrank the plan**, because E2EDevBench's failure was executors treating a plan as authority over requirements.
 
-**Dogfooded:** with Pocket's own `project.md`, a `review` dispatch on `` `${used ?? 0}%` `` was correctly rejected for conflating missing data with zero — **by Haiku**, the cheapest model available, because it was handed the criterion rather than a job title.
+**Dogfooded:** with Roost's own `project.md`, a `review` dispatch on `` `${used ?? 0}%` `` was correctly rejected for conflating missing data with zero — **by Haiku**, the cheapest model available, because it was handed the criterion rather than a job title.
 
 ### ✅ Phase 3 — The conference *(done)*
 The loop in §3, wired end to end in `runConsult`:
 
-1. **Plan** — the session's own model, read-only one-shot, required sections including **`## Acceptance criteria`**: 3–7 statements that can be *checked*, not restated steps. The plan is written to **`.pocket/plans/<taskId>.md`** and the criteria are extracted from it.
+1. **Plan** — the session's own model, read-only one-shot, required sections including **`## Acceptance criteria`**: 3–7 statements that can be *checked*, not restated steps. The plan is written to **`.roost/plans/<taskId>.md`** and the criteria are extracted from it.
 2. **Review** — the most independent reviewer available (§6), **starved**: task, plan and criteria only, never the author's context. Asked for correctness problems and requirement gaps only; "no problems found" is a valid answer. Skipped by the size gate for small tasks.
 3. **Reconcile** — the author filters each finding against the task and the criteria, **ACCEPT** (amend) or **REJECT** (out of scope, contradicts criteria, taste), and writes the amended plan back to the file. Without this step review findings become scope creep. **Capped at `consult.maxReviewRounds`** (default 1, hard maximum 2): a second review runs only on `NEEDS CHANGES`.
 4. **Proceed** — the human, by default. `consult.autoProceed` exists for build mode and is off, because the accept/reject decision rests on a verifier or a person, never on two models agreeing. Execution gets the reconciled plan **and the criteria, stated to outrank it**.
@@ -251,7 +251,7 @@ Still open: cross-vendor *candidates* per tier in the shipped config (the router
 `verify.ts`. Three rules, all **structural**, none of them instructions to the model:
 
 1. **The gate is a script the harness runs**, read from maintainer-authored sources — the project file's `## gates` or explicit checks. Agent output is never a command. The gates are **fingerprinted when the session begins**; an executor that edits them mid-task produces a report marked `tampered`, which fails regardless of what the commands then say.
-2. **Evidence is command + exit code + output.** "The tests pass" is a claim; `npm test` exiting 0 with its output attached is evidence. Every run is appended to `.pocket-data/evidence/<task>.jsonl` and to the decisions log.
+2. **Evidence is command + exit code + output.** "The tests pass" is a claim; `npm test` exiting 0 with its output attached is evidence. Every run is appended to `.roost-data/evidence/<task>.jsonl` and to the decisions log.
 3. **Anti-fabrication is measured.** A "screenshot" with fewer than 64 distinct colours is a flat rectangle, not a screenshot; two frames that are pixel-identical fail each other; an image that cannot be decoded is *unchecked*, never passed. This is the August lesson, mechanised.
 
 **No gates means not verified** — a report with nothing to check is `passed: false`, because "nothing failed" is not the same as "it works".
@@ -260,7 +260,7 @@ Still open: cross-vendor *candidates* per tier in the shipped config (the router
 
 **In the UI:** "Run gates" and "Gates + review diff" on every session; the report renders with the badge, each command's exit code and output tail, image verdicts, and the review.
 
-**Dogfooded** on Pocket's own `## gates` (`npm run typecheck`, `npm test -w server`).
+**Dogfooded** on Roost's own `## gates` (`npm run typecheck`, `npm test -w server`).
 
 ### 🟨 Phase 7 — Model registry and auto-update *(core done)*
 
@@ -326,11 +326,11 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 | 21 | **Consult and dispatch capability gates were advisory.** `settingSources` omitted ⇒ the SDK loads every filesystem settings file, whose `permissions.allow` rules approve tools without consulting `canUseTool`. | `settingSources: []` on every one-shot; guarded by a doctrine test. |
 | 22 | **Stop did nothing, and failure looked like success.** `turn/interrupt` omitted the required `turnId` (`TurnInterruptParams = {threadId, turnId}`), the rejection was swallowed, idle emitted. A `turn.status:'failed'`, an `ErrorNotification`, and Claude's `error_*` result subtypes all resolved as ordinary completion; a declined command showed a green check. | `turnId` sent, failures reported, statuses read. |
 | 23 | **Orphaned timers and a hanging cancel.** A rejected `turn/start` left the completion promise's timer to reject unobserved — an `unhandledRejection`, fatal to the server; cancelling a Codex one-shot killed the process but the promise waited the full timeout. | Observe, clear, and settle on cancel. |
-| 24 | **No Origin/Host check.** Without `POCKET_TOKEN` the API and WebSocket accepted any browser origin; a page on any tailnet device, or a DNS-rebound one, could drive the server — and "drive" means agents in full-auto. Custom avatars were served with no auth at all; agent subprocesses inherited the token. | Same-origin enforced on the socket and mutating routes; avatars behind auth; token scrubbed from subprocess env. |
+| 24 | **No Origin/Host check.** Without `ROOST_TOKEN` the API and WebSocket accepted any browser origin; a page on any tailnet device, or a DNS-rebound one, could drive the server — and "drive" means agents in full-auto. Custom avatars were served with no auth at all; agent subprocesses inherited the token. | Same-origin enforced on the socket and mutating routes; avatars behind auth; token scrubbed from subprocess env. |
 | 25 | **Three tests went red by themselves.** The quota fixture carried absolute `resets_at` timestamps that expired mid-afternoon, so every window purged on read — a wall-clock dependency, the non-hermetic class correction 8 forbids. | Relative timestamps. |
 | 26 | **Defined but never called.** `shouldApplyEffort()` (correction 4) existed and was tested, but live auto-routing re-applied effort on every retriage without it, paying a prompt-cache reset each time — and skipped both the effort and the `routed` event when two tiers shared a model. Likewise `reviewerFor()` (§6) was never wired into the consult, which stayed hard-wired to the other vendor and simply failed on a single subscription. | Both wired. A rule without a live call site is a rule that has drifted. |
 | 27 | **The review orchestrator rate-limited itself.** The first review workflow lost all eight finders, the synthesizer and the critic to the Claude 5-hour session limit mid-run, with no quota awareness at all. The rerun routed the finders to Codex (47% weekly) and verified on Claude after the reset — the harness's own thesis, performed by hand. | Recorded as the justification for Phase 4: dispatch must read the gauge before spawning. |
-| 28 | **Committed with a red test — and the new gate caught it.** The Phase 5 commit chain piped the suite through `grep \| head` and took *grep's* exit status, so a failing image-fixture test did not stop the commit. Pocket's own verification gate, run in the same chain, reported **"FAILED · 1/2 gates passed"** correctly; the shell ignored it. The fixture bug underneath was an LCG's low byte (period ≤ 256) posing as noise. | Commit chains gate on the suite's and the gate's *real* exit codes (`pipefail`). Which is also the point of Phase 5: the check has to be in the way, not merely reported. |
+| 28 | **Committed with a red test — and the new gate caught it.** The Phase 5 commit chain piped the suite through `grep \| head` and took *grep's* exit status, so a failing image-fixture test did not stop the commit. Roost's own verification gate, run in the same chain, reported **"FAILED · 1/2 gates passed"** correctly; the shell ignored it. The fixture bug underneath was an LCG's low byte (period ≤ 256) posing as noise. | Commit chains gate on the suite's and the gate's *real* exit codes (`pipefail`). Which is also the point of Phase 5: the check has to be in the way, not merely reported. |
 | 29 | **A cross-vendor review logged as "no reviewer".** The Phase 3 dogfood ran in a process that had never fetched the model roster, so `reviewerFor()` returned `none`; `runConsult` then silently fell back to the other vendor's configured model — which reviewed the plan perfectly well — while the decision log and the turn label said no reviewer was available. A fresh server has the same window before its first roster fetch lands. | `resolveReviewer()` makes the fallback explicit and labels it *"cross-vendor — roster not fetched, using the configured model"*, logged as `cross-vendor-unverified`. Found by reading the dogfood's own decision log — which is what the log is for. |
 | 30 | **Everything was opt-in, so nobody ever saw the product.** `this.mode = restore?.mode ?? (this.model === 'auto' ? 'auto' : 'chat')` — mode became `auto` only if the model was the literal string `'auto'`, and a new session's model is `defaultModel` (`'sonnet'`). So **every session defaulted to plain chat**: no triage, so the light tier was never used; no conference, unless the user found the ⚖ button; and a resumed session simply continued on whatever heavy model it was last on. Garrett picked up a chat and got Opus answering directly — "it doesn't feel like agents… what about conversation between the two, the whole point of the app?" Correct. The routing, the crew, the conference and the gate were all built, tested, and unreachable by default. | Default mode is `auto` (`consult.defaultMode`), and auto/build coerce the model to the routing sentinel while keeping the concrete model as the router's starting point. A stored mode now sticks only if the *person* chose it (`modeExplicit`). In auto mode a task triage sizes `large` **escalates to the conference automatically** (`consult.escalateToConference`) — the size gate read the other way. **A feature that is off by default is a feature nobody has.** |
 | 10 | **Planned a free-model planning tier** before checking what free costs. The constraint isn't rate limits, it's that free tiers are paid for in prompts — and this harness runs on private repos. | Dropped entirely. See decision 8. |
@@ -339,11 +339,11 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 
 ## 9. Open risks and unverified claims
 
-1. **`SDKRateLimitInfo.utilization` scale is undocumented** (0–1 vs 0–100); Pocket assumes 0–1. `normalizePct` accepts both and warns once in the ambiguous band. *Since correction 15 the structured `limits[]`/flat-key path uses `clampPct` (documented 0–100); the heuristic serves only the streaming event.* *Note: the structured `limits[]` path reports `percent` as plain 0–100, so it has no ambiguity — prefer it.*
+1. **`SDKRateLimitInfo.utilization` scale is undocumented** (0–1 vs 0–100); Roost assumes 0–1. `normalizePct` accepts both and warns once in the ambiguous band. *Since correction 15 the structured `limits[]`/flat-key path uses `clampPct` (documented 0–100); the heuristic serves only the streaming event.* *Note: the structured `limits[]` path reports `percent` as plain 0–100, so it has no ambiguity — prefer it.*
 2. **Codex `inputTokens` vs `cachedInputTokens` inclusivity is unstated** — up to 10× cost impact. Isolated in `codexInputSplit.ts` with a one-time warning if the exclusive branch is ever taken. *Live evidence so far says inclusive.*
 3. **`usage_EXPERIMENTAL_...` is explicitly unstable** — the method name will change on stabilisation. `typeof`-guarded; the haiku probe stays as a permanent fallback.
 4. **Codex prices are unknown.** Codex rows ship as `basis:'unknown'` → no dollar figure — and after correction 14 there is no dollar figure anywhere on the UI regardless. The config now routes light/standard/heavy to `gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-6-astra` from the live `model/list` roster (Phase 7), which resolves the earlier note about disagreeing model lists. Phase 4's estimator prices in percent-of-window per 1k tokens and needs no price table.
-5. **Cross-device blindness.** Provider windows include usage from other machines and the web apps; our ledger sees only Pocket. Window-derived burn is truthful; ledger-derived burn is Pocket-only. Label them distinctly.
+5. **Cross-device blindness.** Provider windows include usage from other machines and the web apps; our ledger sees only Roost. Window-derived burn is truthful; ledger-derived burn is Roost-only. Label them distinctly.
 6. **Concurrency.** Ledger and quota store are process-wide singletons using synchronous appends. Fine at chat scale; a bottleneck once Phase 3 runs parallel dispatches.
 7. **Hand-mirrored types.** `server/src/protocol.ts` ↔ `web/src/types.ts` are maintained by hand. Generate before adding many mission events.
 8. **ACI beats orchestration where cleanly measured** — SWE-agent went 3.8% → 12.5% from *tool design alone*, larger than any orchestration gain on coding. If effort is scarce, spend it on the helpers' tools before the conversation between flagships.
@@ -371,7 +371,7 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 **Ported as prompts and policies:** charter acceptance criteria and done-definition · fresh-context critic · evidence-before-acceptance · bounded rounds.
 
-**Did not port:** `orchestrator.js`'s 1,586-line phase machine (the ceremony cost 28 hours for 2 of 6 stages on its one real run) · `quota.js` (dead pty scrape) · both CLI adapters (superseded by Pocket's transports) · `demo.js` · five orphan office HTML files · 1.34 GB of cinematic plates.
+**Did not port:** `orchestrator.js`'s 1,586-line phase machine (the ceremony cost 28 hours for 2 of 6 stages on its one real run) · `quota.js` (dead pty scrape) · both CLI adapters (superseded by Roost's transports) · `demo.js` · five orphan office HTML files · 1.34 GB of cinematic plates.
 
 ---
 
@@ -391,7 +391,7 @@ From the 2026-09-21 review. Confirmed findings that were neither silent data cor
 - **Preview and git parsing**: string-content user messages kept; Codex patch paths with spaces kept; only the engine's XML wrappers skipped; git's C-escaped quoted paths decoded.
 - **Notification "test" reports delivery, not attempt**; project add/remove persists before mutating live state.
 - **Built-in defaults** no longer point a fresh install at deleted Codex models or a `minimal` effort rung.
-- **Decisions log** (`.pocket-data/decisions.jsonl`): every route, reviewer choice, size-gate outcome, one-writer gate and dispatch, with timing — the record Phase 4's "does the conference earn its keep" needs.
+- **Decisions log** (`.roost-data/decisions.jsonl`): every route, reviewer choice, size-gate outcome, one-writer gate and dispatch, with timing — the record Phase 4's "does the conference earn its keep" needs.
 - **The web workspace has tests**: the chat reducer is exported and covered; `npm test` runs both workspaces.
 
 **Shipped 2026-09-22, second pass:**

@@ -224,7 +224,7 @@ import { tmpdir as osTmp } from 'node:os';
 import { join as joinPath } from 'node:path';
 describe('vendor presence comes from the last fetch, not the cache', () => {
   it('reports absent after a failed fetch even with a cached roster', () => {
-    const reg = new PresenceRegistry(mkTmp(joinPath(osTmp(), 'pocket-presence-')));
+    const reg = new PresenceRegistry(mkTmp(joinPath(osTmp(), 'roost-presence-')));
     expect(reg.presence('codex')).toBe('unknown');
     reg.update('codex', fromCodexModelList(CODEX_LIVE));
     reg.noteFetch('codex', true);

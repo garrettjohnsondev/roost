@@ -15,7 +15,7 @@ export function splitCodexInput(inputTokens: number, cachedInputTokens: number):
   if (input >= cached) return { uncached: input - cached, cached };
   if (!warned) {
     warned = true;
-    console.warn(`[pocket] codex inputTokens(${input}) < cachedInputTokens(${cached}) — fields are exclusive, not inclusive. Treating input as uncached.`);
+    console.warn(`[roost] codex inputTokens(${input}) < cachedInputTokens(${cached}) — fields are exclusive, not inclusive. Treating input as uncached.`);
   }
   return { uncached: input, cached };
 }

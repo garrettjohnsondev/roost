@@ -21,7 +21,7 @@ export async function fetchCodexModels(cwd: string): Promise<ModelCard[]> {
   });
   try {
     await rpc.request('initialize', {
-      clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+      clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' },
       capabilities: null,
     }, 20_000);
     rpc.notify('initialized');
@@ -88,11 +88,11 @@ export async function refreshRegistry(cwd: string): Promise<RegistryChange[]> {
       // is present because a roster is cached was not.
       const why = r.status === 'rejected' ? String(r.reason?.message ?? r.reason) : 'empty roster';
       reg.noteFetch(agents[i], false, why);
-      console.log(`[pocket] ${agents[i]} model refresh failed: ${why}`);
+      console.log(`[roost] ${agents[i]} model refresh failed: ${why}`);
     }
   });
 
-  for (const c of changes) console.log(`[pocket] ${describeChange(c)}`);
+  for (const c of changes) console.log(`[roost] ${describeChange(c)}`);
 
   const loud = changes.filter(isNoteworthy);
   if (loud.length) {
@@ -111,7 +111,7 @@ export function startRegistryRefresh(cwd: string, everyMs = 6 * 60 * 60_000): ()
   let stopped = false;
   const tick = () => {
     if (stopped) return;
-    refreshRegistry(cwd).catch((e) => console.log(`[pocket] model refresh error: ${e?.message ?? e}`));
+    refreshRegistry(cwd).catch((e) => console.log(`[roost] model refresh error: ${e?.message ?? e}`));
   };
   tick();
   const t = setInterval(tick, everyMs);

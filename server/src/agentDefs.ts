@@ -164,7 +164,7 @@ export function builtInDefs(): AgentDef[] {
  *  `.claude/agents/` and Grok Build's `.grok/agents/`, so they stay portable. */
 export function loadAgentDefs(projectDir: string): AgentDef[] {
   const out = new Map(builtInDefs().map((d) => [d.name, d]));
-  const dir = join(projectDir, '.pocket', 'agents');
+  const dir = join(projectDir, '.roost', 'agents');
   try {
     if (existsSync(dir)) {
       for (const f of readdirSync(dir)) {

@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     this.setState({ info: info.componentStack ?? null });
-    console.error('Pocket crashed:', error, info.componentStack);
+    console.error('Roost crashed:', error, info.componentStack);
   }
 
   render() {
@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="crash-screen">
           <h1>Something broke</h1>
-          <p>Pocket hit an error and couldn't continue. The details below are safe to screenshot and share.</p>
+          <p>Roost hit an error and couldn't continue. The details below are safe to screenshot and share.</p>
           <pre className="crash-detail">
             {this.state.error.message}
             {this.state.error.stack ? '\n\n' + this.state.error.stack : ''}

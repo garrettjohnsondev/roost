@@ -1,15 +1,15 @@
-import type { PocketConfig } from './config.js';
+import type { RoostConfig } from './config.js';
 
 /** Push notifications via ntfy (https://ntfy.sh, self-hostable). Chosen over Web Push
- *  because Pocket serves plain HTTP over the tailnet, and service workers / Push API
+ *  because Roost serves plain HTTP over the tailnet, and service workers / Push API
  *  require a secure context — ntfy only needs an outbound POST from this server plus
  *  the ntfy app subscribed to the topic on the phone. The topic name is the only
  *  secret: anyone who knows it can see notification titles, so they contain session
  *  titles but never conversation content. */
 
-let config: PocketConfig | null = null;
+let config: RoostConfig | null = null;
 
-export function initNotify(c: PocketConfig): void {
+export function initNotify(c: RoostConfig): void {
   config = c;
 }
 
@@ -53,7 +53,7 @@ export async function sendNotificationAsync(key: string, title: string, body: st
 export function sendNotification(key: string, title: string, body: string, opts: { minIntervalMs?: number } = {}): void {
   void sendNotificationAsync(key, title, body, opts).then((r) => {
     if (!r.ok && r.error !== 'rate-limited' && r.error !== 'notifications are not enabled') {
-      console.warn('[pocket] notification failed:', r.error);
+      console.warn('[roost] notification failed:', r.error);
     }
   });
 }

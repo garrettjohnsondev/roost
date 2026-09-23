@@ -1,17 +1,21 @@
 #!/usr/bin/env node
-// Manage Pocket as a macOS LaunchAgent: auto-starts at login, restarts on crash.
+// Manage Roost as a macOS LaunchAgent: auto-starts at login, restarts on crash.
 //   npm run service:install | service:uninstall | service:status
 
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const LABEL = 'com.pocket.server';
+const LABEL = 'com.roost.server';
+/** The pre-rename label. Booted out on install, or the old service keeps
+ *  running on the same port and the new one silently fails to bind. */
+const OLD_LABEL = 'com.pocket.server';
 const plistPath = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
-const logPath = join(homedir(), 'Library', 'Logs', 'pocket.log');
+const logPath = join(homedir(), 'Library', 'Logs', 'roost.log');
+const oldLogPath = join(homedir(), 'Library', 'Logs', 'pocket.log');
 const nodeBin = process.execPath;
 const uid = process.getuid();
 const serverEntry = join(repoRoot, 'server', 'dist', 'index.js');
@@ -54,6 +58,10 @@ const command = process.argv[2];
 
 switch (command) {
   case 'install': {
+    // Carry the pre-rename log across so existing history is not stranded.
+    try {
+      if (!existsSync(logPath) && existsSync(oldLogPath)) renameSync(oldLogPath, logPath);
+    } catch { /* a missing log must never block an install */ }
     if (!existsSync(serverEntry)) {
       console.error('server/dist not found — run `npm run build` first.');
       process.exit(1);
@@ -61,6 +69,7 @@ switch (command) {
     mkdirSync(dirname(plistPath), { recursive: true });
     writeFileSync(plistPath, plist);
     shQuiet(`launchctl bootout gui/${uid}/${LABEL}`); // remove any previous copy
+    shQuiet(`launchctl bootout gui/${uid}/${OLD_LABEL}`); // and the pre-rename one
 
     // launchd sometimes hasn't fully released the old label by the time bootout returns —
     // an immediate bootstrap can then fail with "Bootstrap failed: 5: Input/output error".

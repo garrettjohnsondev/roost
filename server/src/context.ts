@@ -4,7 +4,7 @@ import type { AgentKind } from './protocol.js';
 /** There are THREE distinct contexts in this harness and conflating them is how
  *  a long session quietly degrades:
  *
- *   1. Pocket's transcript — the whole conversation. The only one we fully own.
+ *   1. Roost's transcript — the whole conversation. The only one we fully own.
  *   2. The engine's own session (Claude session_id / Codex threadId) — grows
  *      independently, compacts on its own schedule, and rots before it fills.
  *   3. Subagent contexts — fresh per dispatch, discarded. Where the savings are.

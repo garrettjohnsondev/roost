@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'pocket-theme';
+const STORAGE_KEY = 'roost-theme';
 const THEME_COLOR = { light: '#f4f5f7', dark: '#0b0d10' } as const;
 
 function apply(theme: Theme) {

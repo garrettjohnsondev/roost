@@ -114,7 +114,7 @@ export function normalizePct(v: unknown): number | null {
   if (v > 1) return Math.min(100, Math.round(v));
   if (v > 0 && !ambiguousPctWarned) {
     ambiguousPctWarned = true;
-    console.warn(`[pocket] rate-limit utilization ${v} is <= 1 — treating as a fraction (=> ${Math.round(v * 100)}%). If windows read too low, the scale changed.`);
+    console.warn(`[roost] rate-limit utilization ${v} is <= 1 — treating as a fraction (=> ${Math.round(v * 100)}%). If windows read too low, the scale changed.`);
   }
   return Math.min(100, Math.round(v * 100));
 }

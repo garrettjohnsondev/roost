@@ -23,7 +23,7 @@ export interface PlanFile {
   updatedAt: number;
 }
 
-export const plansDir = (cwd: string): string => join(cwd, '.pocket', 'plans');
+export const plansDir = (cwd: string): string => join(cwd, '.roost', 'plans');
 export const planPath = (cwd: string, taskId: string): string => join(plansDir(cwd), `${taskId}.md`);
 
 export function newTaskId(): string {

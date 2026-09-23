@@ -23,7 +23,7 @@ import { truncate } from './util.js';
 import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
-import { statePath, type AutoRouteConfig, type PocketConfig } from './config.js';
+import { statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
 import { callLedger } from './ledger.js';
@@ -117,7 +117,7 @@ export class Session {
   constructor(
     readonly agent: AgentKind,
     readonly cwd: string,
-    config: PocketConfig,
+    config: RoostConfig,
     opts: SessionOpts = {},
   ) {
     const agentConfig = config[agent];
@@ -942,7 +942,7 @@ export class SessionManager {
   private sessions = new Map<string, Session>();
   private saveTimer: NodeJS.Timeout | null = null;
 
-  constructor(private config: PocketConfig) {
+  constructor(private config: RoostConfig) {
     const interval = setInterval(() => this.sweepIdle(), IDLE_SWEEP_INTERVAL_MS);
     interval.unref(); // don't hold the process open just for the sweep timer
   }
@@ -997,7 +997,7 @@ export class SessionManager {
       writeFileSync(path + '.tmp', JSON.stringify({ sessions: entries }, null, 2));
       renameSync(path + '.tmp', path);
     } catch (err: any) {
-      console.warn('[pocket] failed to persist session state:', String(err?.message ?? err));
+      console.warn('[roost] failed to persist session state:', String(err?.message ?? err));
     }
   }
 
@@ -1018,7 +1018,7 @@ export class SessionManager {
       } catch {
         /* leave it in place */
       }
-      console.error(`[pocket] session state at ${statePath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}`);
+      console.error(`[roost] session state at ${statePath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}`);
       return;
     }
     const hours = this.config.sessionIdleTimeoutHours;
@@ -1050,10 +1050,10 @@ export class SessionManager {
         this.sessions.set(session.id, session);
         restored++;
       } catch (err: any) {
-        console.warn(`[pocket] failed to restore session ${entry.id}:`, String(err?.message ?? err));
+        console.warn(`[roost] failed to restore session ${entry.id}:`, String(err?.message ?? err));
       }
     }
-    if (restored > 0) console.log(`[pocket] restored ${restored} session(s) from before restart`);
+    if (restored > 0) console.log(`[roost] restored ${restored} session(s) from before restart`);
     this.saveNow();
   }
 

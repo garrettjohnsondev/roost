@@ -3,12 +3,12 @@ import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-pricing-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-pricing-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
 // Hermetic: never fall through to the real ~/.agent-sync/prices.json, whose live
 // overrides (opus 5/25) would otherwise make the table assertions machine-dependent.
-process.env.POCKET_LEGACY_PRICES = '';
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+process.env.ROOST_LEGACY_PRICES = '';
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { priceFor, estimateCost, resetPriceCache } = await import('../src/pricing.js');
 
@@ -40,8 +40,8 @@ describe('priceFor', () => {
   });
 
   it('lets user overrides beat the built-in table', () => {
-    mkdirSync(join(tmp, '.pocket-data'), { recursive: true });
-    writeFileSync(join(tmp, '.pocket-data', 'prices.json'), JSON.stringify([{ match: 'opus', input: 5, output: 25 }]));
+    mkdirSync(join(tmp, '.roost-data'), { recursive: true });
+    writeFileSync(join(tmp, '.roost-data', 'prices.json'), JSON.stringify([{ match: 'opus', input: 5, output: 25 }]));
     resetPriceCache();
     const lookup = priceFor('claude-opus-5');
     expect(lookup.basis).toBe('override');
@@ -49,8 +49,8 @@ describe('priceFor', () => {
   });
 
   it('survives a malformed override regex without throwing', () => {
-    mkdirSync(join(tmp, '.pocket-data'), { recursive: true });
-    writeFileSync(join(tmp, '.pocket-data', 'prices.json'), JSON.stringify([{ match: '[unclosed', input: 1, output: 2 }]));
+    mkdirSync(join(tmp, '.roost-data'), { recursive: true });
+    writeFileSync(join(tmp, '.roost-data', 'prices.json'), JSON.stringify([{ match: '[unclosed', input: 1, output: 2 }]));
     resetPriceCache();
     expect(() => priceFor('sonnet')).not.toThrow();
     expect(priceFor('sonnet').basis).toBe('table');

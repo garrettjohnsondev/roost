@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-modes-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-modes-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 const { loadConfig } = await import('../src/config.js');
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 

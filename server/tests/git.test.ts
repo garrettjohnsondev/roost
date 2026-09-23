@@ -9,15 +9,15 @@ let repo: string;
 const sh = (args: string[]) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
 
 beforeAll(() => {
-  repo = mkdtempSync(join(tmpdir(), 'pocket-git-'));
+  repo = mkdtempSync(join(tmpdir(), 'roost-git-'));
   execFileSync('git', ['init', '-b', 'main', repo]);
-  sh(['config', 'user.email', 'test@pocket.local']);
-  sh(['config', 'user.name', 'Pocket Test']);
+  sh(['config', 'user.email', 'test@roost.local']);
+  sh(['config', 'user.name', 'Roost Test']);
 });
 
 describe('git backend', () => {
   it('reports a non-repo directory gracefully', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'pocket-plain-'));
+    const plain = mkdtempSync(join(tmpdir(), 'roost-plain-'));
     const status = await getGitStatus(plain);
     expect(status.isRepo).toBe(false);
   });
@@ -35,8 +35,8 @@ describe('git backend', () => {
   });
 
   it('commits everything and leaves a clean tree', async () => {
-    const out = await gitCommit(repo, 'first commit from pocket');
-    expect(out).toContain('first commit from pocket');
+    const out = await gitCommit(repo, 'first commit from roost');
+    expect(out).toContain('first commit from roost');
     const status = await getGitStatus(repo);
     expect(status.hasCommits).toBe(true);
     expect(status.files).toHaveLength(0);

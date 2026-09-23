@@ -1,4 +1,4 @@
-// Shared wire protocol between the Pocket server and the phone UI.
+// Shared wire protocol between the Roost server and the phone UI.
 // The web app keeps a mirrored copy in web/src/types.ts.
 
 export type AgentKind = 'claude' | 'codex';

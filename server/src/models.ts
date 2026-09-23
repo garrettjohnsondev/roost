@@ -68,7 +68,7 @@ async function fetchCodexModels(cwd: string): Promise<ModelOption[]> {
   });
   try {
     await rpc.request('initialize', {
-      clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+      clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' },
       capabilities: null,
     }, PROBE_TIMEOUT_MS);
     rpc.notify('initialized');
@@ -94,8 +94,8 @@ export function getLiveModels(cwd: string): Promise<ModelCache> {
   if (inflight) return inflight;
   inflight = (async () => {
     const [claude, codex] = await Promise.allSettled([fetchClaudeModels(cwd), fetchCodexModels(cwd)]);
-    if (claude.status === 'rejected') console.warn('[pocket] claude model list failed:', String(claude.reason));
-    if (codex.status === 'rejected') console.warn('[pocket] codex model list failed:', String(codex.reason));
+    if (claude.status === 'rejected') console.warn('[roost] claude model list failed:', String(claude.reason));
+    if (codex.status === 'rejected') console.warn('[roost] codex model list failed:', String(codex.reason));
     cache = {
       claude: claude.status === 'fulfilled' ? claude.value : [],
       codex: codex.status === 'fulfilled' ? codex.value : [],

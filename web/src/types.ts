@@ -164,7 +164,7 @@ export interface NotificationConfig {
   topic: string;
 }
 
-export interface PocketConfigResponse {
+export interface RoostConfigResponse {
   projects: string[];
   primaryVolume: string | null;
   sessionIdleTimeoutHours: number;

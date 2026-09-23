@@ -8,7 +8,7 @@ import type { NotificationConfig, ModelsResponse, Me } from './types';
 function randomTopic(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
-  return 'pocket-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return 'roost-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function NotificationSettings(props: {

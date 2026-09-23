@@ -1,5 +1,5 @@
 {
-  "name": "pocket",
+  "name": "roost",
   "private": true,
   "version": "0.1.0",
   "description": "Self-hosted mobile chat UI for driving Claude Code and Codex on your own machine",

@@ -3,9 +3,9 @@ import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-crew-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-crew-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { personaFor, crewMember, rosterBlock, saveOverrides, resetCrewCache, allPersonas } = await import('../src/crew.js');
 
@@ -79,7 +79,7 @@ describe('crewMember', () => {
 
 describe('overrides', () => {
   it('lets a user rename and recolour a crew member', () => {
-    mkdirSync(join(tmp, '.pocket-data'), { recursive: true });
+    mkdirSync(join(tmp, '.roost-data'), { recursive: true });
     saveOverrides([{ match: 'haiku', suite: 'claude', name: 'Scout', tier: 'worker', color: '#ff0000' }]);
     resetCrewCache();
     const p = personaFor('claude', 'claude-haiku-4-5');
@@ -96,7 +96,7 @@ describe('overrides', () => {
   });
 
   it('survives a corrupt overrides file', () => {
-    writeFileSync(join(tmp, '.pocket-data', 'crew.json'), '{not json');
+    writeFileSync(join(tmp, '.roost-data', 'crew.json'), '{not json');
     resetCrewCache();
     expect(personaFor('claude', 'claude-fable-5').name).toBe('Bram');
   });

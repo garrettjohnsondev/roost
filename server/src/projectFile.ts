@@ -18,7 +18,7 @@ export interface ProjectKnowledge {
 }
 
 export function projectFilePath(projectDir: string): string {
-  return join(projectDir, '.pocket', 'project.md');
+  return join(projectDir, '.roost', 'project.md');
 }
 
 export function slugifyHeading(h: string): string {

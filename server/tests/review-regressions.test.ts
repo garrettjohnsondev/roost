@@ -6,10 +6,10 @@ import { join } from 'node:path';
 /** Regression tests for the 2026-09-21 cross-vendor review. Each block names
  *  the failure it pins down; every one of these was live before the fix. */
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-review-'));
-process.env.POCKET_CONFIG = join(tmp, 'pocket.config.json');
-process.env.POCKET_LEGACY_PRICES = '';
-writeFileSync(process.env.POCKET_CONFIG, '{}');
+const tmp = mkdtempSync(join(tmpdir(), 'roost-review-'));
+process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
+process.env.ROOST_LEGACY_PRICES = '';
+writeFileSync(process.env.ROOST_CONFIG, '{}');
 
 const { QuotaStore, normalizePct, clampPct } = await import('../src/quota.js');
 const { loadConfig } = await import('../src/config.js');
@@ -97,10 +97,10 @@ describe('a corrupt config is moved aside, never overwritten', () => {
   it('returns defaults, preserves the bad file, and hands back a private copy', () => {
     const bad = join(tmp, 'bad.config.json');
     writeFileSync(bad, '{ this is not json');
-    const prev = process.env.POCKET_CONFIG;
-    process.env.POCKET_CONFIG = bad;
+    const prev = process.env.ROOST_CONFIG;
+    process.env.ROOST_CONFIG = bad;
     const cfg = loadConfig();
-    process.env.POCKET_CONFIG = prev;
+    process.env.ROOST_CONFIG = prev;
     expect(existsSync(bad)).toBe(false);
     expect(readdirSync(tmp).some((f) => f.startsWith('bad.config.json.corrupt-'))).toBe(true);
     // Mutating the returned config must not poison the defaults the next

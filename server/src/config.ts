@@ -87,7 +87,7 @@ export interface GuardsConfig {
   oneWriter: 'warn' | 'block';
 }
 
-export interface PocketConfig {
+export interface RoostConfig {
   port: number;
   projects: string[];
   /** Hours an active session may sit with no real activity before it's auto-closed. */
@@ -101,7 +101,7 @@ export interface PocketConfig {
   codex: AgentConfig;
 }
 
-const DEFAULTS: PocketConfig = {
+const DEFAULTS: RoostConfig = {
   port: 8790,
   projects: [process.cwd()],
   sessionIdleTimeoutHours: 24,
@@ -145,16 +145,56 @@ const DEFAULTS: PocketConfig = {
 /** Repo root is two levels up from server/src (or server/dist). */
 export const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-const configPath = () => process.env.POCKET_CONFIG ?? join(repoRoot, 'pocket.config.json');
+/** Environment variables keep their old spellings as a fallback.
+ *
+ *  The app was called Roost until the rename, and anyone running it has
+ *  ROOST_TOKEN's predecessor exported in a shell profile or a LaunchAgent plist.
+ *  Renaming the variable without accepting the old one would silently drop the
+ *  auth token — turning a rename into an open server. */
+const env = (name: string): string | undefined =>
+  process.env[`ROOST_${name}`] ?? process.env[`POCKET_${name}`];
+
+const configPath = () =>
+  env('CONFIG') ?? preferExisting(join(repoRoot, 'roost.config.json'), join(repoRoot, 'pocket.config.json'));
+
+/** During the rename, an existing file under the old name still wins: a config
+ *  the person wrote must not stop being read because we picked a new name. */
+function preferExisting(next: string, previous: string): string {
+  try {
+    if (!existsSync(next) && existsSync(previous)) return previous;
+  } catch {
+    /* fall through to the new name */
+  }
+  return next;
+}
 
 /** Session-state file lives next to the config so scratch/test configs get their own. */
-export const statePath = () => join(dirname(configPath()), '.pocket-state.json');
+export const statePath = () => migrated(join(dirname(configPath()), '.roost-state.json'), '.pocket-state.json');
 
 /** Durable data (usage ledger, quota windows, prices) lives next to the config for
- *  the same reason session state does: a POCKET_CONFIG-scoped test run gets its own. */
-export const dataDir = () => join(dirname(configPath()), '.pocket-data');
+ *  the same reason session state does: a ROOST_CONFIG-scoped test run gets its own. */
+export const dataDir = () => migrated(join(dirname(configPath()), '.roost-data'), '.pocket-data');
 
-export function loadConfig(): PocketConfig {
+/** Renames the pre-rename path into place, once, the first time it is asked for.
+ *
+ *  Without this the rename would quietly orphan every quota window, the whole
+ *  decision log and the call ledger — and an empty quota store does not fail
+ *  loudly, it just reports `unknown`, which the policy treats as "no data" and
+ *  the gate stops gating. A cosmetic rename would have disabled the safety
+ *  system. Failure is swallowed: worst case you start fresh, which is what
+ *  would have happened anyway. */
+function migrated(next: string, oldBasename: string): string {
+  try {
+    if (existsSync(next)) return next;
+    const previous = join(dirname(next), oldBasename);
+    if (existsSync(previous)) renameSync(previous, next);
+  } catch {
+    /* a failed migration must not stop the app starting */
+  }
+  return next;
+}
+
+export function loadConfig(): RoostConfig {
   try {
     const parsed = JSON.parse(readFileSync(configPath(), 'utf8'));
     return {
@@ -179,18 +219,18 @@ export function loadConfig(): PocketConfig {
       const aside = `${configPath()}.corrupt-${Date.now()}`;
       try {
         renameSync(configPath(), aside);
-        console.error(`[pocket] config at ${configPath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}, using defaults`);
+        console.error(`[roost] config at ${configPath()} is unreadable (${err?.message ?? err}); moved aside to ${aside}, using defaults`);
       } catch {
-        console.error(`[pocket] config at ${configPath()} is unreadable (${err?.message ?? err}) and could not be moved aside; using defaults WITHOUT saving`);
+        console.error(`[roost] config at ${configPath()} is unreadable (${err?.message ?? err}) and could not be moved aside; using defaults WITHOUT saving`);
       }
     } else {
-      console.warn(`[pocket] no config at ${configPath()}, using defaults`);
+      console.warn(`[roost] no config at ${configPath()}, using defaults`);
     }
     return structuredClone(DEFAULTS);
   }
 }
 
-export function saveConfig(config: PocketConfig): void {
+export function saveConfig(config: RoostConfig): void {
   const tmp = `${configPath()}.tmp`;
   writeFileSync(tmp, JSON.stringify(config, null, 2) + '\n');
   renameSync(tmp, configPath());

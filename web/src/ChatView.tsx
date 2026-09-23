@@ -5,7 +5,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, CrewInfo, Me, PocketConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage } from './types';
+import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -48,7 +48,7 @@ function SessionSwitcher(props: { currentId: string; onPick: (id: string) => voi
   );
 }
 
-export function ChatView(props: { sessionId: string; config: PocketConfigResponse; onBack: () => void; onSwitch: (id: string) => void }) {
+export function ChatView(props: { sessionId: string; config: RoostConfigResponse; onBack: () => void; onSwitch: (id: string) => void }) {
   const { sessionId, config, onBack, onSwitch } = props;
   const session = useSession(sessionId);
   const [showSettings, setShowSettings] = useState(false);
@@ -82,11 +82,11 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
     setRecap(null); // switching sessions — don't show the previous chat's recap
   }, [sessionId]);
 
-  // A resumed session's Pocket-visible thread starts empty even though the agent
+  // A resumed session's Roost-visible thread starts empty even though the agent
   // remembers everything — without this, every reopened chat looks like it forgot the
   // whole project. Fetch a free (no-token) recap of the underlying history exactly once,
   // and only while the live thread here is still empty — once you've sent something in
-  // Pocket, that conversation is the context and the recap would just be clutter.
+  // Roost, that conversation is the context and the recap would just be clutter.
   useEffect(() => {
     const resumedFrom = session.meta?.resumedFrom;
     const meta = session.meta;

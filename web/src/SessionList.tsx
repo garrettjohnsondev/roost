@@ -7,7 +7,7 @@ import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
 import { DecisionsPanel } from './DecisionsPanel';
 import type { Theme } from './theme';
-import type { AgentKind, GitSummary, PocketConfigResponse, RecentProject, SessionMeta } from './types';
+import type { AgentKind, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
 
 function ChangesBadge({ summary, onOpen }: { summary?: GitSummary; onOpen: () => void }) {
   if (!summary || (summary.files === 0 && summary.ahead === 0)) return null;
@@ -88,7 +88,7 @@ function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => v
 }
 
 export function SessionList(props: {
-  config: PocketConfigResponse;
+  config: RoostConfigResponse;
   onOpen: (id: string) => void;
   theme: Theme;
   onThemeChange: (t: Theme) => void;
@@ -206,8 +206,8 @@ export function SessionList(props: {
           <div className="page-header-brand">
             <img className="brand-icon" src="/icon-192.png" alt="" />
             <div>
-              <h1>Pocket</h1>
-              <span className="subtitle">your laptop, in your pocket</span>
+              <h1>Roost</h1>
+              <span className="subtitle">your laptop, in your roost</span>
             </div>
           </div>
           <button className="ghost" onClick={() => setShowSettings(true)}>

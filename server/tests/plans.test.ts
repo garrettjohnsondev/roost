@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { extractCriteria, renderPlan, writePlan, readPlan, planPath, type PlanFile } from '../src/plans.js';
 
-const tmp = mkdtempSync(join(tmpdir(), 'pocket-plans-'));
+const tmp = mkdtempSync(join(tmpdir(), 'roost-plans-'));
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 
 describe('acceptance criteria come out of the plan', () => {

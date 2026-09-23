@@ -69,7 +69,7 @@ export class CodexAdapter implements AgentAdapter {
 
   private async init(): Promise<void> {
     await this.rpc.request('initialize', {
-      clientInfo: { name: 'pocket', title: 'Pocket', version: '0.1.0' },
+      clientInfo: { name: 'roost', title: 'Roost', version: '0.1.0' },
       capabilities: null,
     });
     this.rpc.notify('initialized');
@@ -147,7 +147,7 @@ export class CodexAdapter implements AgentAdapter {
       return { decision };
     }
     // Anything we don't understand: refuse rather than hang the server.
-    throw new Error(`Pocket does not handle server request ${method}`);
+    throw new Error(`Roost does not handle server request ${method}`);
   }
 
   private requestApproval(title: string, detail: string): Promise<CodexDecision> {

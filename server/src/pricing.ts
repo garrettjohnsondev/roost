@@ -58,9 +58,9 @@ function readRows(file: string): OverrideRow[] | null {
 
 /** Where to look for rates carried over from agent-sync. Explicit and overridable
  *  because an implicit read of $HOME makes pricing depend on the machine — set
- *  POCKET_LEGACY_PRICES='' to disable it entirely (tests do). */
+ *  ROOST_LEGACY_PRICES='' to disable it entirely (tests do). */
 export function legacyPricesPath(): string {
-  return process.env.POCKET_LEGACY_PRICES ?? join(homedir(), '.agent-sync', 'prices.json');
+  return (process.env.ROOST_LEGACY_PRICES ?? process.env.POCKET_LEGACY_PRICES) ?? join(homedir(), '.agent-sync', 'prices.json');
 }
 
 /** User-supplied rates beat the table. Reads <dataDir>/prices.json, falling back

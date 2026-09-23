@@ -68,7 +68,7 @@ npm test
 ## design-tokens
 --accent: #6d28d9
 `;
-  const knowledge = { sections: parseProjectFile(md), path: '/x/.pocket/project.md', exists: true };
+  const knowledge = { sections: parseProjectFile(md), path: '/x/.roost/project.md', exists: true };
 
   it('splits on H2 headings', () => {
     expect(Object.keys(knowledge.sections).sort()).toEqual(['commands', 'conventions', 'design-tokens']);

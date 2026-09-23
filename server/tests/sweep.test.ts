@@ -6,10 +6,10 @@ import { join } from 'node:path';
 // Point config (and therefore the session-state file) at a temp dir BEFORE the manager
 // touches it — statePath() reads the env at call time, so a beforeAll is early enough.
 beforeAll(() => {
-  const dir = mkdtempSync(join(tmpdir(), 'pocket-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'roost-test-'));
   const configPath = join(dir, 'config.json');
   writeFileSync(configPath, JSON.stringify({ port: 0, projects: [dir], sessionIdleTimeoutHours: 24 }));
-  process.env.POCKET_CONFIG = configPath;
+  process.env.ROOST_CONFIG = configPath;
 });
 
 describe('SessionManager.sweepIdle', () => {

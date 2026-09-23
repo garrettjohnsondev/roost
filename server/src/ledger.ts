@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { dataDir, type PocketConfig } from './config.js';
+import { dataDir, type RoostConfig } from './config.js';
 import { priceFor, estimateCost, type PriceBasis } from './pricing.js';
 import type { AgentKind } from './protocol.js';
 
@@ -89,7 +89,7 @@ export class CallLedger {
     } catch (err: any) {
       if (!this.appendWarned) {
         this.appendWarned = true;
-        console.error(`[pocket] ledger append failed (${err?.message ?? err}); ${this.unflushed.length} row(s) held in memory, retried on the next call`);
+        console.error(`[roost] ledger append failed (${err?.message ?? err}); ${this.unflushed.length} row(s) held in memory, retried on the next call`);
       }
     }
   }
@@ -137,7 +137,7 @@ export class CallLedger {
 
   /** Re-price this scope's real token volume at the flagship rate. Returns null
    *  rather than a flattering number whenever the data can't support one. */
-  savings(scope: { sinceTs: number; sessionId?: string; taskId?: string }, cfg: PocketConfig): SavingsReport | null {
+  savings(scope: { sinceTs: number; sessionId?: string; taskId?: string }, cfg: RoostConfig): SavingsReport | null {
     const rows = this.since(scope.sinceTs, { sessionId: scope.sessionId, taskId: scope.taskId });
     if (rows.length < 3) return null;
 

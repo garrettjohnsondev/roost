@@ -3,19 +3,19 @@ dist/
 .DS_Store
 *.log
 .env
-.pocket-state.json
-.pocket-data/
+.roost-state.json
+.roost-data/
 
-# 1024px originals from the avatar generator now live in .pocket-data/avatar-raw; only the 128px versions ship.
+# 1024px originals from the avatar generator now live in .roost-data/avatar-raw; only the 128px versions ship.
 web/public/avatars/raw-*.png
 
 # Per-task plan files written by build/plan mode; working artifacts, not source.
-.pocket/plans/
+.roost/plans/
 
 # Vendored third-party skills installed by `npx skills add`. The LOCKFILE is
 # committed so the install is reproducible; the copied skill text is not ours.
 .agents/skills/
 .claude/skills/
 
-# 1024px sprite originals live in .pocket-data/sprite-raw; only the 256px webp
+# 1024px sprite originals live in .roost-data/sprite-raw; only the 256px webp
 # frames under web/public/crew/ ship. 10.4 MB of PNG becomes 580 KB.

@@ -6,7 +6,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 /** What the harness decided in the last day: routes, reviews and their
  *  independence, size-gate skips, dispatches and how they went. This is the
- *  view onto .pocket-data/decisions.jsonl -- the file Phase 4 measures from. */
+ *  view onto .roost-data/decisions.jsonl -- the file Phase 4 measures from. */
 export function DecisionsPanel() {
   const [summary, setSummary] = useState<DecisionsSummary | null>(null);
   const [failed, setFailed] = useState(false);

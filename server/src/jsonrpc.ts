@@ -32,8 +32,10 @@ export class JsonRpcProcess {
   private decoder = new StringDecoder('utf8');
 
   constructor(command: string, args: string[], cwd: string, private handlers: JsonRpcHandlers) {
-    // The agent subprocess has no business holding Pocket's own auth secret.
+    // The agent subprocess has no business holding Roost's own auth secret.
     const env = { ...process.env };
+    // Both spellings, or the rename reopens the hole this line exists to close.
+    delete env.ROOST_TOKEN;
     delete env.POCKET_TOKEN;
     this.child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
     this.child.stdout.on('data', (chunk: Buffer) => this.onStdoutData(chunk));

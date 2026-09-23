@@ -1,6 +1,6 @@
-# Pocket
+# Roost
 
-Your laptop's coding agents, in your pocket. Pocket is a self-hosted web app that runs on your
+Your laptop's coding agents, in your pocket. Roost is a self-hosted web app that runs on your
 Mac and gives you a clean, mobile-first chat UI for **Claude Code** (via the Claude Agent SDK)
 and **Codex** (via `codex app-server`) — both operating on the same local repos your editor uses.
 Reach it from your phone anywhere over [Tailscale](https://tailscale.com).
@@ -34,13 +34,13 @@ npm install
 npm run service:install   # builds, then installs an auto-starting background service
 ```
 
-Pocket now runs permanently: it starts at login and restarts if it crashes. The startup log
-(`~/Library/Logs/pocket.log`) prints the exact URL to open on your phone. Manage it with:
+Roost now runs permanently: it starts at login and restarts if it crashes. The startup log
+(`~/Library/Logs/roost.log`) prints the exact URL to open on your phone. Manage it with:
 
 ```bash
 npm run service:status
 npm run service:uninstall
-tail -f ~/Library/Logs/pocket.log
+tail -f ~/Library/Logs/roost.log
 ```
 
 After pulling code changes, re-run `npm run service:install` to rebuild and restart.
@@ -68,7 +68,7 @@ npm run dev        # server on :8790 with reload + Vite dev server on :5173
 ### Projects
 
 Add projects **from your phone**: tap "＋ Add" next to the project picker and browse to any
-folder (git repos are marked ●). The list persists in `pocket.config.json`, which you can also
+folder (git repos are marked ●). The list persists in `roost.config.json`, which you can also
 edit by hand (`projects`, `port`, fallback model lists). No restart needed when adding from
 the UI.
 
@@ -85,10 +85,10 @@ closed-lid-on-battery use).
 
 ## Security
 
-- **Keep this tailnet-only.** Pocket executes commands on your machine by design. Tailscale
+- **Keep this tailnet-only.** Roost executes commands on your machine by design. Tailscale
   means only your own devices can reach it. Do **not** port-forward it or put it behind a public
   tunnel without real authentication.
-- Optional shared secret: start with `POCKET_TOKEN=<secret> npm start`; API and WebSocket
+- Optional shared secret: start with `ROOST_TOKEN=<secret> npm start`; API and WebSocket
   requests must then carry it (`Authorization: Bearer <secret>` or `?token=`). The bundled web
   UI does not attach the token — it's for locking down non-tailnet setups with a custom client.
 - New sessions default to **Ask me** approvals; "Full auto" maps to Claude's

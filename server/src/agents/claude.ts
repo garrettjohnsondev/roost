@@ -75,7 +75,7 @@ export class ClaudeAdapter implements AgentAdapter {
       model: this.opts.model || undefined,
       permissionMode: APPROVAL_TO_PERMISSION_MODE[this.approvals],
       // Required by the SDK to ever honor 'bypassPermissions', including switching into it
-      // mid-session via setPermissionMode. Safe here: Pocket only requests that mode when the
+      // mid-session via setPermissionMode. Safe here: Roost only requests that mode when the
       // user explicitly taps "Full auto" in the UI — this doesn't change what's reachable.
       allowDangerouslySkipPermissions: true,
       includePartialMessages: true,
@@ -90,7 +90,7 @@ export class ClaudeAdapter implements AgentAdapter {
         // silently widened every later permission the user never saw.
         if (decision === 'allow-session') this.sessionAllowedTools.add(toolName);
         if (decision === 'allow' || decision === 'allow-session') return { behavior: 'allow', updatedInput: toolInput };
-        return { behavior: 'deny', message: 'Denied by user from Pocket.' };
+        return { behavior: 'deny', message: 'Denied by user from Roost.' };
       },
     };
 
@@ -299,7 +299,7 @@ export class ClaudeAdapter implements AgentAdapter {
     if (typeof this.q?.applyFlagSettings !== 'function') {
       throw new Error('Changing effort mid-session is not supported by the installed SDK; it will apply on the next session.');
     }
-    // '' means "Auto" in Pocket's UI; the SDK clears the flag-level override with null.
+    // '' means "Auto" in Roost's UI; the SDK clears the flag-level override with null.
     await this.q.applyFlagSettings({ effortLevel: (effort || null) as any });
   }
 
