@@ -338,3 +338,10 @@ export type ChatItem =
   | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; ts: number; reviewStrength?: string }
   | { kind: 'error'; text: string; ts: number };
+
+/** You, in the thread. Mirrors server/src/me.ts. */
+export interface Me {
+  name: string;
+  avatar?: string;
+  color: string;
+}

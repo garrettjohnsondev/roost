@@ -1976,3 +1976,35 @@ button {
 .mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.10); }
 .mode-tag.build { background: rgba(109,40,217,0.25); }
 .mode-tag.plan { background: rgba(217,164,65,0.25); }
+
+/* Your own turn: bubble then face, mirroring the crew's face-then-bubble, so the
+   thread reads as two sides of a conversation rather than one list. */
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  align-self: flex-end;
+  max-width: 88%;
+}
+.msg-row.user { justify-content: flex-end; }
+.msg-row .msg.user { align-self: auto; max-width: none; }
+.me-mark { flex: 0 0 auto; }
+.me-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+}
+.me-monogram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* One field on its own, rather than in a dense roster row, so it gets room. */
+.me-name-input { width: 100%; box-sizing: border-box; margin-bottom: 10px; }

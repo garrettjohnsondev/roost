@@ -5,7 +5,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession } from './useSession';
-import type { ApprovalSetting, ChatItem, PocketConfigResponse, PreviewResult, SessionMeta, UserImage, CrewInfo, SessionMode } from './types';
+import type { ApprovalSetting, ChatItem, CrewInfo, Me, PocketConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -60,6 +60,16 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
   // was told about, and the common answer to "do this every time" here is yes.
   // It is still a checkbox they can clear before tapping.
   const [keepCompacting, setKeepCompacting] = useState(true);
+  // You, in the thread. One fetch, because your name does not change per project.
+  const [me, setMe] = useState<Me | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.me) setMe(d.me); })
+      .catch(() => { /* the thread works without your face */ });
+    return () => { live = false; };
+  }, []);
   const recapFetchedFor = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -244,7 +254,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
           </div>
         )}
         {session.items.map((item, i) => (
-          <Message key={i} item={item} crew={session.meta?.crew} />
+          <Message key={i} item={item} crew={session.meta?.crew} me={me} />
         ))}
         {session.status === 'working' && !session.closedReason && (
           <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
@@ -517,13 +527,28 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew }: { item: ChatItem; crew?: CrewInfo }) {
+function Message({ item, crew, me }: { item: ChatItem; crew?: CrewInfo; me?: Me | null }) {
   switch (item.kind) {
     case 'user':
+      // The crew had faces and names from the first commit and you had neither,
+      // which is a strange way to build a group chat you are supposed to be IN.
       return (
-        <div className="msg user">
-          {item.imageCount > 0 && <div className="img-note">📷 {item.imageCount} image{item.imageCount > 1 ? 's' : ''}</div>}
-          {item.text}
+        <div className="msg-row user">
+          <div className="msg user">
+            {item.imageCount > 0 && <div className="img-note">📷 {item.imageCount} image{item.imageCount > 1 ? 's' : ''}</div>}
+            {item.text}
+          </div>
+          {me && (
+            <div className="me-mark" title={me.name}>
+              {me.avatar ? (
+                <img className="me-avatar" src={avatarUrl(me.avatar) ?? ''} alt="" style={{ background: me.color }} />
+              ) : (
+                <span className="me-avatar me-monogram" style={{ background: me.color }}>
+                  {(me.name[0] ?? 'Y').toUpperCase()}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       );
     case 'assistant':

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { CrewEditor } from './CrewEditor';
 import { api } from './api';
 import type { Theme } from './theme';
-import type { NotificationConfig, ModelsResponse } from './types';
+import { AvatarPicker } from './AvatarPicker';
+import type { NotificationConfig, ModelsResponse, Me } from './types';
 
 function randomTopic(): string {
   const bytes = new Uint8Array(6);
@@ -123,6 +124,8 @@ export function GlobalSettings(props: {
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <h3>Settings</h3>
 
+        <YouSettings />
+
         <div className="field">
           <label>Appearance</label>
           <div className="segmented">
@@ -226,6 +229,57 @@ export function GlobalSettings(props: {
           Done
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Your name and face. Same picker the crew uses, because it is the same kind of
+ *  choice -- and the crew editor already proved people will set a face if asked.
+ *  Saved on blur rather than behind a Save button: there is one of each field and
+ *  nothing here is destructive. */
+function YouSettings() {
+  const [me, setMe] = useState<Me | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMe(d?.me ?? { name: 'You', color: '#4b5563' }))
+      .catch(() => setMe({ name: 'You', color: '#4b5563' }));
+  }, []);
+
+  const save = (next: Me) => {
+    setMe(next);
+    fetch('/api/me', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ me: next }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.me) { setMe(d.me); setSaved(true); setTimeout(() => setSaved(false), 1500); } })
+      .catch(() => { /* a failed save leaves the field as typed; nothing is lost */ });
+  };
+
+  if (!me) return null;
+  return (
+    <div className="field">
+      <label>You{saved ? ' — saved' : ''}</label>
+      <p className="section-hint">
+        Your name and face on your own turns. The crew had both from the start; you did not.
+      </p>
+      <input
+        className="crew-row-name me-name-input"
+        value={me.name}
+        maxLength={40}
+        placeholder="Your name"
+        onChange={(e) => setMe({ ...me, name: e.target.value })}
+        onBlur={() => save(me)}
+      />
+      <AvatarPicker
+        value={me.avatar}
+        color={me.color}
+        onPick={(avatar, color) => save({ ...me, avatar, color })}
+      />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
 import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona } from './crew.js';
+import { loadMe, saveMe } from './me.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 const config = loadConfig();
@@ -438,6 +439,18 @@ app.post('/api/models/refresh', async (_req, res) => {
     res.json({ ok: true, changes });
   } catch (e: any) {
     res.status(500).json({ error: String(e?.message ?? e) });
+  }
+});
+
+app.get('/api/me', (_req, res) => {
+  res.json({ me: loadMe() });
+});
+
+app.post('/api/me', (req, res) => {
+  try {
+    res.json({ me: saveMe(req.body?.me ?? {}) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
   }
 });
 
