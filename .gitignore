@@ -6,6 +6,13 @@ dist/
 .roost-state.json
 .roost-data/
 
+# Pre-rename paths. Kept ignored so a migration leftover on any machine can
+# never be committed: renaming these in .gitignore un-ignored 40 MB of usage
+# data on the very commit that did the rename.
+.pocket-state.json
+.pocket-data/
+.pocket/plans/
+
 # 1024px originals from the avatar generator now live in .roost-data/avatar-raw; only the 128px versions ship.
 web/public/avatars/raw-*.png
 

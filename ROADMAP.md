@@ -216,7 +216,7 @@ Three layers, and only the third carries behaviour:
 
 Definitions are therefore named for **tasks, not jobs**: `explore`, `plan`, `review`, `ui-review`, `test-runner`, `implement`. Each carries a `hat` (`scout`, `architect`, `designer`, `QA`, `lead dev`) that is **display only** — the crew still reads as a team, without the measured harm of making job titles load-bearing. An unrecognised capability **fails closed** to `read-only`.
 
-**Project knowledge lives in one file, sliced per dispatch.** `<project>/.pocket/project.md`, split on H2 headings; each definition names the sections it receives. Generic role knowledge is what the specialist experiments showed adds nothing — what is genuinely missing from a model's context is *this* project's conventions, commands, done-definition, constraints and tokens. Slicing matters as much as content: a test runner has no use for design tokens, and handing every agent the whole file is how context rot starts.
+**Project knowledge lives in one file, sliced per dispatch.** `<project>/.roost/project.md`, split on H2 headings; each definition names the sections it receives. Generic role knowledge is what the specialist experiments showed adds nothing — what is genuinely missing from a model's context is *this* project's conventions, commands, done-definition, constraints and tokens. Slicing matters as much as content: a test runner has no use for design tokens, and handing every agent the whole file is how context rot starts.
 
 **Acceptance criteria travel with the task and are stated to outrank the plan**, because E2EDevBench's failure was executors treating a plan as authority over requirements.
 

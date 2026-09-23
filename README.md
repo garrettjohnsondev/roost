@@ -1,6 +1,6 @@
 # Roost
 
-Your laptop's coding agents, in your pocket. Roost is a self-hosted web app that runs on your
+Your laptop's coding agents, one tap away. Roost is a self-hosted web app that runs on your
 Mac and gives you a clean, mobile-first chat UI for **Claude Code** (via the Claude Agent SDK)
 and **Codex** (via `codex app-server`) — both operating on the same local repos your editor uses.
 Reach it from your phone anywhere over [Tailscale](https://tailscale.com).
