@@ -7,6 +7,7 @@ import { quotaStore } from './quota.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
 import { compactionIntent, type ContextPressure } from './context.js';
+import { describeDrift, loadAliases, noteResolution, saveAliases } from './aliasDrift.js';
 import type { BudgetConfig, AutoRouteConfig as OtherRouteConfig } from './config.js';
 import type { Surplus } from './quota.js';
 import type { SurplusInfo } from './protocol.js';
@@ -183,6 +184,11 @@ export class Session {
         this.broadcastMeta();
       },
       onModelResolved: (model: string) => {
+        // The engine's answer is also the ONLY place a Claude release shows up:
+        // `opus` is a stable alias that quietly starts pointing somewhere new, so
+        // what it resolved to is compared against what it resolved to last time.
+        const asked = this.autoMode ? this.routedModel ?? this.model : this.model;
+        if (asked) this.noteResolved(asked, model);
         // In auto mode 'auto' is the setting; the engine's answer is the routed reality.
         if (this.autoMode) this.routedModel = model;
         else this.model = model;
@@ -890,6 +896,26 @@ export class Session {
       out.push(c);
     }
     return out;
+  }
+
+  /** Announces a model arriving behind an alias that did not change name.
+   *
+   *  This is the Claude half of Phase 7. The registry diff catches Codex, whose
+   *  ids are versioned and carry succession pointers; it cannot catch Claude,
+   *  where a new model lands behind `opus` and no id changes at all. Opus 5.5
+   *  shipped on 2026-09-22 and the roster was byte-identical before and after. */
+  private noteResolved(asked: string, resolved: string): void {
+    if (asked === 'auto') return; // not an alias, just the router not having picked yet
+    const store = loadAliases();
+    const drift = noteResolution(store, { agent: this.agent, alias: asked, resolved, at: now() });
+    saveAliases(store);
+    if (!drift) return;
+    const msg = describeDrift(drift);
+    this.notice(msg);
+    logDecision({ kind: 'route', sessionId: this.id, stage: 'alias-drift', agent: this.agent, alias: drift.alias, from: drift.from, to: drift.to, reason: msg });
+    // Worth a push: a model changing underneath a running session is the kind of
+    // thing you want to hear about even when you are not looking at the app.
+    if (this.sockets.size === 0) sendNotification(`alias:${this.agent}:${drift.alias}`, `New model · ${this.agent}`, msg, { minIntervalMs: 60 * 60_000 });
   }
 
   /** A visible, non-error note on the session's status line. */

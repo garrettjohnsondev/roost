@@ -31,7 +31,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **4** | Quota-aware model routing + budget ceiling | ✅ **Done** — routing, gate, boost, task ceiling, and the measured window-weight estimator (null until it has samples) |
 | **4d** | Modes — chat / auto / plan / build | ✅ **Done** |
 | **5** | Verification gate | ✅ **Done** — gates, evidence, tamper check, image checks, diff reviewer |
-| **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, and the one-tap assign card for new or broken routes |
+| **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
 **305 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
@@ -299,6 +299,8 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 ---
 
 ## 8. Corrections log
+
+**2026-09-22 — a release the registry could not see.** Claude Opus 5.5 shipped and Roost's roster was byte-identical before and after, because Claude exposes ALIASES: `opus` quietly started resolving to a new model and no id changed. Phase 7's roster diff is built for Codex, whose ids are versioned and carry succession pointers, and it structurally cannot catch this. `aliasDrift.ts` closes it by diffing what an alias RESOLVES to, observed from the engine's own report of what it just ran — first sight is never announced, a pinned id never drifts against itself, and one release is announced once. Found by being told the model existed and then checking the docs rather than the roster; checking also exposed a price table that overstated Opus by nearly 4x and an adaptive-thinking branch that had been unreachable since Phase 4b.
 
 *Mistakes made and fixed. Kept so they aren't repeated.*
 
