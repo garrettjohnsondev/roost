@@ -15,7 +15,8 @@
     "test": "npm run test -w server && npm run test -w web",
     "service:install": "npm run build && node scripts/service.mjs install",
     "service:uninstall": "node scripts/service.mjs uninstall",
-    "service:status": "node scripts/service.mjs status"
+    "service:status": "node scripts/service.mjs status",
+    "roadmap": "node scripts/roadmap-stats.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

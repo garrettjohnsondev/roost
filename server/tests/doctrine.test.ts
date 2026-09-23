@@ -291,3 +291,18 @@ describe('replayed history does not perform', () => {
     expect(css).not.toMatch(/\n\.verify-msg\.pass \.verify-badge \{ animation/);
   });
 })
+
+describe('the roadmap does not flatter itself', () => {
+  it('carries a status line written by the suites, not by hand', () => {
+    // It drifted four times in one session — the last time by 47 tests. The
+    // marker is what a hand edit removes, so its absence is the tell.
+    const r = read('ROADMAP.md');
+    expect(r).toMatch(/\*\*\d+ (tests green|passing, \d+ FAILING)[^*]*\*\* <!-- written by scripts\/roadmap-stats\.mjs on \d{4}-\d{2}-\d{2}/);
+  });
+
+  it('refuses to print "green" when anything failed', () => {
+    const s = read('scripts/roadmap-stats.mjs');
+    expect(s).toMatch(/failed === 0 \? `\*\*\$\{passed\} tests green` : `\*\*\$\{passed\} passing, \$\{failed\} FAILING`/);
+    expect(s).toMatch(/process\.exit\(failed === 0 && tc \? 0 : 1\)/);
+  });
+})
