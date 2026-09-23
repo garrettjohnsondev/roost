@@ -397,3 +397,24 @@ describe('"stop asking" says what it actually stops', () => {
     expect(css).toMatch(/\.surplus-bar\.on\.full-auto-bar/);
   });
 })
+
+describe('verify is not hero space', () => {
+  // User-reported 2026-09-23: "Run gates" / "Gates + review diff" sat as a
+  // permanent two-chip bar directly under the header of EVERY session,
+  // ahead of the thread itself, whether or not there was anything to
+  // verify. Moved into the git sheet, next to the diff it checks.
+  it('renders no permanent verify bar above the thread', () => {
+    const chat = read('web/src/ChatView.tsx');
+    expect(chat).not.toMatch(/verify-bar/);
+  });
+
+  it('the git sheet carries verify, but only when a live session can act on it', () => {
+    const git = read('web/src/GitSheet.tsx');
+    expect(git).toMatch(/onVerify\?: \(review: boolean\) => void/);
+    expect(git).toMatch(/\{onVerify && \(/);
+    // The home screen's git peek (no attached session) must not render a
+    // verify row wired to a dead action.
+    const sessionList = read('web/src/SessionList.tsx');
+    expect(sessionList).toMatch(/<GitSheet cwd=\{gitSheetFor\} onClose=\{\(\) => setGitSheetFor\(null\)\} \/>/);
+  });
+})

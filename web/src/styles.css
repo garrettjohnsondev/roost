@@ -618,6 +618,8 @@ button {
   margin-bottom: 12px;
 }
 
+.git-verify-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
 .git-branch {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-size: 13px;
@@ -1954,8 +1956,6 @@ button {
 /* Full auto is a risk state, not a reward like boost -- it gets its own
    amber warning tint rather than reusing boost's green "good news" on-state. */
 .surplus-bar.on.full-auto-bar { background: rgba(217,119,6,0.14); border-bottom-color: rgba(217,119,6,0.4); }
-
-.verify-bar { display: flex; gap: 8px; padding: 6px 12px; }
 .verify-msg { border-radius: 10px; padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line, #2a2a2a); }
 .verify-msg.pass { border-color: rgba(34,197,94,0.5); }
 .verify-msg.fail { border-color: rgba(239,68,68,0.5); }

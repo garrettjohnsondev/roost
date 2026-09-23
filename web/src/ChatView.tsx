@@ -142,7 +142,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </button>
       </header>
 
-      {showGit && session.meta && <GitSheet cwd={session.meta.cwd} onClose={() => setShowGit(false)} />}
+      {showGit && session.meta && (
+        <GitSheet
+          cwd={session.meta.cwd}
+          onClose={() => setShowGit(false)}
+          onVerify={(review) => {
+            session.send({ type: 'verify', review });
+            setShowGit(false);
+          }}
+          verifyDisabled={session.status === 'working'}
+        />
+      )}
 
       {showSwitcher && (
         <SessionSwitcher
@@ -159,14 +169,6 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         />
       )}
 
-      <div className="verify-bar">
-        <button className="chip" disabled={session.status === 'working'} title="Run the project's gates and record command, exit code and output" onClick={() => session.send({ type: 'verify' })}>
-          ✓ Run gates
-        </button>
-        <button className="chip" disabled={session.status === 'working'} title="Gates, then a fresh-context review of the diff against the criteria" onClick={() => session.send({ type: 'verify', review: true })}>
-          ✓ Gates + review diff
-        </button>
-      </div>
       {session.meta?.surplus && !session.meta.boost && (
         <div className="surplus-bar">
           {/* Use it or lose it. The blocks that will expire unused pulse; the

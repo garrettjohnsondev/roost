@@ -35,7 +35,24 @@ function DiffView({ diff }: { diff: string }) {
   );
 }
 
-export function GitSheet({ cwd, onClose }: { cwd: string; onClose: () => void }) {
+export function GitSheet({
+  cwd,
+  onClose,
+  onVerify,
+  verifyDisabled,
+}: {
+  cwd: string;
+  onClose: () => void;
+  /** Verify used to be a permanent two-button bar at the very top of every
+   *  session, regardless of whether there was anything to verify. Moved here:
+   *  verifying is "check what changed," so it belongs next to the diff it
+   *  checks, not as hero space competing with the thread itself. Omitted
+   *  from the home screen's git peek, which has no live session to verify
+   *  against — the row simply does not render there rather than being
+   *  wired to a dead action. */
+  onVerify?: (review: boolean) => void;
+  verifyDisabled?: boolean;
+}) {
   const [status, setStatus] = useState<GitStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -115,6 +132,27 @@ export function GitSheet({ cwd, onClose }: { cwd: string; onClose: () => void })
               {Boolean(status.ahead) && <span className="git-ahead">{status.ahead} to push</span>}
               {Boolean(status.behind) && <span className="git-behind">{status.behind} behind</span>}
             </div>
+
+            {onVerify && (
+              <div className="git-verify-row">
+                <button
+                  className="chip"
+                  disabled={verifyDisabled}
+                  title="Run the project's gates and record command, exit code and output"
+                  onClick={() => onVerify(false)}
+                >
+                  ✓ Run gates
+                </button>
+                <button
+                  className="chip"
+                  disabled={verifyDisabled}
+                  title="Gates, then a fresh-context review of the diff against the criteria"
+                  onClick={() => onVerify(true)}
+                >
+                  ✓ Gates + review diff
+                </button>
+              </div>
+            )}
 
             {status.files.length === 0 ? (
               <div className="usage-empty">Working tree clean — nothing to commit.</div>
