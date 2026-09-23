@@ -105,6 +105,9 @@ export interface SessionMeta {
   planPath?: string;
   contextOffer?: { reason: string; percent: number | null };
   autoCompact?: boolean;
+  /** Who last worked here, newest first, at most three — the crew the UI wakes
+   *  when you open the session. */
+  recentCrew?: CrewInfo[];
   agentSessionId?: string;
   resumedFrom?: string;
   /** "Use the good models" is on for this session. Clears when the surplus does. */

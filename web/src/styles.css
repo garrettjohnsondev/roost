@@ -2008,3 +2008,69 @@ button {
 
 /* One field on its own, rather than in a dense roster row, so it gets room. */
 .me-name-input { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+
+/* ---- The crew waking up ----------------------------------------------------
+   Runs once on mount and holds. Three stacked frames per member: idle at the
+   bottom, then blink, then sleep on top. Both upper frames step to opacity 0 at
+   their own moment, revealing what is underneath — sleep -> blink -> idle — so
+   one drawing buys a three-frame wake. `steps(1)` again: pixel art cuts.
+   The member itself also rises and settles, which is the part that reads as
+   "getting up" rather than "changing picture". */
+.crew-wake {
+  display: flex;
+  gap: 18px;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 10px 12px 14px;
+  flex-wrap: wrap;
+}
+.crew-wake-member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  animation: wake-rise 900ms cubic-bezier(0.22, 1.3, 0.36, 1) both;
+}
+.crew-wake-frames {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+.crew-wake-frames img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+/* Sleep holds, then cuts away at 55%; blink covers the next beat, then cuts too. */
+.crew-wake-frames .wake-sleep { animation: wake-hide 900ms steps(1, end) both; }
+.crew-wake-frames .wake-blink { animation: wake-hide-late 900ms steps(1, end) both; }
+.crew-wake-name {
+  font-size: 11px;
+  font-weight: 650;
+  opacity: 0.9;
+}
+@keyframes wake-hide {
+  0%, 54.99% { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}
+@keyframes wake-hide-late {
+  0%, 74.99% { opacity: 1; }
+  75%, 100% { opacity: 0; }
+}
+/* Slumped and low, then up. Translate only — no scale, which on pixel art at a
+   non-integer factor would blur every frame of the rise. */
+@keyframes wake-rise {
+  0% { transform: translateY(7px); }
+  55% { transform: translateY(7px); }
+  78% { transform: translateY(-3px); }
+  100% { transform: translateY(0); }
+}
+/* Reduced motion: they are simply awake. No rise, no frame cuts, no sleep. */
+@media (prefers-reduced-motion: reduce) {
+  .crew-wake-member { animation: none; }
+  .crew-wake-frames .wake-sleep,
+  .crew-wake-frames .wake-blink { animation: none; opacity: 0; }
+}

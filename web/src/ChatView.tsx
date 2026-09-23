@@ -253,6 +253,9 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
             <div className="recap-divider">continuing below</div>
           </div>
         )}
+        {session.meta?.recentCrew && session.meta.recentCrew.length > 0 && (
+          <CrewWakeUp crew={session.meta.recentCrew} />
+        )}
         {session.items.map((item, i) => (
           <Message key={i} item={item} crew={session.meta?.crew} me={me} />
         ))}
@@ -474,6 +477,65 @@ function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: 
         <img className="frame-static" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />
       )}
     </span>
+  );
+}
+
+/** The crew waking up.
+ *
+ *  Open a session and the last few who worked here are asleep, then they wake —
+ *  slumped, eyes opening, up and ready — in a stagger, so it reads as a room
+ *  noticing you walked in rather than three things twitching at once.
+ *
+ *  It runs ONCE, on mount, and then holds on idle: `animation-fill-mode:
+ *  forwards` with no iteration count. That matters, because the rule everywhere
+ *  else in this file is that motion reports real state and nothing loops on its
+ *  own schedule. Opening a session IS the state change; the sprites are
+ *  reporting it, and then they stop.
+ *
+ *  Three frames from one new drawing: sleep, then blink for the half-second of
+ *  eyes opening, then idle. The blink frame already existed for its own sake. */
+function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
+  // Art can lag code. A missing sleep frame must degrade to "eyes open and
+  // rise" rather than to a broken-image icon, so each frame hides itself if it
+  // fails to load and whatever is underneath shows through.
+  const [missing, setMissing] = useState<Record<string, true>>({});
+  const gone = (key: string) => setMissing((m) => (m[key] ? m : { ...m, [key]: true }));
+  const drawn = crew.filter((c) => c.sprite);
+  if (drawn.length === 0) return null;
+  return (
+    <div className="crew-wake" aria-hidden="true">
+      {drawn.map((c, i) => (
+        <span
+          key={c.name}
+          className="crew-wake-member"
+          style={{ animationDelay: `${i * 220}ms` }}
+          title={`${c.name} — ${c.model || c.agent}`}
+        >
+          <span className="crew-wake-frames" style={{ animationDelay: `${i * 220}ms` }}>
+            <img src={`/crew/${c.sprite}-idle.webp`} alt="" />
+            {!missing[`${c.sprite}-blink`] && (
+              <img
+                className="wake-blink"
+                src={`/crew/${c.sprite}-blink.webp`}
+                alt=""
+                style={{ animationDelay: `${i * 220}ms` }}
+                onError={() => gone(`${c.sprite}-blink`)}
+              />
+            )}
+            {!missing[`${c.sprite}-sleep`] && (
+              <img
+                className="wake-sleep"
+                src={`/crew/${c.sprite}-sleep.webp`}
+                alt=""
+                style={{ animationDelay: `${i * 220}ms` }}
+                onError={() => gone(`${c.sprite}-sleep`)}
+              />
+            )}
+          </span>
+          <span className="crew-wake-name" style={{ color: c.color }}>{c.name}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 

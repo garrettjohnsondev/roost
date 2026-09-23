@@ -156,3 +156,46 @@ describe('per-persona spend names the right person', () => {
     expect(read('server/src/sessions.ts')).toMatch(/crew: crewMember\(t\.agent, t\.model, 'dispatcher'\)/);
   });
 })
+
+describe('the wake-up runs once, then stops', () => {
+  it('never loops — opening the session is the event, not a timer', () => {
+    // Everything else in this file forbids ambient motion. The wake-up is allowed
+    // because it reports a real state change (you opened the session) and then
+    // holds; an `infinite` here would turn it into exactly the decoration the
+    // rest of the design refuses.
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('/* ---- The crew waking up'));
+    const upToMedia = block.slice(0, block.indexOf('@media (prefers-reduced-motion'));
+    expect(upToMedia).not.toMatch(/infinite/);
+    // `both`/`forwards` is what makes it hold on the final frame instead of
+    // snapping back to asleep.
+    expect(upToMedia).toMatch(/animation: wake-rise[^;]*both/);
+    expect(upToMedia).toMatch(/steps\(1, end\) both/);
+  });
+
+  it('cuts between frames rather than fading, like every other sprite', () => {
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('/* ---- The crew waking up'));
+    expect(block).toMatch(/@keyframes wake-hide \{\s*0%, 54\.99% \{ opacity: 1; \}/);
+  });
+
+  it('does not scale pixel art on a non-integer factor', () => {
+    // A scale-up during the rise would blur every frame of it.
+    const css = read('web/src/styles.css');
+    const rise = css.slice(css.indexOf('@keyframes wake-rise'), css.indexOf('@keyframes wake-rise') + 260);
+    expect(rise).not.toMatch(/scale/);
+  });
+
+  it('degrades to eyes-open when a frame is missing, not to a broken image', () => {
+    const c = read('web/src/ChatView.tsx');
+    const block = c.slice(c.indexOf('function CrewWakeUp'), c.indexOf('function CrewWakeUp') + 2200);
+    expect(block).toMatch(/onError=\{\(\) => gone\(`\$\{c\.sprite\}-sleep`\)\}/);
+    expect(block).toMatch(/onError=\{\(\) => gone\(`\$\{c\.sprite\}-blink`\)\}/);
+  });
+
+  it('shows each character once, so a roll-call never repeats a face', () => {
+    // Two models can share a persona; de-duplicating by model would show the
+    // same face twice and read as a bug.
+    expect(read('server/src/sessions.ts')).toMatch(/seen\.has\(c\.name\)/);
+  });
+})

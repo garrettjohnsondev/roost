@@ -118,6 +118,9 @@ export interface SessionMeta {
   contextOffer?: { reason: string; percent: number | null };
   /** "Keep doing this automatically" — remembered across restarts. */
   autoCompact?: boolean;
+  /** Who last worked here, newest first, at most three — the crew the UI wakes
+   *  when you open the session. */
+  recentCrew?: CrewInfo[];
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.

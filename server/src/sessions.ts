@@ -18,7 +18,7 @@ import { shouldApplyEffort } from './routing.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import type { WebSocket } from 'ws';
-import { now, type AgentKind, type ApprovalSetting, type ClientMessage, type ServerEvent, type SessionMeta } from './protocol.js';
+import { now, type AgentKind, type ApprovalSetting, type ClientMessage, type ServerEvent, type SessionMeta, type CrewInfo } from './protocol.js';
 import { truncate } from './util.js';
 import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
@@ -242,6 +242,7 @@ export class Session {
       resumedFrom: this.resumedFrom,
       boost: this.boost || undefined,
       contextOffer: this.contextOffer,
+      recentCrew: this.recentCrew(),
       autoCompact: this.autoCompact || undefined,
       surplus: toSurplusInfo(quotaStore().surplus(this.agent, this.budget)),
     };
@@ -864,6 +865,25 @@ export class Session {
       this.reportError(`Could not compact this ${this.agent} session (${String(err?.message ?? err)}) — the context is still full.`);
       logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'failed', agent: this.agent, trigger: how, reason: String(err?.message ?? err) });
     }
+  }
+
+  /** Who last worked in this session, newest first, at most three.
+   *
+   *  Read backwards off the transcript rather than tracked separately, so it can
+   *  never drift from what actually happened -- and de-duplicated by NAME rather
+   *  than by model, because two models sharing a persona are one character and
+   *  seeing the same face twice in a roll-call would look like a bug. */
+  private recentCrew(): CrewInfo[] {
+    const out: CrewInfo[] = [];
+    const seen = new Set<string>();
+    for (let i = this.transcript.length - 1; i >= 0 && out.length < 3; i--) {
+      const ev = this.transcript[i] as any;
+      const c: CrewInfo | undefined = ev?.crew;
+      if (!c || seen.has(c.name)) continue;
+      seen.add(c.name);
+      out.push(c);
+    }
+    return out;
   }
 
   /** A visible, non-error note on the session's status line. */

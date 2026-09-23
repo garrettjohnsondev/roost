@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, and the one-tap assign card for new or broken routes |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**275 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**305 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
