@@ -120,7 +120,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </button>
         <button className="chat-title" onClick={() => setShowSwitcher(true)}>
           <span className={`agent-dot ${agent}`} />
-          <div>
+          <div className="chat-title-body">
             <div className="chat-title-text">
               {session.meta?.title ?? '…'} <span className="chat-title-chevron">▾</span>
             </div>
@@ -332,7 +332,9 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 <SpriteAvatar crew={session.meta.crew} pose="peek" size={34} />
               )}
               <span>
-                {session.pendingApproval.title}
+                {/* The server names the vendor ("Claude wants to use Bash"); the
+                    thread is a crew, so it is the crew member asking. */}
+                {crewAsking(session.pendingApproval.title, session.meta?.crew)}
                 {session.pendingApprovalCount > 1 ? ` · ${session.pendingApprovalCount - 1} more waiting` : ''}
               </span>
             </h3>
@@ -671,7 +673,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
     case 'approval':
       return (
         <div className="tool-chip approval">
-          🔐 {item.title}
+          🔐 {crewAsking(item.title, crew)}
           {item.decision ? ` — ${item.decision === 'deny' ? 'denied' : 'allowed'}` : ' — waiting'}
         </div>
       );
@@ -920,4 +922,12 @@ function fmtTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
   return String(n);
+}
+
+/** "Claude wants to use Bash" → "Wren wants to use Bash", when a crew member is
+ *  known. Only the leading vendor word is swapped, so an unfamiliar title passes
+ *  through untouched rather than being mangled. */
+export function crewAsking(title: string, crew?: CrewInfo | null): string {
+  if (!crew?.name) return title;
+  return title.replace(/^(Claude|Codex)(?=\s)/, crew.name);
 }

@@ -2352,3 +2352,14 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 [data-theme='dark'] .recent-title { color: var(--text); font-size: 15px; font-weight: 700; }
 [data-theme='dark'] .recent-project { color: var(--text-dim); font-size: 12px; font-weight: 400; }
 .fuel-when { font-size: 12px; color: var(--text-dim); margin: 2px 0 0; }
+
+/* A flex child will not shrink below its content unless told to. Without this
+   the title's ellipsis never engaged: a long auto-title (the first message)
+   pushed the page to 504px on a 390px phone, and the browser zoomed the whole
+   thread out to fit it. */
+.chat-title-body { min-width: 0; flex: 1 1 auto; }
+.chat-title-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* A status dot is a dot. As a flex item it was allowed to shrink, and a long
+   title squeezed it into an oval. */
+.agent-dot { flex-shrink: 0; }

@@ -6,6 +6,7 @@ import { claudeDeltas } from '../usageDelta.js';
 import { fromClaudeContextUsage, withAdvice } from '../context.js';
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
+import { toolDetail } from '../toolDetail.js';
 
 const EXPAND_SNIPPET = 4000;
 
@@ -142,7 +143,7 @@ export class ClaudeAdapter implements AgentAdapter {
               type: 'tool_start',
               toolId: block.id ?? randomUUID(),
               name: block.name ?? 'tool',
-              detail: truncate(JSON.stringify(block.input ?? {}), 300),
+              detail: truncate(toolDetail(block.name ?? '', block.input), 300),
               expand: toolExpand(block.name ?? '', block.input),
               ts: now(),
             });

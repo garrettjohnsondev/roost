@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**362 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 329/329, web 33/33 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**370 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 335/335, web 35/35 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -385,8 +385,11 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 1. **The app does not look like the boards** *(call-out, 2026-09-23)*. On the phone it says Roost and shows the crew, but almost nothing else matches the design canvas — the palette, the type, the thread, home, chapters, the gauge. The motion shipped into an interface that still looks like the old Pocket. This is 12d, and it is the main event rather than a side item.
 2. **The Roost logo is not liked** *(call-out, 2026-09-23)*. Direction to be chosen with the owner before anything is generated — three candidates were drawn once already and the chosen one missed.
+   - *Home*: done 2026-09-23 — palette, type, crew strip with real sleep/awake state, conversation card, compact fuel.
+   - *Thread*: palette and bubbles done; **faces still sit inside the bubble** — the board puts the face beside it, iMessage-style, which is what was asked for originally. Next.
 3. **Chapters** (12d) — a model for grouping the thread into jobs, which the last motion demo, the fold, is waiting on.
-4. **Faces for the other eight** (12b).
+4. **Faces for the other eight** (12b) — **Wren first**: Wren is Sonnet, the default chat model, so the crew member who speaks most has no drawn face.
+5. **Triage is failing to parse** *(found 2026-09-23, not yet investigated)*: a live session routed with "triage unparseable — defaulted", so Pip fell back to the default tier instead of sizing the work. A routing bug, deliberately not chased mid-redesign.
 
 
 

@@ -67,3 +67,16 @@ describe('typing — a command should inform, not perform', () => {
     expect(typeDurationMs('')).toBeGreaterThan(0);
   });
 });
+
+describe('crewAsking — the crew member asks, not the vendor', () => {
+  it('swaps the leading vendor word for the crew name', async () => {
+    const { crewAsking } = await import('./ChatView');
+    expect(crewAsking('Claude wants to use Bash', { name: 'Wren' } as any)).toBe('Wren wants to use Bash');
+    expect(crewAsking('Codex wants to run a command', { name: 'Juno' } as any)).toBe('Juno wants to run a command');
+  });
+  it('leaves a title alone when no crew member is known, or it does not lead with a vendor', async () => {
+    const { crewAsking } = await import('./ChatView');
+    expect(crewAsking('Claude wants to use Bash', null)).toBe('Claude wants to use Bash');
+    expect(crewAsking('Approve network access for Claude', { name: 'Wren' } as any)).toBe('Approve network access for Claude');
+  });
+});
