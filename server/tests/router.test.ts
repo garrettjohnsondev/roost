@@ -57,3 +57,23 @@ describe('triage carries a size for the conference gate', () => {
     expect(parseTriageSized('{"tier":"standard","reason":"x"}').size).toBeUndefined();
   });
 });
+
+describe('parseTriage — a failed call is not a bad answer', () => {
+  it('reads fenced JSON, which is how Haiku actually replies', () => {
+    expect(parseTriage('```json\n{"tier":"light","size":"small","reason":"quick look"}\n```')).toMatchObject({ tier: 'light', size: 'small' });
+  });
+  it('says an empty reply returned nothing, rather than that it was unparseable', () => {
+    const r = parseTriage('   ');
+    expect(r.reason).toBe('triage returned nothing — defaulted');
+    expect(r.raw).toBe('');
+  });
+  it('keeps what the model said when it cannot be used', () => {
+    const r = parseTriage('I think this is probably medium-ish?');
+    expect(r.reason).toBe('triage unparseable — defaulted');
+    expect(r.raw).toBe('I think this is probably medium-ish?');
+  });
+  it('keeps no evidence when the answer was usable', () => {
+    expect(parseTriage('{"tier":"heavy","reason":"x"}').raw).toBeUndefined();
+    expect(parseTriage('heavy').raw).toBeUndefined();
+  });
+});

@@ -14,6 +14,11 @@ export interface TriageResult {
   tier: Tier;
   size?: TaskSize;
   reason: string;
+  /** What the classifier actually said, kept only when its answer could not be
+   *  used. A live triage once came back "unparseable" and there was no way to
+   *  tell whether the model misbehaved or the call returned nothing — the reply
+   *  had been thrown away. */
+  raw?: string;
 }
 
 const TRIAGE_PROMPT = `You are a dispatcher deciding how capable a coding agent needs to be for a task. Classify into exactly one tier:
@@ -44,7 +49,11 @@ export function parseTriage(text: string): TriageResult {
     }
   }
   const keyword = text.match(/\b(light|standard|heavy)\b/i)?.[1]?.toLowerCase() as Tier | undefined;
-  return { tier: keyword ?? 'standard', reason: keyword ? 'keyword match' : 'triage unparseable — defaulted' };
+  if (keyword) return { tier: keyword, reason: 'keyword match' };
+  // An empty reply is a failed CALL, not a model that answered badly; saying
+  // "unparseable" for both sent the only investigation down the wrong road.
+  if (!text.trim()) return { tier: 'standard', reason: 'triage returned nothing — defaulted', raw: '' };
+  return { tier: 'standard', reason: 'triage unparseable — defaulted', raw: text.slice(0, 300) };
 }
 
 const TASK_HINT = /\b(refactor|architect|redesign|rewrite|overhaul|debug|investigate|migrate|deep|thorough|carefully|complex|entire|across|implement|build|create|add|fix)\b/i;
@@ -87,6 +96,7 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
   });
   const collect = (async () => {
     let out = '';
+    let finalText = '';
     for await (const m of q) {
       if (m.type === 'assistant') {
         for (const block of m.message?.content ?? []) {
@@ -94,6 +104,9 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
         }
       }
       if (m.type === 'result') {
+        // The result message carries the final answer too. If no text block
+        // arrived — a thinking-only turn, say — this is the answer, not nothing.
+        if (typeof m.result === 'string') finalText = m.result;
         // One turn: modelUsage is the per-call figure. Triage used to be
         // invisible to the ledger -- a cost on every routed message, unrecorded.
         if (onCall) {
@@ -105,7 +118,7 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
         break;
       }
     }
-    return out;
+    return out.trim() ? out : finalText;
   })();
   try {
     const out = await Promise.race([

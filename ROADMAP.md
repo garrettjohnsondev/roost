@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**370 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 335/335, web 35/35 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**374 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 339/339, web 35/35 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -389,7 +389,7 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
    - *Thread*: done 2026-09-23 — the face beside the bubble (52px), name and model on one line above it, bubbles with the board's square tails, your square avatar; verified on a live Opus 5.5 turn at a true phone viewport.
 3. **Chapters** (12d) — a model for grouping the thread into jobs, which the last motion demo, the fold, is waiting on.
 4. **Faces for the other eight** (12b) — **Wren first**: Wren is Sonnet, the default chat model, so the crew member who speaks most has no drawn face.
-5. **Triage is failing to parse** *(found 2026-09-23, not yet investigated)*: a live session routed with "triage unparseable — defaulted", so Pip fell back to the default tier instead of sizing the work. A routing bug, deliberately not chased mid-redesign.
+5. **Triage is failing to parse** *(found 2026-09-23; pulled forward because if it were routine, auto-routing would be silently off)*: one sample only — the decisions log holds a single route. A direct call to the classifier WORKS (Haiku thinks, then replies with fenced JSON the parser handles), so it did not reproduce. Made diagnosable instead of guessed at: a fallback now logs the model's raw reply, an empty reply reports "returned nothing" rather than "unparseable", and the SDK's final `result` text is used when no text block arrives. Reopen when a `triage-fallback` row appears in the decisions log.
 
 
 

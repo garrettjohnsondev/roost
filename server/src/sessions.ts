@@ -295,6 +295,11 @@ export class Session {
     }
     const triaged = await triage(text, t.agent, t.model, (d) => this.ledgerCall(d, 'triage'));
     const { tier, reason } = triaged;
+    if (triaged.raw !== undefined) {
+      // The classifier's answer could not be used. Record exactly what it said,
+      // so the next "unparseable" can be diagnosed instead of guessed at.
+      logDecision({ kind: 'route', sessionId: this.id, stage: 'triage-fallback', agent: t.agent, model: t.model, reason, raw: triaged.raw });
+    }
     this.lastTier = tier;
     // Quota-aware: the tier triage asked for is modulated by live headroom on
     // THIS session's vendor -- a chat is bound to one adapter, so the other
