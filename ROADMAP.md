@@ -383,7 +383,7 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 Kept here so a fix never becomes a detour that loses the thread. Work top to bottom; add call-outs here the moment they are raised, not after.
 
-1. **The app does not look like the boards** *(call-out, 2026-09-23)*. On the phone it says Roost and shows the crew, but almost nothing else matches the design canvas — the palette, the type, the thread, home, chapters, the gauge. The motion shipped into an interface that still looks like the old Pocket. This is 12d, and it is the main event rather than a side item.
+1. **The app does not look like the boards** *(call-out, 2026-09-23)* — **partially resolved**: Home, Thread and Chapters now match the design canvas (items 2–3 below), verified against real mobile-viewport screenshots. Still open, per 12d: the `Control` (effort) and `Context` (context-window meter) boards, and whatever the `Roadmap` board renders, are not in the app. Blocked mid-session on the Artifact tool being unavailable to re-read those three boards' exact specs — resume by reading them fresh rather than guessing from memory.
 2. ~~**The Roost logo is not liked**~~ — done 2026-09-23. Owner chose the direction (a crew member as the mark), four candidates were drawn and each checked at 60, 32 and 16px before being shown, and the owner picked **Ollie on lamp**: the highest-contrast of the four. Originals in `.roost-data/logo-raw`; the canvas has a "The logo, four ways" board.
    - *Home*: done 2026-09-23 — palette, type, crew strip with real sleep/awake state, conversation card, compact fuel.
    - *Thread*: done 2026-09-23 — the face beside the bubble (52px), name and model on one line above it, bubbles with the board's square tails, your square avatar; verified on a live Opus 5.5 turn at a true phone viewport.
@@ -432,7 +432,7 @@ Version 16 says Roost throughout. Every "Larry" was renamed by what the row DOES
 
 ### 12d. The reference boards' language is not in the app
 
-`Home`, `Chapters`, `Control`, `Context` and `Roadmap` propose a visual language — the fuel gauge, the folded chapter, the effort control, the context meter — that the app's panels do not use. Deferred deliberately when the thread was chosen first.
+`Home`, `Thread` and `Chapters` shipped 2026-09-23 (working order items 2–3) — palette, type, crew strip, the fuel gauge, the folded chapter are now live, checked against real mobile-viewport screenshots. **Still not in the app: `Control` (the effort control) and `Context` (the context meter) and `Roadmap`** — the app has no per-task effort UI, no visible context-window meter, and nothing rendering the roadmap itself. Picking this back up needs a fresh read of those three boards from the design canvas (`https://claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn`) — not done yet in this pass because the Artifact tool was unavailable in-session when this was reached; do not guess at their specifics from memory.
 
 ### 12e. ~~The roadmap still drifts by hand~~ — done 2026-09-23
 
