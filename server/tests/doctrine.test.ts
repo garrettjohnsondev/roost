@@ -125,12 +125,12 @@ describe('the crew animates by cutting, not fading', () => {
   });
 
   it('falls back to a pool avatar rather than inventing a face', () => {
-    // Only three personas have drawn sets; the other eight must not get a
+    // Only four personas have drawn sets; the other seven must not get a
     // stand-in that implies art exists.
     const c = read('web/src/ChatView.tsx');
     expect(c).toMatch(/if \(!crew\.sprite \|\| failed\) return <CrewAvatar crew=\{crew\} size=\{size\} \/>/);
     const crew = read('server/src/crew.ts');
-    expect((crew.match(/sprite: '/g) ?? []).length).toBe(6); // juno appears twice; pip is the dispatcher; wren is sonnet
+    expect((crew.match(/sprite: '/g) ?? []).length).toBe(8); // juno and otto each appear twice; pip is the dispatcher; wren is sonnet
   });
 })
 
