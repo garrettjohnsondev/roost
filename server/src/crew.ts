@@ -80,8 +80,8 @@ const DEFAULTS: Persona[] = [
   { match: 'sonnet', suite: 'claude', name: 'Wren', tier: 'worker', color: '#673eb4', avatar: '/avatars/compass-rose.png', sprite: 'wren' },
 
   // --- Codex ---
-  { match: 'mini', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
-  { match: 'nano', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png' },
+  { match: 'mini', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png', sprite: 'tuck' },
+  { match: 'nano', suite: 'codex', name: 'Tuck', tier: 'worker', color: '#c7850b', avatar: '/avatars/robot.png', sprite: 'tuck' },
   { match: 'luna', suite: 'codex', name: 'Bly', tier: 'worker', color: '#5b7c99', avatar: '/avatars/honeybee.png' },
   { match: 'terra', suite: 'codex', name: 'Rue', tier: 'worker', color: '#2d6a4f', avatar: '/avatars/hot-air-balloon.png' },
   { match: 'astra', suite: 'codex', name: 'Nell', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png' },
