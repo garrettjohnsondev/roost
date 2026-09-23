@@ -25,6 +25,9 @@ export type ClientMessage =
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
+  | { type: 'context_action'; action: 'compact'; remember?: boolean }
+  | { type: 'context_dismiss' }
+  | { type: 'set_auto_compact'; on: boolean }
   | { type: 'interrupt' };
 
 export interface ToolExpand {
@@ -100,6 +103,8 @@ export interface SessionMeta {
   modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
+  contextOffer?: { reason: string; percent: number | null };
+  autoCompact?: boolean;
   agentSessionId?: string;
   resumedFrom?: string;
   /** "Use the good models" is on for this session. Clears when the surplus does. */

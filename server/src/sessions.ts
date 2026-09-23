@@ -6,6 +6,7 @@ import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
+import { compactionIntent, type ContextPressure } from './context.js';
 import type { BudgetConfig, AutoRouteConfig as OtherRouteConfig } from './config.js';
 import type { Surplus } from './quota.js';
 import type { SurplusInfo } from './protocol.js';
@@ -50,6 +51,7 @@ interface SessionOpts {
     pendingConsult?: ConsultState;
     mode?: SessionMode;
     modeExplicit?: boolean;
+    autoCompact?: boolean;
   };
   onChange?: () => void;
 }
@@ -83,6 +85,13 @@ export class Session {
   private otherAutoRoute!: OtherRouteConfig;
   /** "Use the good models" while a surplus window is live. */
   private boost = false;
+  /** "Keep compacting automatically" — the person's standing answer. Public
+   *  because SessionManager.saveNow persists it, as with mode/modeExplicit. */
+  autoCompact = false;
+  /** Armed offer awaiting a tap, and the pressure level we last asked at, so the
+   *  card appears once per escalation instead of after every turn. */
+  private contextOffer?: { reason: string; percent: number | null };
+  private contextHandledAt: ContextPressure | null = null;
   private lastSuggestion?: string;
   /** The project's gates as they were when this session began. An agent that
    *  edits them mid-session is caught at verification time. */
@@ -130,6 +139,7 @@ export class Session {
     //   this.mode = restore?.mode ?? (this.model === 'auto' ? 'auto' : 'chat')
     this.mode = (opts.restore?.modeExplicit ? opts.restore.mode : undefined) ?? config.consult?.defaultMode ?? 'auto';
     this.modeExplicit = opts.restore?.modeExplicit ?? false;
+    this.autoCompact = opts.restore?.autoCompact ?? false;
     // Auto and build route per message, which requires the sentinel. Whatever
     // concrete model the session had becomes the starting point the router
     // moves from, so a resumed chat continues where it was and then re-triages.
@@ -231,6 +241,8 @@ export class Session {
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
       boost: this.boost || undefined,
+      contextOffer: this.contextOffer,
+      autoCompact: this.autoCompact || undefined,
       surplus: toSurplusInfo(quotaStore().surplus(this.agent, this.budget)),
     };
   }
@@ -378,6 +390,26 @@ export class Session {
       this.pendingVerify = undefined;
       // Deferred a tick so this idle lands in the transcript before "Verifying…".
       setTimeout(() => void this.autoVerify(pv), 0);
+    }
+    // Phase 4c's last mile. The meter has been emitting pressure and advice all
+    // along; nothing ever acted on it or asked. Deferred a tick so the context
+    // event is in the transcript before any notice about it.
+    if (event.type === 'context') {
+      const intent = compactionIntent({
+        state: { ...event.context, advice: event.context.advice ?? null },
+        auto: this.autoCompact,
+        handledAt: this.contextHandledAt,
+      });
+      if (intent.kind === 'none') {
+        if (intent.forget) this.contextHandledAt = null;
+      } else if (intent.kind === 'offer') {
+        this.contextHandledAt = intent.pressure;
+        this.contextOffer = { reason: intent.reason, percent: intent.percent };
+        setTimeout(() => this.broadcastMeta(), 0);
+      } else if (intent.kind === 'auto') {
+        this.contextHandledAt = intent.pressure;
+        setTimeout(() => void this.runCompaction(intent.reason, 'auto'), 0);
+      }
     }
     this.transcript.push(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
@@ -587,6 +619,33 @@ export class Session {
         logDecision({ kind: 'gate', sessionId: this.id, rule: 'boost', action: this.boost ? 'on' : 'off' });
         this.broadcastMeta();
         break;
+      case 'context_action': {
+        if (msg.action !== 'compact') break;
+        this.contextOffer = undefined;
+        if (msg.remember) this.autoCompact = true;
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'accepted', agent: this.agent, remember: !!msg.remember });
+        this.broadcastMeta();
+        this.onChange?.(); // the remembered setting is worth a persist
+        await this.runCompaction('you asked', msg.remember ? 'accepted-remembered' : 'accepted');
+        break;
+      }
+      case 'set_auto_compact':
+        // A remembered setting you cannot turn off is a trap, so the switch is
+        // two-way. Turning it off also clears the handled level, so the next
+        // crossing asks again rather than staying silent about a full context.
+        this.autoCompact = !!msg.on;
+        if (!this.autoCompact) this.contextHandledAt = null;
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: this.autoCompact ? 'auto-on' : 'auto-off', agent: this.agent });
+        this.broadcastMeta();
+        this.onChange?.();
+        break;
+      case 'context_dismiss':
+        // The level stays recorded as handled, so dismissing means "not now" and
+        // not "ask me again next turn". It re-asks when pressure ESCALATES.
+        this.contextOffer = undefined;
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'dismissed', agent: this.agent, pressure: this.contextHandledAt });
+        this.broadcastMeta();
+        break;
       case 'consult_dismiss':
         this.pendingConsult = undefined;
         this.broadcastMeta();
@@ -769,6 +828,29 @@ export class Session {
     });
   }
 
+  /** Compacts the engine's context and says so. Never silent: the meter is about
+   *  to drop a long way, and an unexplained drop looks like lost work.
+   *
+   *  A failure is reported rather than swallowed. Compaction is the one advisory
+   *  action that changes the engine's state, so "we tried and it didn't happen"
+   *  is information the person needs -- the alternative is a context that keeps
+   *  degrading behind a UI that claims it was handled. */
+  private async runCompaction(why: string, how: 'auto' | 'accepted' | 'accepted-remembered'): Promise<void> {
+    try {
+      const res = await this.adapter.compact();
+      this.notice(
+        how === 'auto'
+          ? `Compacting automatically — ${why}. Turn this off in the context meter.`
+          : `Compacting — ${why}.`,
+      );
+      logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'ran', agent: this.agent, trigger: how, mechanism: res.how, reason: why });
+    } catch (err: any) {
+      this.contextHandledAt = null; // it did not happen, so let it ask again
+      this.reportError(`Could not compact this ${this.agent} session (${String(err?.message ?? err)}) — the context is still full.`);
+      logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'failed', agent: this.agent, trigger: how, reason: String(err?.message ?? err) });
+    }
+  }
+
   /** A visible, non-error note on the session's status line. */
   notice(message: string) {
     this.pushEvent({ type: 'status', state: this.lastStatus, message, ts: now() });
@@ -817,6 +899,8 @@ interface PersistedSession {
   mode?: SessionMode;
   /** The person picked this mode; otherwise the configured default applies. */
   modeExplicit?: boolean;
+  /** Survives restarts on purpose: "keep doing this" means keep doing it. */
+  autoCompact?: boolean;
 }
 
 export class SessionManager {
@@ -870,6 +954,7 @@ export class SessionManager {
       pendingConsult: s.pendingConsult,
       mode: s.mode,
       modeExplicit: s.modeExplicit,
+      autoCompact: s.autoCompact,
     }));
     try {
       const path = statePath();

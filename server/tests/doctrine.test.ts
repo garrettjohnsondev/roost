@@ -62,3 +62,32 @@ describe('a decision that is computed is a decision that is shown', () => {
     expect(read('server/src/decisions.ts')).toContain("'effort'");
   });
 });
+
+describe('compaction is offered, not done behind your back', () => {
+  it('never puts a "/compact" bubble in the transcript as if you typed it', () => {
+    // The Claude SDK has no programmatic compaction, so the mechanism is the
+    // slash command -- but routing it through sendUserMessage would emit a
+    // user_message, and the transcript would claim the person typed it.
+    const c = read('server/src/agents/claude.ts');
+    const body = c.slice(c.indexOf('async compact()'), c.indexOf('async setModel'));
+    expect(body).toContain('/compact');
+    expect(body).not.toContain('sendUserMessage');
+    expect(body).not.toMatch(/type: 'user_message'/);
+  });
+
+  it('makes the remembered setting two-way', () => {
+    // A setting you can turn on and cannot turn off is a trap.
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) {
+      expect(read(f), f).toContain("set_auto_compact");
+    }
+    expect(read('server/src/sessions.ts')).toMatch(/case 'set_auto_compact'/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/set_auto_compact', on: false/);
+  });
+
+  it('persists the remembered answer across restarts', () => {
+    // "Keep doing this" that forgets on restart is not a remembered setting.
+    const s = read('server/src/sessions.ts');
+    expect(s).toMatch(/autoCompact: s\.autoCompact/);
+    expect(s).toMatch(/restore\?\.autoCompact/);
+  });
+})

@@ -45,6 +45,11 @@ export interface AgentAdapter {
   setApprovals(approvals: ApprovalSetting): Promise<void>;
   resolveApproval(requestId: string, decision: 'allow' | 'allow-session' | 'deny'): void;
   interrupt(): Promise<void>;
+  /** Compact the ENGINE's own context -- window #2 in context.ts -- not Pocket's
+   *  transcript. `how` names the mechanism, because the two engines do not offer
+   *  the same one and the UI must not imply they do: Codex has a real RPC, Claude
+   *  has only the slash command. */
+  compact(): Promise<{ how: string }>;
   dispose(): void;
 }
 

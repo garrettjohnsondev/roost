@@ -176,6 +176,12 @@ export class CodexAdapter implements AgentAdapter {
       case 'item/reasoning/summaryTextDelta':
         if (params?.delta) this.emit({ type: 'thinking_delta', delta: params.delta, ts: now() });
         break;
+      case 'thread/compacted':
+        // The engine compacted -- whether we asked or it decided on its own.
+        // Saying so matters: the context meter is about to drop by a lot, and an
+        // unexplained drop looks like a bug or like lost work.
+        this.emit({ type: 'status', state: 'idle', message: 'Context compacted — the thread was summarized to free room.', ts: now() });
+        break;
       case 'item/started': {
         const item = params?.item;
         if (!item) break;
@@ -331,6 +337,16 @@ export class CodexAdapter implements AgentAdapter {
       this.emit({ type: 'error', message: `Codex turn failed: ${err?.message ?? err}`, ts: now() });
       this.emit({ type: 'status', state: 'idle', ts: now() });
     });
+  }
+
+  /** A real RPC, unlike Claude's. Verified against
+   *  `codex app-server generate-json-schema` for codex-cli 0.154.0:
+   *  method `thread/compact/start`, params `{ threadId }`, empty response, and
+   *  the engine follows with a `thread/compacted` notification. */
+  async compact(): Promise<{ how: string }> {
+    if (!this.threadId) throw new Error('no Codex thread to compact yet');
+    await this.rpc.request('thread/compact/start', { threadId: this.threadId });
+    return { how: 'thread/compact/start' };
   }
 
   async setModel(model: string): Promise<void> {

@@ -270,6 +270,26 @@ export class ClaudeAdapter implements AgentAdapter {
     });
   }
 
+  /** The Claude Agent SDK exposes no programmatic compaction -- it offers only
+   *  OBSERVATION (SDKStatus 'compacting', SDKCompactBoundaryMessage, the
+   *  Pre/PostCompact hooks). So the mechanism is the `/compact` command, pushed
+   *  through the input stream.
+   *
+   *  Deliberately NOT routed through sendUserMessage: that emits a user_message,
+   *  and a "/compact" bubble in the transcript would read as though the person
+   *  had typed it. They did not -- they tapped a card, or they turned the setting
+   *  on once and forgot about it. */
+  async compact(): Promise<{ how: string }> {
+    this.emit({ type: 'status', state: 'working', ts: now() });
+    this.input.push({
+      type: 'user',
+      message: { role: 'user', content: [{ type: 'text', text: '/compact' }] },
+      parent_tool_use_id: null,
+      session_id: '',
+    });
+    return { how: 'the /compact command' };
+  }
+
   async setModel(model: string): Promise<void> {
     if (typeof this.q?.setModel === 'function') await this.q.setModel(model);
     else throw new Error('setModel is not supported by the installed Claude Agent SDK version');

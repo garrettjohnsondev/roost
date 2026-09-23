@@ -56,6 +56,10 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
   const [showGit, setShowGit] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
+  // Pre-ticked: at this point the meter has already crossed a line the person
+  // was told about, and the common answer to "do this every time" here is yes.
+  // It is still a checkbox they can clear before tapping.
+  const [keepCompacting, setKeepCompacting] = useState(true);
   const recapFetchedFor = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -191,6 +195,43 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
               {session.context.advice.action}: {session.context.advice.reason}
             </span>
           )}
+          {session.meta?.autoCompact && (
+            <button
+              className="context-auto-off"
+              title="Stop compacting automatically — you will be asked again instead"
+              onClick={() => session.send({ type: 'set_auto_compact', on: false })}
+            >
+              auto-compact on · turn off
+            </button>
+          )}
+        </div>
+      )}
+
+      {session.meta?.contextOffer && (
+        <div className="compact-offer">
+          <span className="compact-offer-text">
+            {session.meta.contextOffer.reason}. Compacting summarizes the older turns to free room —
+            the work stays, the detail thins.
+          </span>
+          <label className="compact-offer-keep">
+            <input
+              type="checkbox"
+              checked={keepCompacting}
+              onChange={(e) => setKeepCompacting(e.target.checked)}
+            />
+            Keep doing this automatically
+          </label>
+          <div className="compact-offer-actions">
+            <button className="chip" onClick={() => session.send({ type: 'context_dismiss' })}>
+              Not now
+            </button>
+            <button
+              className="chip compact-accept"
+              onClick={() => session.send({ type: 'context_action', action: 'compact', remember: keepCompacting })}
+            >
+              Compact now
+            </button>
+          </div>
         </div>
       )}
 

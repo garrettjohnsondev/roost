@@ -142,3 +142,56 @@ export function withAdvice(state: Omit<ContextState, 'advice'> | null): ContextS
   if (!state) return null;
   return { ...state, advice: adviseContext(state) };
 }
+
+/** Whether to compact, and whether the person gets asked first.
+ *
+ *  Only compaction is ever offered as a one-tap action. `dispatch` needs a task
+ *  to dispatch, and `handoff` costs continuity -- neither is a thing to do to
+ *  someone's live session because a meter crossed a line. They stay advice.
+ *
+ *  `handledAt` is the pressure an offer was last made or acted on at, so the
+ *  card appears once per ESCALATION rather than after every turn. Without it a
+ *  degrading session re-asks on every single reply, which trains the person to
+ *  dismiss it -- the surest way to make a useful prompt useless. */
+export type CompactionIntent =
+  /** `forget` means pressure has fallen back, so the caller should clear the
+   *  level it last asked at. Without this the first compaction is the LAST one
+   *  ever offered: pressure drops, climbs to 'degrading' again, matches the
+   *  remembered level, and the card never returns for a context that is full
+   *  again. Returned from the pure function rather than inferred by the caller,
+   *  so the rule is testable. */
+  | { kind: 'none'; forget?: boolean }
+  | { kind: 'offer'; reason: string; percent: number | null; pressure: ContextPressure }
+  | { kind: 'auto'; reason: string; percent: number | null; pressure: ContextPressure };
+
+export function compactionIntent(opts: {
+  state: ContextState | null;
+  /** The remembered "keep doing this automatically" setting. */
+  auto: boolean;
+  handledAt: ContextPressure | null;
+}): CompactionIntent {
+  const s = opts.state;
+  if (!s) return { kind: 'none' };
+  // Unknown is never treated as pressure -- missing data is not a reading, and
+  // compacting someone's context off the back of a null would be the most
+  // destructive version of that mistake. This is enforced HERE and only here:
+  // pressureFor(null) is 'unknown', which satisfies neither arm, so a null
+  // percent can only ever get through on an explicit overLimit from the engine.
+  // An earlier `if (percent == null && !overLimit) return none` guard above this
+  // line was dead code -- mutation testing showed removing it broke nothing --
+  // and a dead guard that looks load-bearing is worse than no guard, because the
+  // next person trusts it instead of this.
+  const worth = !!s.overLimit || s.pressure === 'degrading' || s.pressure === 'critical';
+  if (!worth) {
+    // Only a definite low reading forgets. 'unknown' must not: losing the meter
+    // is not evidence the context drained.
+    const fellBack = s.pressure === 'clear' || s.pressure === 'filling';
+    return fellBack ? { kind: 'none', forget: true } : { kind: 'none' };
+  }
+  if (opts.handledAt === s.pressure) return { kind: 'none' };
+  const reason =
+    s.advice?.reason ??
+    (s.percent != null ? `context ${s.percent}% full` : 'past the context window');
+  const base = { reason, percent: s.percent, pressure: s.pressure };
+  return opts.auto ? { kind: 'auto', ...base } : { kind: 'offer', ...base };
+}

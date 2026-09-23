@@ -31,6 +31,9 @@ export type ClientMessage =
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
+  | { type: 'context_action'; action: 'compact'; remember?: boolean }
+  | { type: 'context_dismiss' }
+  | { type: 'set_auto_compact'; on: boolean }
   | { type: 'interrupt' };
 
 /** Expanded detail for a tool call, shown when the user taps its chip. */
@@ -110,6 +113,11 @@ export interface SessionMeta {
   modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
+  /** Armed when the engine's context is degrading and the person has not been
+   *  asked yet at this level. Mirrors consultPending: server decides, UI renders. */
+  contextOffer?: { reason: string; percent: number | null };
+  /** "Keep doing this automatically" — remembered across restarts. */
+  autoCompact?: boolean;
   /** Underlying agent session/thread id, once known (resumable later). */
   agentSessionId?: string;
   /** Set only when this session was created via resume — the id it was resumed from.

@@ -24,7 +24,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 |---|---|---|
 | **0** | Truth — pricing, ledger, quota, policy, correct capture | ✅ **Done, verified live** |
 | **4b** | Effort as a routed dimension | ✅ **Done** |
-| **4c** | Context metering (three windows) | ✅ **Done** (metering; UI pending) |
+| **4c** | Context metering (three windows) | ✅ **Done** — metering, and compaction offered with a remembered answer |
 | **1** | The crew — personas, roles, avatars | ✅ **Done** |
 | **2** | Dispatch primitive — `runAgentTask`, task-shaped definitions, sliced project file | ✅ **Done, verified live** |
 | **3** | The conference — plan → review → reconcile → execute → verify | ✅ **Done** |
@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, and the one-tap assign card for new or broken routes |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**200 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**275 tests green, typecheck clean both workspaces.** New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -165,13 +165,15 @@ So `reviewerFor(planner)` picks, in order:
 
 `shouldApplyEffort()` protects the prompt cache — see §8, correction 4. It was defined but **never called from live routing** until 2026-09-21 (correction 26).
 
-### ✅ Phase 4c — Context metering *(metering done, UI pending)*
+### ✅ Phase 4c — Context metering *(done)*
 Three windows, and conflating them is how long sessions rot:
 1. **Pocket's transcript** — ours. Currently RAM-only, capped 5,000 events, lost on restart.
 2. **Each engine's session** — theirs. Degrades *before* it overflows.
 3. **Subagent contexts** — fresh, discarded. Where the savings live.
 
 Metered via Claude `getContextUsage({detail:'summary'})` (a **stable** API) and Codex `modelContextWindow` + per-turn breakdown (free). Thresholds deliberately tighter than any auto-compact trigger. Advice escalates cheapest-first: **dispatch → compact → handoff**.
+
+**Compaction is offered, never silent.** At `degrading` the meter asks, with a *Keep doing this automatically* checkbox; answer once and it persists across restarts, and the switch is two-way from the meter itself. Only compaction is ever one-tap — `dispatch` needs a task and `handoff` costs continuity, so those stay advice. The mechanisms differ and the code says so rather than pretending otherwise: Codex has a real `thread/compact/start` RPC (verified against `codex app-server generate-json-schema`, codex-cli 0.154.0), Claude has no programmatic compaction at all, only `/compact` plus observation, and that command is pushed to the input stream *without* emitting a `user_message` so the transcript never claims you typed it. `unknown` is never pressure — a null percent can only act on an explicit `overLimit`.
 
 ### ✅ Phase 1 — The crew *(done)*
 `personas.js` → `crew.ts`, mapping `(suite, model) → {name, tier, colour}` with user overrides, plus **`role`** as a field distinct from `tier` (`planner | reviewer | executor | explorer | tester | dispatcher`) — persona is *who*, role is *what hat*. `rosterBlock()` injects names into prompts so narration reads *"Sending Larry in to build the UI."* Every chat turn shows avatar + name + role badge + model id.
@@ -291,7 +293,7 @@ Pending: fetch on startup and on a timer; ntfy on change; crew persona continuit
 
 **Succession is auto-adopted; a new family is not.** Same family, higher version ⇒ same tier, same persona, adopt silently. An unrecognized model surfaces for one-tap assignment and is never routed to unreviewed — routing an unvetted model is how a weekly window disappears by surprise.
 
-### ⬜ Phase 6 — UI
+### ✅ Phase 6 — UI
 Unified fuel gauge across every subscription: all windows both providers, burn rate, projected exhaustion, **per-role and per-persona spend** with the orchestrator's own turns broken out. Context meter per agent. Crew badges on every turn. Honesty rules enforced by types.
 
 ---
