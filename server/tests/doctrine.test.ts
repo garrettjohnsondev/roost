@@ -91,3 +91,45 @@ describe('compaction is offered, not done behind your back', () => {
     expect(s).toMatch(/restore\?\.autoCompact/);
   });
 })
+
+describe('the crew animates by cutting, not fading', () => {
+  it('steps the frame opacity instead of easing it', () => {
+    // A cross-fade read as a smudge rather than a character: every in-between
+    // state of two pixel-art frames is a frame nobody drew.
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('.crew-sprite .frame-b'), css.indexOf('@media (prefers-reduced-motion'));
+    expect(block).toMatch(/steps\(1/);
+    expect(block).not.toMatch(/ease|linear|cubic-bezier/);
+    // Hard cut: the keyframes jump, they do not ramp.
+    expect(css).toMatch(/@keyframes sprite-cut\s*\{[^}]*0%,\s*49\.99%\s*\{\s*opacity:\s*0/);
+  });
+
+  it('never blurs pixel art on upscale', () => {
+    expect(read('web/src/styles.css')).toMatch(/\.crew-sprite img\s*\{[^}]*image-rendering:\s*pixelated/s);
+  });
+
+  it('holds the pose when the system asks for reduced motion', () => {
+    const css = read('web/src/styles.css');
+    const rm = css.slice(css.indexOf('@media (prefers-reduced-motion'));
+    expect(rm.slice(0, 200)).toMatch(/\.crew-sprite \.frame-b\s*\{\s*animation:\s*none/);
+  });
+
+  it('only moves for real state, never on a loop of its own', () => {
+    // Ambient movement is the commonest tell of a generated interface. `moving`
+    // is derived from whether a reply is actually streaming or the engine is
+    // actually reasoning -- there is no timer driving it.
+    const c = read('web/src/ChatView.tsx');
+    expect(c).toMatch(/const moving = pose === 'type' \|\| pose === 'think'/);
+    expect(c).toMatch(/pose=\{item\.complete \? 'idle' : 'type'\}/);
+    expect(c).not.toMatch(/setInterval|setTimeout/);
+  });
+
+  it('falls back to a pool avatar rather than inventing a face', () => {
+    // Only three personas have drawn sets; the other eight must not get a
+    // stand-in that implies art exists.
+    const c = read('web/src/ChatView.tsx');
+    expect(c).toMatch(/if \(!crew\.sprite \|\| failed\) return <CrewAvatar crew=\{crew\} \/>/);
+    const crew = read('server/src/crew.ts');
+    expect((crew.match(/sprite: '/g) ?? []).length).toBe(4); // sol appears twice
+  });
+})

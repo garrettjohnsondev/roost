@@ -34,6 +34,12 @@ export interface Persona {
   color: string;
   /** Optional custom image, served from <dataDir>/avatars/. */
   avatar?: string;
+  /** Name of a drawn sprite set under web/public/crew/, when this persona has
+   *  one: `<sprite>-idle|type|think|blink|cheer|peek.webp`. Only three personas
+   *  do -- the Claude flagship, the Claude worker and the Codex flagship, which
+   *  are the three you actually watch work. Everyone else keeps a pool avatar,
+   *  and the UI falls back to it rather than inventing a face. */
+  sprite?: string;
 }
 
 export interface CrewMember extends Persona {
@@ -66,8 +72,8 @@ export interface CrewMember extends Persona {
 const DEFAULTS: Persona[] = [
   // --- Claude, named ---
   { match: 'fable', suite: 'claude', name: 'Fable', tier: 'flagship', color: '#5b45c7', avatar: '/avatars/fox.png' },
-  { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72', avatar: '/avatars/narwhal.png' },
-  { match: 'haiku', suite: 'claude', name: 'Larry', tier: 'worker', color: '#205a1d', avatar: '/avatars/mountain-goat.png' },
+  { match: 'opus', suite: 'claude', name: 'Ollie', tier: 'flagship', color: '#2f3a72', avatar: '/avatars/narwhal.png' , sprite: 'ollie'},
+  { match: 'haiku', suite: 'claude', name: 'Larry', tier: 'worker', color: '#205a1d', avatar: '/avatars/mountain-goat.png' , sprite: 'larry'},
   { match: 'sonnet', suite: 'claude', name: 'Sunny', tier: 'worker', color: '#673eb4', avatar: '/avatars/compass-rose.png' },
 
   // --- Codex, named models keep their own names ---
@@ -76,8 +82,8 @@ const DEFAULTS: Persona[] = [
   { match: 'luna', suite: 'codex', name: 'Luna', tier: 'worker', color: '#5b7c99', avatar: '/avatars/honeybee.png' },
   { match: 'terra', suite: 'codex', name: 'Terra', tier: 'worker', color: '#2d6a4f', avatar: '/avatars/hot-air-balloon.png' },
   { match: 'astra', suite: 'codex', name: 'Astra', tier: 'flagship', color: '#b3452f', avatar: '/avatars/lighthouse.png' },
-  { match: 'sol', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' },
-  { match: 'codex', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' },
+  { match: 'sol', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' , sprite: 'sol'},
+  { match: 'codex', suite: 'codex', name: 'Sol', tier: 'flagship', color: '#e65608', avatar: '/avatars/mushroom.png' , sprite: 'sol'},
   { match: 'gpt-5.5', suite: 'codex', name: 'Rex', tier: 'worker', color: '#1543a5', avatar: '/avatars/telescope.png' },
 
   // Suite defaults, last.

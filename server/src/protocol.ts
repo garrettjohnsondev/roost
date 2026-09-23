@@ -141,6 +141,8 @@ export interface CrewInfo {
   initial: string;
   /** Optional custom image filename under <dataDir>/avatars/. */
   avatar?: string;
+  /** Drawn sprite set name, when this persona has one. */
+  sprite?: string;
   agent: AgentKind;
   model: string;
 }

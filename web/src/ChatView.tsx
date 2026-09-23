@@ -244,7 +244,7 @@ export function ChatView(props: { sessionId: string; config: PocketConfigRespons
           </div>
         )}
         {session.items.map((item, i) => (
-          <Message key={i} item={item} />
+          <Message key={i} item={item} crew={session.meta?.crew} />
         ))}
         {session.status === 'working' && !session.closedReason && (
           <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
@@ -438,6 +438,53 @@ export function avatarUrl(avatar?: string): string | null {
   return avatar.startsWith('/') ? avatar : `/avatars/custom/${avatar}`;
 }
 
+/** The poses the drawn sets ship. `idle` is the resting frame every animation
+ *  cuts back to. */
+export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek';
+
+/** A drawn crew member, animated by CUTTING between two frames rather than
+ *  cross-fading them.
+ *
+ *  A cross-fade was the first attempt and it read as a smudge, not a character:
+ *  for two frames of pixel art, the in-between states are frames that were never
+ *  drawn. So both frames are stacked and the top one's opacity is stepped with
+ *  `steps(1)` -- it is either there or it is not, which is what a two-frame
+ *  animation IS. Motion only ever reflects real state: `type` while a reply is
+ *  actually streaming, `think` while the engine is actually reasoning. Nothing
+ *  loops on its own schedule. */
+function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: number }) {
+  const [failed, setFailed] = useState(false);
+  if (!crew.sprite || failed) return <CrewAvatar crew={crew} />;
+  const moving = pose === 'type' || pose === 'think';
+  return (
+    <span className={`crew-sprite${moving ? ' moving' : ''}`} style={{ width: size, height: size }}>
+      <img src={`/crew/${crew.sprite}-idle.webp`} alt="" onError={() => setFailed(true)} />
+      {moving && <img className="frame-b" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />}
+      {!moving && pose !== 'idle' && (
+        <img className="frame-static" src={`/crew/${crew.sprite}-${pose}.webp`} alt="" />
+      )}
+    </span>
+  );
+}
+
+/** Name large, model small underneath -- "Sol" then "gpt-5.2-codex · reviewer".
+ *  The chip put them on one line at one size, which made the model id compete
+ *  with the name for the same glance. */
+function CrewHeader({ crew, pose, size = 46 }: { crew: CrewInfo; pose: Pose; size?: number }) {
+  return (
+    <div className="crew-header">
+      <SpriteAvatar crew={crew} pose={pose} size={size} />
+      <span className="crew-ident">
+        <span className="crew-ident-name" style={{ color: crew.color }}>{crew.name}</span>
+        <span className="crew-ident-sub">
+          {crew.model || crew.agent}
+          {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function CrewAvatar({ crew }: { crew: CrewInfo }) {
   const url = avatarUrl(crew.avatar);
   const [failed, setFailed] = useState(false);
@@ -470,7 +517,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item }: { item: ChatItem }) {
+function Message({ item, crew }: { item: ChatItem; crew?: CrewInfo }) {
   switch (item.kind) {
     case 'user':
       return (
@@ -482,16 +529,12 @@ function Message({ item }: { item: ChatItem }) {
     case 'assistant':
       return (
         <div className="msg assistant">
-          {item.crew && (
-            <div className="msg-crew">
-              <CrewChip crew={item.crew} sub={item.crew.model} />
-            </div>
-          )}
+          {item.crew && <CrewHeader crew={item.crew} pose={item.complete ? 'idle' : 'type'} />}
           <Markdown text={item.text} />
         </div>
       );
     case 'thinking':
-      return <ThinkingBlock text={item.text} open={item.open} />;
+      return <ThinkingBlock text={item.text} open={item.open} crew={crew} />;
     case 'tool':
       return <ToolChip item={item} />;
     case 'approval':
@@ -544,7 +587,7 @@ function Message({ item }: { item: ChatItem }) {
         <div className={`consult-msg ${item.phase}`}>
           <div className="consult-msg-head">
             {item.crew ? (
-              <CrewChip crew={item.crew} sub={item.crew.model} />
+              <CrewHeader crew={item.crew} pose="idle" size={38} />
             ) : (
               <>
                 <span className={`agent-dot ${item.agent}`} />
@@ -604,10 +647,11 @@ function ToolChip({ item }: { item: Extract<ChatItem, { kind: 'tool' }> }) {
   );
 }
 
-function ThinkingBlock({ text, open }: { text: string; open: boolean }) {
+function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew?: CrewInfo }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="thinking" onClick={() => setExpanded((v) => !v)}>
+      {crew && open && <SpriteAvatar crew={crew} pose="think" size={34} />}
       <span className="thinking-label">{open ? 'thinking…' : 'thought'}</span>
       {expanded && <div className="thinking-text">{text}</div>}
     </div>

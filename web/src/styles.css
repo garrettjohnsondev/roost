@@ -1779,6 +1779,70 @@ button {
   min-width: 0;
 }
 
+/* A drawn crew member. Two frames stacked in one box: the idle frame always
+   underneath, the pose frame on top, and the top one's opacity STEPPED rather
+   than eased -- `steps(1)` means it is either drawn or it is not.
+
+   A cross-fade here read as a smudge rather than a character, because every
+   in-between state of two pixel-art frames is a frame nobody drew. The box is
+   also fixed-size and both frames are absolutely positioned, so a pose change
+   cannot move the text next to it. */
+.crew-sprite {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+.crew-sprite img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Pixel art upscales by duplicating pixels, never by blurring them. */
+  image-rendering: pixelated;
+}
+.crew-sprite .frame-b {
+  animation: sprite-cut 0.62s steps(1, end) infinite;
+}
+@keyframes sprite-cut {
+  0%, 49.99% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+/* Respect the system setting: hold the pose instead of cutting between frames. */
+@media (prefers-reduced-motion: reduce) {
+  .crew-sprite .frame-b { animation: none; opacity: 1; }
+}
+
+/* Name large, model small underneath. */
+.crew-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  min-width: 0;
+}
+.crew-ident {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.crew-ident-name {
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.crew-ident-sub {
+  font-size: 11.5px;
+  color: var(--muted, #6b7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The thinking bubble carries the thinker, so reasoning has a face too. */
+.thinking { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.thinking .crew-sprite { align-self: center; }
+
 /* Avatar images sit in the same box as the monogram they replace, so a chip
    does not reflow when someone picks a face. */
 .crew-avatar-img {

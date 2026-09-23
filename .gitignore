@@ -16,3 +16,6 @@ web/public/avatars/raw-*.png
 # committed so the install is reproducible; the copied skill text is not ours.
 .agents/skills/
 .claude/skills/
+
+# 1024px sprite originals live in .pocket-data/sprite-raw; only the 256px webp
+# frames under web/public/crew/ ship. 10.4 MB of PNG becomes 580 KB.
