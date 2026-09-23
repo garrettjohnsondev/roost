@@ -196,6 +196,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </button>
         </div>
       )}
+      {session.meta?.approvals === 'full-auto' && (
+        <div className="surplus-bar on full-auto-bar">
+          {/* Full auto is a deliberate, session-wide widening of what runs
+              without asking -- it must stay visible for as long as it is on,
+              never a one-time toggle that fades from view. */}
+          <span>Full auto on — nothing in this session will ask before it runs.</span>
+          <button className="chip" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
+            Turn off
+          </button>
+        </div>
+      )}
       {session.usage && (
         <div className="usage-bar">
           {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
@@ -384,7 +395,20 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               className="link"
               onClick={() => session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'allow-session' })}
             >
-              Allow and stop asking this session
+              Allow — and stop asking for this tool
+            </button>
+            <button
+              className="link link-warn"
+              onClick={() => {
+                // The tool-scoped remember-choice above is deliberately narrow (see
+                // sessions.ts) -- it used to silently widen to the whole session and
+                // that was removed on purpose. This is the real thing: an explicit,
+                // separately-labelled full-auto switch, not a side effect of "allow".
+                session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'allow' });
+                session.send({ type: 'set_approvals', approvals: 'full-auto' });
+              }}
+            >
+              Turn on full auto for this session
             </button>
           </div>
         </div>

@@ -38,9 +38,9 @@ const meta = (over: Partial<SessionMeta> = {}): SessionMeta => ({
   recentCrew: [OLLIE, JUNO, MOSS], ...over,
 } as SessionMeta);
 
-const base = (items: ChatItem[], m: SessionMeta, replayedCount: number): SessionState => ({
+const base = (items: ChatItem[], m: SessionMeta, replayedCount: number, over: Partial<SessionState> = {}): SessionState => ({
   items, meta: m, status: 'working', connected: true, usage: null, pendingApproval: null, pendingApprovalCount: 0,
-  closedReason: null, statusMessage: null, context: null, replayedCount, send: () => false,
+  closedReason: null, statusMessage: null, context: null, replayedCount, send: () => false, ...over,
 } as SessionState);
 
 export const FIXTURES: Record<string, () => SessionState> = {
@@ -48,4 +48,13 @@ export const FIXTURES: Record<string, () => SessionState> = {
   chapters: () => base(TWO_JOBS, meta(), TWO_JOBS.length),
   /** The same, but the first job closes LIVE — so it stamps, cheers, then folds. */
   'chapters-live': () => base(TWO_JOBS, meta(), 0),
+  /** An approval waiting — both the per-tool remember-choice and the real
+   *  full-auto switch, so the two are checkable side by side. */
+  approval: () =>
+    base(TWO_JOBS, meta(), TWO_JOBS.length, {
+      pendingApproval: { requestId: 'r1', title: 'Bash', detail: 'npm run build' },
+      pendingApprovalCount: 1,
+    }),
+  /** Full auto already on — the persistent warning bar should be visible. */
+  'full-auto': () => base(TWO_JOBS, meta({ approvals: 'full-auto' }), TWO_JOBS.length),
 };

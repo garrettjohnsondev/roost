@@ -523,7 +523,9 @@ export class Session {
         }
         // 'allow-session' remembers THIS tool for the rest of the session. It
         // used to flip the whole session to full-auto, silently widening every
-        // later permission the user never saw.
+        // later permission the user never saw. A real full-auto switch exists
+        // now too -- 'set_approvals' below -- but it is its own explicit
+        // message the client sends deliberately, never a side effect of this one.
         this.adapter.resolveApproval(msg.requestId, decision);
         break;
       }

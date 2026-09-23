@@ -367,3 +367,33 @@ describe('chapters change what you see, never what the agents remember', () => {
     expect(css).toMatch(/@keyframes chapter-fold \{ from \{ grid-template-rows: 1fr; \} to \{ grid-template-rows: 0fr; \} \}/);
   });
 })
+
+describe('"stop asking" says what it actually stops', () => {
+  // User-reported 2026-09-23: "accept all" kept prompting in "different
+  // situations." Root cause was the remember-choice button being scoped to
+  // one tool but labelled like a session-wide promise. Fixed two ways: the
+  // per-tool button's label now says "this tool" rather than "this session",
+  // and a real, separately-labelled full-auto switch sits next to it.
+  const chat = read('web/src/ChatView.tsx');
+
+  it('never re-labels the per-tool remember-choice as session-wide', () => {
+    expect(chat).not.toMatch(/Allow and stop asking this session/);
+    expect(chat).toMatch(/Allow — and stop asking for this tool/);
+  });
+
+  it('offers a real full-auto switch as its own explicit action, not a side effect', () => {
+    expect(chat).toMatch(/Turn on full auto for this session/);
+    // It must resolve the pending request AND flip the session mode --
+    // set_approvals alone does not retroactively resolve an in-flight ask.
+    expect(chat).toMatch(/decision: 'allow' \}\);\s*\n\s*session\.send\(\{ type: 'set_approvals', approvals: 'full-auto' \}\);/);
+  });
+
+  it('keeps full auto visible for as long as it is on, never a fire-and-forget toggle', () => {
+    expect(chat).toMatch(/session\.meta\?\.approvals === 'full-auto'/);
+    expect(chat).toMatch(/Full auto on — nothing in this session will ask before it runs\./);
+    // Off switch present, and it does not reuse boost's "good news" green.
+    expect(chat).toMatch(/set_approvals', approvals: 'ask' \}/);
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.surplus-bar\.on\.full-auto-bar/);
+  });
+})
