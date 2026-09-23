@@ -10,7 +10,7 @@ process.env.ROOST_CONFIG = join(tmp, 'roost.config.json');
 process.env.ROOST_LEGACY_PRICES = '';
 writeFileSync(process.env.ROOST_CONFIG, '{}');
 
-const { priceFor, estimateCost, resetPriceCache } = await import('../src/pricing.js');
+const { priceFor, estimateCost, resetPriceCache, priceConflicts } = await import('../src/pricing.js');
 
 beforeEach(() => resetPriceCache());
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
@@ -99,5 +99,38 @@ describe('cache reads follow each model’s published rate, not a flat 10%', () 
     // agent session cached reads are most of the input.
     expect(estimateCost('claude-fable-5-1', { inTok: 0, outTok: 0, cacheReadTok: 1_000_000 }).usd).toBeCloseTo(0.25, 6);
     expect(estimateCost('claude-opus-5-5', { inTok: 0, outTok: 0, cacheReadTok: 1_000_000 }).usd).toBeCloseTo(0.2, 6);
+  });
+})
+
+describe('a stale override is reported, not hidden', () => {
+  it('names every row that shadows a published rate with a different number', () => {
+    // The real case: ~/.agent-sync/prices.json, written 2026-07-30 with the note
+    // "Opus 4.8 actual", matching the substring `opus` — so it silently priced
+    // claude-opus-5-5 two generations back and outranked the corrected table.
+    writeFileSync(join(tmp, '.roost-data', 'prices.json'), JSON.stringify([
+      { match: 'opus', input: 5, output: 25 },
+      { match: 'haiku-4-5', input: 1, output: 5 },
+    ]));
+    resetPriceCache();
+    const c = priceConflicts();
+    const opus = c.rows.find((r) => r.model === 'claude-opus-5-5');
+    expect(opus).toBeTruthy();
+    expect(opus!.override).toEqual({ input: 5, output: 25 });
+    expect(opus!.table).toEqual({ input: 4, output: 20 });
+    // An override that AGREES with the published rate is not a conflict.
+    expect(c.rows.find((r) => r.model === 'claude-haiku-4-5')).toBeUndefined();
+  });
+
+  it('reports nothing when there is no override file', () => {
+    rmSync(join(tmp, '.roost-data', 'prices.json'), { force: true });
+    resetPriceCache();
+    expect(priceConflicts().rows).toEqual([]);
+  });
+
+  it('still lets the override win — it is the person’s file', () => {
+    writeFileSync(join(tmp, '.roost-data', 'prices.json'), JSON.stringify([{ match: 'opus', input: 5, output: 25 }]));
+    resetPriceCache();
+    expect(priceFor('claude-opus-5-5').basis).toBe('override');
+    expect(priceFor('claude-opus-5-5').price?.input).toBe(5);
   });
 })

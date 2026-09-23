@@ -1,3 +1,4 @@
+import { priceConflicts } from './pricing.js';
 import { callLedger } from './ledger.js';
 import { estimateWeights } from './quotaWeights.js';
 import { logDecision, readDecisions, summarizeDecisions } from './decisions.js';
@@ -606,6 +607,14 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   console.log(`[roost] listening on http://localhost:${config.port}`);
   console.log(`[roost] projects: ${config.projects.join(', ')}`);
   if (!token) console.log('[roost] no ROOST_TOKEN set — keep this server tailnet-only');
+  // A stale override outranking a published rate is a wrong number wearing an
+  // authoritative label. It still wins — it is the person's file — but it says so.
+  {
+    const c = priceConflicts();
+    for (const r of c.rows) {
+      console.log(`[roost] price override /${r.match}/ from ${c.from} sets ${r.model} to $${r.override.input}/$${r.override.output}, published is $${r.table.input}/$${r.table.output}`);
+    }
+  }
   printTailscaleUrl(config.port);
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
   startRegistryRefresh(config.projects[0] ?? process.cwd());

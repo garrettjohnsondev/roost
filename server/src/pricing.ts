@@ -143,3 +143,45 @@ export function estimateCost(model: string | undefined | null, t: PricedTokens):
     ((t.cacheWriteTok ?? 0) / 1e6) * cacheWrite;
   return { usd: +usd.toFixed(6), basis };
 }
+
+/** Override rows that shadow a published rate with a DIFFERENT number.
+ *
+ *  The override file is a legitimate escape hatch, and it wins on purpose. But
+ *  it wins silently, and a file written months ago for models that have since
+ *  become legacy will quietly outrank the current table forever: a row matching
+ *  the substring `opus`, written for Opus 4.8, prices `claude-opus-5-5` at a
+ *  model two generations back. That is the same confident-wrong-number failure
+ *  the no-catch-all rule exists to prevent, arriving through the back door.
+ *
+ *  So it is reported rather than resolved. The person's file still wins — they
+ *  may have good reason — but they are told which rows disagree with the
+ *  published rate and by how much, instead of finding out from a total. */
+export interface PriceConflict {
+  match: string;
+  model: string;
+  override: { input: number; output: number };
+  table: { input: number; output: number };
+}
+
+export function priceConflicts(): { from: string | null; rows: PriceConflict[] } {
+  const { rows, from } = priceOverrides();
+  const out: PriceConflict[] = [];
+  for (const known of PRICE_TABLE) {
+    // A representative id for this row, so the comparison is against something real.
+    const model = known.label;
+    for (const row of rows) {
+      let re: RegExp;
+      try {
+        re = new RegExp(row.match, 'i');
+      } catch {
+        continue;
+      }
+      if (!re.test(model)) continue;
+      if (row.input !== known.input || row.output !== known.output) {
+        out.push({ match: row.match, model, override: { input: row.input, output: row.output }, table: { input: known.input, output: known.output } });
+      }
+      break; // first override wins, same as priceFor
+    }
+  }
+  return { from, rows: out };
+}
