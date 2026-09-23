@@ -8,7 +8,7 @@ import { dataDir } from './config.js';
  *  and stdout is not a record. */
 export interface Decision {
   at: number;
-  kind: 'route' | 'review' | 'dispatch' | 'gate' | 'verify';
+  kind: 'route' | 'effort' | 'review' | 'dispatch' | 'gate' | 'verify';
   sessionId?: string;
   [key: string]: unknown;
 }

@@ -318,22 +318,44 @@ export class Session {
       // the model is downgraded and raises it first under boost. The user's
       // configured effort is the base; adaptive is not forced over it.
       const card = modelRegistry().get(this.agent, target.model);
+      const taskKind = classifyKind(text);
       const effortPick = chooseEffort({
-        tier: decision.tier, kind: classifyKind(text), agent: this.agent, headroom: mine.headroom.state,
+        tier: decision.tier, kind: taskKind, agent: this.agent, headroom: mine.headroom.state,
         surplus: this.boost && !!mine.surplus, configured: target.effort ?? null, supported: card?.efforts ?? null, adaptive: false,
       });
       const newEffort = effortPick.effort;
+      // chooseEffort's reason was computed every turn and dropped on the floor,
+      // so the one lever the user never sees moving was also the one the UI
+      // never explained -- 'mechanical work needs little thinking', 'clamped to
+      // max, the model does not support the requested level'. It rides the
+      // 'routed' event, but only when the change actually landed: a reason for
+      // a change hysteresis refused would be a claim about nothing.
+      let effortReason: string | null = null;
       if (newEffort !== this.effort) {
-        const change = shouldApplyEffort({ current: this.effort || null, proposed: newEffort, agent: this.agent, changesSoFar: this.effortChanges });
+        const fromEffort = this.effort || null;
+        const change = shouldApplyEffort({ current: fromEffort, proposed: newEffort, agent: this.agent, changesSoFar: this.effortChanges });
         if (change.apply) {
           await this.adapter.setEffort(newEffort).catch(() => {});
           this.effort = newEffort;
           this.effortChanges += 1;
           changed = true;
+          effortReason = `thinking ${newEffort} \u2014 ${effortPick.reason}`;
         }
+        // Logged either way. Routes were recorded and effort was not, so the
+        // effort table could never become evidence-backed the way Phase 4b
+        // claims; a proposal hysteresis held back is the row most worth having,
+        // because it is the only trace that the chooser wanted to move at all.
+        logDecision({
+          kind: 'effort', sessionId: this.id, agent: this.agent, model: target.model, tier: decision.tier,
+          taskKind, from: fromEffort, to: newEffort, applied: change.apply,
+          clamped: effortPick.clamped, adaptive: effortPick.adaptive,
+          headroom: mine.headroom.state, surplus: this.boost && !!mine.surplus,
+          reason: change.apply ? effortPick.reason : change.reason,
+        });
       }
       if (changed) {
-        this.pushEvent({ type: 'routed', model: target.model, tier: decision.tier, reason: `${reason}; ${decision.reason}`, ts: now() });
+        const why = [reason, decision.reason, effortReason].filter(Boolean).join('; ');
+        this.pushEvent({ type: 'routed', model: target.model, tier: decision.tier, reason: why, ts: now() });
         this.broadcastMeta();
       }
     } catch (err: any) {
