@@ -499,7 +499,7 @@ export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sle
  *  loops on its own schedule. */
 export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: number }) {
   const [failed, setFailed] = useState(false);
-  if (!crew.sprite || failed) return <CrewAvatar crew={crew} />;
+  if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   const moving = pose === 'type' || pose === 'think';
   const base = `/crew/${crew.sprite}`;
   // Exactly ONE drawing visible at any moment. The frames are transparent, so a
@@ -585,39 +585,52 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
   );
 }
 
-/** Name large, model small underneath -- "Sol" then "gpt-5.2-codex · reviewer".
- *  The chip put them on one line at one size, which made the model id compete
- *  with the name for the same glance. */
-function CrewHeader({ crew, pose, size = 46 }: { crew: CrewInfo; pose: Pose; size?: number }) {
+/** The board's thread row, and the iMessage layout that was asked for: the face
+ *  BESIDE the bubble, not inside it — 52px, never shrinking — with the name in
+ *  Silkscreen and the model small on one line above the bubble. The first
+ *  version put a small face inside the bubble, which made every turn read as a
+ *  card with a label rather than someone speaking. */
+function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; head?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="crew-header">
-      <SpriteAvatar crew={crew} pose={pose} size={size} />
-      <span className="crew-ident">
-        <span className="crew-ident-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
-        <span className="crew-ident-sub">
-          {crew.model || crew.agent}
-          {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
-        </span>
+    <div className="crew-row">
+      <span className="crew-row-face">
+        <SpriteAvatar crew={crew} pose={pose} size={52} />
       </span>
+      <div className="crew-row-col">
+        <div className="crew-row-head">
+          <span className="crew-ident-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
+          <span className="crew-row-model">
+            {crew.model || crew.agent}
+            {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
+          </span>
+          {head}
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
 
-function CrewAvatar({ crew }: { crew: CrewInfo }) {
+function CrewAvatar({ crew, size }: { crew: CrewInfo; size?: number }) {
   const url = avatarUrl(crew.avatar);
   const [failed, setFailed] = useState(false);
+  const box = size ? { width: size, height: size } : undefined;
   if (url && !failed) {
     return (
       <img
         className="crew-avatar crew-avatar-img"
         src={url}
         alt=""
-        style={{ background: crew.color }}
+        style={{ background: crew.color, ...box }}
         onError={() => setFailed(true)}
       />
     );
   }
-  return <span className="crew-avatar crew-monogram" style={{ background: crew.color }}>{crew.initial}</span>;
+  return (
+    <span className="crew-avatar crew-monogram" style={{ background: crew.color, ...box, fontSize: size ? Math.round(size * 0.42) : undefined }}>
+      {crew.initial}
+    </span>
+  );
 }
 
 function fmtMinutes(m: number): string {
@@ -661,10 +674,17 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       );
     case 'assistant':
       return (
-        <div className="msg assistant">
-          {item.crew && <CrewHeader crew={item.crew} pose={item.complete ? 'idle' : 'type'} />}
-          <Markdown text={item.text} />
-        </div>
+        item.crew ? (
+          <CrewRow crew={item.crew} pose={item.complete ? 'idle' : 'type'}>
+            <div className="msg assistant">
+              <Markdown text={item.text} />
+            </div>
+          </CrewRow>
+        ) : (
+          <div className="msg assistant">
+            <Markdown text={item.text} />
+          </div>
+        )
       );
     case 'thinking':
       return <ThinkingBlock text={item.text} open={item.open} crew={crew} />;
@@ -729,21 +749,30 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
     }
     case 'consult': {
       const verdict = item.phase === 'critique' ? item.text.match(/VERDICT:\s*(SOLID|NEEDS CHANGES)/i)?.[1]?.toUpperCase() : undefined;
+      const badges = (
+        <>
+          {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
+          {item.reviewStrength && (
+            <span className="review-strength" title="How independent this reviewer is from the author">{item.reviewStrength}</span>
+          )}
+        </>
+      );
+      if (item.crew) {
+        return (
+          <CrewRow crew={item.crew} pose="idle" head={badges}>
+            <div className={`consult-msg ${item.phase}`}>
+              <Markdown text={item.text} />
+            </div>
+          </CrewRow>
+        );
+      }
       return (
         <div className={`consult-msg ${item.phase}`}>
+          {/* Only a turn from before crew badges existed lands here. */}
           <div className="consult-msg-head">
-            {item.crew ? (
-              <CrewHeader crew={item.crew} pose="idle" size={38} />
-            ) : (
-              <>
-                <span className={`agent-dot ${item.agent}`} />
-                {item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : 'Critique'} · {item.agent}
-              </>
-            )}
-            {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
-            {item.reviewStrength && (
-              <span className="review-strength" title="How independent this reviewer is from the author">{item.reviewStrength}</span>
-            )}
+            <span className={`agent-dot ${item.agent}`} />
+            {item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : 'Critique'} · {item.agent}
+            {badges}
           </div>
           <Markdown text={item.text} />
         </div>

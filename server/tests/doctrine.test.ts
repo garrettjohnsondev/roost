@@ -128,7 +128,7 @@ describe('the crew animates by cutting, not fading', () => {
     // Only three personas have drawn sets; the other eight must not get a
     // stand-in that implies art exists.
     const c = read('web/src/ChatView.tsx');
-    expect(c).toMatch(/if \(!crew\.sprite \|\| failed\) return <CrewAvatar crew=\{crew\} \/>/);
+    expect(c).toMatch(/if \(!crew\.sprite \|\| failed\) return <CrewAvatar crew=\{crew\} size=\{size\} \/>/);
     const crew = read('server/src/crew.ts');
     expect((crew.match(/sprite: '/g) ?? []).length).toBe(5); // juno appears twice; pip is the dispatcher
   });
