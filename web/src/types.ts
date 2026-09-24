@@ -369,3 +369,17 @@ export interface Me {
   avatar?: string;
   color: string;
 }
+
+/** "See the project you are building, from the phone" (docs/PREVIEW.md,
+ *  roadmap 28). Named `Live`, not `Preview` -- that name is already the
+ *  read-only recap of a past session (PreviewResult above). */
+export type LiveState = 'starting' | 'running' | 'stopped' | 'error';
+export interface LiveInfo {
+  configured: boolean;
+  state: LiveState;
+  kind?: 'command' | 'static';
+  url?: string;
+  error?: string;
+  output?: string[];
+  startedAt?: number;
+}

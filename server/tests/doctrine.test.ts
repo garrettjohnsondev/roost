@@ -845,6 +845,30 @@ describe('a notice is never the end of a turn', () => {
   });
 })
 
+describe('live preview: same origin, never an arbitrary port, never a file outside its root', () => {
+  // roadmap 28 / docs/PREVIEW.md: "see the project I am building, from the
+  // phone -- and I may not be on my computer or on the same network."
+  const live = read('server/src/live.ts');
+  const proxy = read('server/src/liveProxy.ts');
+  it('the pid is the project path itself, not a lookup table, and never resolves to an unconfigured or stopped project', () => {
+    expect(live).toMatch(/export function toPid\(cwd: string\): string \{\s*return Buffer\.from\(cwd, 'utf8'\)\.toString\('base64url'\);/);
+    expect(live).toMatch(/if \(!entry \|\| entry\.state !== 'running'\) return null;/);
+  });
+  it('a command never runs from anything but the project file the person keeps -- agent output is not a command', () => {
+    expect(live).toMatch(/const body = knowledge\.sections\['preview'\];/);
+    expect(live).not.toMatch(/exec\(|execSync/);
+  });
+  it('the proxy is mounted before the SPA catch-all, and the upgrade path only acts on \/live', () => {
+    const idx = read('server/src/index.ts');
+    expect(idx.indexOf("app.use('/live/:pid'")).toBeLessThan(idx.indexOf('Serve the built web app'));
+    expect(idx).toMatch(/if \(!isLivePath\(req\.url\)\) return;/);
+  });
+  it('serveStatic never serves a file outside its resolved root, even through a symlinked root', () => {
+    expect(proxy).toMatch(/realRoot = realpathSync\(root\);/);
+    expect(proxy).toMatch(/if \(real !== realRoot && !real\.startsWith/);
+  });
+})
+
 describe('a plain chat turn gets its own finished beat', () => {
   // 2026-09-24 (item 25): "a plain-chat turn that ends after real work has no
   // finished beat at all." Triggered by the same evidence the tracker uses

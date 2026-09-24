@@ -12,6 +12,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { useMinute } from './useMinute';
 import { ImageStrip } from './ImageView';
+import { LiveView } from './LiveView';
 import { findImagePaths } from './imagePaths';
 import { PreviewContent } from './PreviewContent';
 import { useSession, type SessionState } from './useSession';
@@ -66,6 +67,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showSettings, setShowSettings] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showGit, setShowGit] = useState(false);
+  const [showLive, setShowLive] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
   // User-reported 2026-09-23: scrolled into the middle of a resumed session's
@@ -219,10 +221,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         <button className="ghost git-btn" onClick={() => setShowGit(true)}>
           ⎇
         </button>
+        {session.meta && (
+          <button className="ghost" onClick={() => setShowLive(true)} title="Live preview">
+            <Icon name="eye" size={22} />
+          </button>
+        )}
         <button className="ghost" onClick={() => setShowSettings(true)}>
           <Icon name="gear" size={24} title="Session settings" />
         </button>
       </header>
+
+      {showLive && session.meta && <LiveView cwd={session.meta.cwd} onClose={() => setShowLive(false)} />}
 
       {showGit && session.meta && (
         <GitSheet

@@ -11,6 +11,8 @@ import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { dataDir, loadConfig, repoRoot, saveConfig } from './config.js';
 import { checkImagePath, imageRoots } from './images.js';
+import { LiveManager, fromPid, toPid } from './live.js';
+import { isLivePath, proxyRequest, proxyUpgrade, serveStatic, splitLivePath } from './liveProxy.js';
 import { modelForPersona, prettyModel } from './mentions.js';
 import { quotaStore } from './quota.js';
 import { modelRegistry, classify, auditRoutes } from './registry.js';
@@ -558,6 +560,66 @@ app.delete('/api/sessions/:id', (req, res) => {
   res.json({ closed: manager.close(req.params.id) });
 });
 
+// ---------- Live preview (docs/PREVIEW.md, roadmap 28) ----------
+// "I can code all day in Roost, but I eventually want to see an actual live
+// version — and I may not be on my computer or on the same network."
+const liveManager = new LiveManager();
+
+function requireProject(cwd: unknown, res: express.Response): string | null {
+  if (typeof cwd !== 'string' || !config.projects.includes(cwd)) {
+    res.status(400).json({ error: 'cwd must be one of the configured projects' });
+    return null;
+  }
+  return cwd;
+}
+
+app.get('/api/live/status', (req, res) => {
+  const cwd = requireProject(req.query.cwd, res);
+  if (!cwd) return;
+  res.json(liveManager.status(cwd));
+});
+
+app.post('/api/live/start', async (req, res) => {
+  const cwd = requireProject(req.body?.cwd, res);
+  if (!cwd) return;
+  try {
+    res.json(await liveManager.start(cwd));
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/live/stop', (req, res) => {
+  const cwd = requireProject(req.body?.cwd, res);
+  if (!cwd) return;
+  res.json({ stopped: liveManager.stop(cwd) });
+});
+
+// The proxy itself: same-origin, so the phone needs nothing new on the
+// tailnet. Mounted before the SPA catch-all below, which would otherwise
+// swallow every /live/* request as "just another client route".
+app.use('/live/:pid', (req, res) => {
+  const target = liveManager.target(req.params.pid);
+  if (!target) {
+    res.status(404).send('This preview is not running. Start it from the session it belongs to.');
+    return;
+  }
+  const rest = req.originalUrl.slice(`/live/${req.params.pid}`.length) || '/';
+  if (target.kind === 'command') {
+    // The dev server itself carries the /live/<pid>/ prefix in its asset
+    // URLs (it is started with a matching --base), so the request is
+    // forwarded exactly as it arrived.
+    (req as any).url = req.originalUrl;
+    proxyRequest(req, res, target.port);
+  } else {
+    serveStatic(target.root, rest, res);
+  }
+});
+
+const LIVE_SWEEP_INTERVAL_MS = 5 * 60_000;
+const liveSweep = setInterval(() => liveManager.sweepIdle(), LIVE_SWEEP_INTERVAL_MS);
+liveSweep.unref();
+
 // Serve the built web app when present (production mode).
 const webDist = join(repoRoot, 'web', 'dist');
 if (existsSync(webDist)) {
@@ -567,6 +629,21 @@ if (existsSync(webDist)) {
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+
+// The upgrade half of the live proxy: hot reload is a websocket, and
+// http.request has no equivalent for a handshake. `ws`'s own listener above
+// only acts on the /ws path and leaves every other upgrade alone, so this is
+// safe to register alongside it.
+httpServer.on('upgrade', (req, socket, head) => {
+  if (!isLivePath(req.url)) return;
+  const { pid } = splitLivePath(req.url!);
+  const target = liveManager.target(pid);
+  if (!target || target.kind !== 'command') {
+    socket.destroy();
+    return;
+  }
+  proxyUpgrade(req, socket, head, target.port);
+});
 
 wss.on('connection', (ws: WebSocket, req) => {
   const url = new URL(req.url ?? '/ws', 'http://localhost');

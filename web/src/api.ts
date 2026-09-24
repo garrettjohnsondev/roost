@@ -11,6 +11,7 @@ import type {
   DecisionsSummary,
   WeightEstimate,
   ModelsResponse,
+  LiveInfo,
 } from './types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -75,6 +76,9 @@ export const api = {
     request<{ preview: PreviewResult }>(
       `/api/preview?agent=${encodeURIComponent(agent)}&cwd=${encodeURIComponent(cwd)}&id=${encodeURIComponent(id)}`,
     ),
+  liveStatus: (cwd: string) => request<LiveInfo>(`/api/live/status?cwd=${encodeURIComponent(cwd)}`),
+  liveStart: (cwd: string) => request<LiveInfo>('/api/live/start', { method: 'POST', body: JSON.stringify({ cwd }) }),
+  liveStop: (cwd: string) => request<{ stopped: boolean }>('/api/live/stop', { method: 'POST', body: JSON.stringify({ cwd }) }),
   usage: () => request<{ usage: UsageSnapshot | null }>('/api/usage'),
   refreshUsage: () => request<{ usage: UsageSnapshot }>('/api/usage/refresh', { method: 'POST' }),
   setNotifications: (body: { topic: string; url?: string }) =>
