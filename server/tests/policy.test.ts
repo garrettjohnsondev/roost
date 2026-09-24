@@ -69,7 +69,7 @@ describe('evaluatePolicy', () => {
   });
 
   it('surfaces a surplus window alongside the level', () => {
-    quota.noteClaude({ rateLimitType: 'five_hour', utilization: 0.25, resetsAt: hoursFromNow(1) });
+    quota.noteClaude({ rateLimitType: 'seven_day', utilization: 0.25, resetsAt: hoursFromNow(10) });
     codexAt(5);
     const v = evaluatePolicy(quota, ledger, budget);
     expect(v.surplus).not.toBeNull();

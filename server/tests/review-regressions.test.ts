@@ -86,7 +86,7 @@ describe('staleness survives a sparse update', () => {
     vi.useFakeTimers();
     const t0 = Date.parse('2026-09-21T12:00:00Z');
     vi.setSystemTime(t0);
-    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.3, resetsAt: Math.floor(t0 / 1000) + 300 * 60 });
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.3, resetsAt: Math.floor(t0 / 1000) + 600 * 60 });
     expect(store.surplus('claude', budget)).not.toBeNull();
     vi.setSystemTime(t0 + (budget.staleAfterMins + 30) * 60_000);
     expect(store.surplus('claude', budget)).toBeNull();

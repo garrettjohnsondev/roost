@@ -131,8 +131,9 @@ const DEFAULTS: RoostConfig = {
     hardStopPct: 98,
     staleAfterMins: 90,
     dailyUsd: null,
-    surplusHeadroomPct: 25,
-    surplusWithinMins: 360,
+    // A weekly window resetting within a day with over 30% unused (2026-09-24).
+    surplusHeadroomPct: 30,
+    surplusWithinMins: 24 * 60,
     maxDispatchesPerTask: 40,
     maxTaskTokens: null,
   },

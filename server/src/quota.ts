@@ -354,6 +354,11 @@ export class QuotaStore {
     const wins = this.live(agent).filter((w) => w.usedPercent != null && w.resetsAt && w.observedAt >= freshBefore);
     let best: Surplus | null = null;
     for (const w of wins) {
+      // Weekly windows only (2026-09-24). A 5-hour session window resets
+      // every few hours whatever you do; nagging about it, without the weekly
+      // picture, was noise. What is worth acting on is a WEEK of quota about
+      // to vanish unused.
+      if ((w.windowDurationMins ?? 0) < 7 * 24 * 60) continue;
       const minutesLeft = Math.round((w.resetsAt! - Date.now()) / 60000);
       if (minutesLeft <= 0 || minutesLeft > budget.surplusWithinMins) continue;
       const headroomPct = 100 - w.usedPercent!;

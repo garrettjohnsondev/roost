@@ -10,6 +10,7 @@ import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
+import { useMinute } from './useMinute';
 import { ImageStrip } from './ImageView';
 import { findImagePaths } from './imagePaths';
 import { PreviewContent } from './PreviewContent';
@@ -250,27 +251,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         />
       )}
 
-      {session.meta?.surplus && !session.meta.boost && (
-        <div className="surplus-bar">
-          {/* Use it or lose it. The blocks that will expire unused pulse; the
-              ones already spent sit still. This repeats, and deliberately: the
-              risk persists until the window resets or you take the boost, and
-              either one removes the surplus from the meta and unmounts this —
-              so the pulse ends because its cause ended. */}
-          <span className="expiry-blocks" aria-hidden="true">
-            {Array.from({ length: 10 }, (_, i) => (
-              <span key={i} className={`expiry-block${i >= 10 - expiringBlocks(session.meta!.surplus!.headroomPct) ? ' expiring' : ''}`} />
-            ))}
-          </span>
-          <span>
-            Spend it before it resets — {session.meta.surplus.headroomPct}% of your {session.meta.surplus.label} vanishes in{' '}
-            {fmtMinutes(session.meta.surplus.minutesLeft)}.
-          </span>
-          <button className="chip" onClick={() => session.send({ type: 'set_boost', on: true })}>
-            Use the good models
-          </button>
-        </div>
-      )}
+      {session.meta?.surplus && !session.meta.boost && <SpendIt surplus={session.meta.surplus} onBoost={() => session.send({ type: 'set_boost', on: true })} />}
       {session.meta?.boost && (
         <div className="surplus-bar on">
           <span>Boost on — routing to the heavy tier{session.meta.surplus ? ` until ${session.meta.surplus.label} resets` : ''}.</span>
@@ -757,6 +738,38 @@ export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose;
         <img src={`${base}-${pose}.webp`} alt="" onError={() => setFailed(true)} />
       )}
     </span>
+  );
+}
+
+/** "Spend it before it resets" (redesigned 2026-09-24): only when a WEEKLY
+ *  window resets within a day with over 30% unused, with every weekly window
+ *  shown -- for Claude, all-models and Fable -- and a countdown that goes
+ *  down on its own. The blocks that would expire unused pulse; the pulse
+ *  ends when its cause does (the window resets, or you take the boost). */
+function SpendIt({ surplus, onBoost }: { surplus: NonNullable<SessionMeta['surplus']>; onBoost: () => void }) {
+  const now = useMinute(true);
+  const minutes = surplus.resetsAt ? Math.max(0, Math.round((surplus.resetsAt - now) / 60_000)) : surplus.minutesLeft;
+  return (
+    <div className="surplus-bar spend-it">
+      <span className="expiry-blocks" aria-hidden="true">
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className={`expiry-block${i >= 10 - expiringBlocks(surplus.headroomPct) ? ' expiring' : ''}`} />
+        ))}
+      </span>
+      <div className="spend-it-text">
+        <span>
+          Spend it before it resets — {surplus.headroomPct}% of your {surplus.label} vanishes in {fmtMinutes(minutes)}.
+        </span>
+        {surplus.weekly && surplus.weekly.length > 0 && (
+          <span className="spend-it-weekly">
+            {surplus.weekly.map((w) => `${w.label}: ${w.usedPercent != null ? `${w.usedPercent}% used` : 'no data'}`).join(' · ')}
+          </span>
+        )}
+      </div>
+      <button className="chip" onClick={onBoost}>
+        Use the good models
+      </button>
+    </div>
   );
 }
 

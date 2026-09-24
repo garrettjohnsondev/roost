@@ -105,27 +105,26 @@ describe('headroom', () => {
 });
 
 describe('surplus (use-it-or-lose-it)', () => {
-  it('flags a soon-resetting window with real headroom', () => {
-    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.3, resetsAt: hoursFromNow(1) });
+  it('flags a WEEKLY window resetting within a day with real headroom', () => {
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.3, resetsAt: hoursFromNow(10) });
     const s = store.surplus('claude', budget);
     expect(s).not.toBeNull();
     expect(s!.headroomPct).toBe(70);
-    expect(s!.minutesLeft).toBeLessThanOrEqual(60);
+    expect(s!.minutesLeft).toBeLessThanOrEqual(600);
   });
 
-  it('stays silent when a LONGER-horizon window is tight — the weekly guard', () => {
-    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.3, resetsAt: hoursFromNow(1) });
-    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.88, resetsAt: hoursFromNow(80) });
+  it('never flags the 5-hour session window, however much is left (2026-09-24)', () => {
+    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.1, resetsAt: hoursFromNow(1) });
     expect(store.surplus('claude', budget)).toBeNull();
   });
 
-  it('ignores windows that reset too far out to be use-it-or-lose-it', () => {
+  it('ignores a weekly window that resets more than a day out', () => {
     store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.1, resetsAt: hoursFromNow(80) });
     expect(store.surplus('claude', budget)).toBeNull();
   });
 
-  it('ignores windows with nothing meaningful left', () => {
-    store.noteClaude({ rateLimitType: 'five_hour', utilization: 0.95, resetsAt: hoursFromNow(1) });
+  it('ignores a weekly window with 30% or less left', () => {
+    store.noteClaude({ rateLimitType: 'seven_day', utilization: 0.75, resetsAt: hoursFromNow(10) });
     expect(store.surplus('claude', budget)).toBeNull();
   });
 });

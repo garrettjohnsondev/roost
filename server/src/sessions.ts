@@ -104,6 +104,10 @@ export class Session {
   /** A consulted plan is being built as a one-shot on the other vendor. Its
    *  own idles are not the end of the build; the gate runs when it returns. */
   private crossBuild = false;
+  /** Re-sends the header meta when the "Spend it" picture changes, once a
+   *  minute: it had shown one thing and never updated live (2026-09-24). */
+  private surplusTimer?: ReturnType<typeof setInterval>;
+  private lastSurplusKey = '';
   /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
   builder: Builder = 'auto';
   sticky?: string;
@@ -205,6 +209,14 @@ export class Session {
     this.verifyAfterProceed = config.consult?.verifyAfterProceed ?? true;
     this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
     this.transcriptWriter = new TranscriptWriter(this.id);
+    this.surplusTimer = setInterval(() => {
+      const key = JSON.stringify(toSurplusInfo(quotaStore().surplus(this.agent, this.budget)));
+      if (key !== this.lastSurplusKey) {
+        this.lastSurplusKey = key;
+        this.broadcastMeta();
+      }
+    }, 60_000);
+    this.surplusTimer.unref?.();
     if (opts.restore) {
       // The thread as the phone last saw it, back from disk -- then a line
       // saying what happened, because a restart mid-turn ends that turn and
@@ -1365,6 +1377,7 @@ export class Session {
   /** `forget` removes the on-disk thread too: a session closed on purpose is
    *  gone; one lost to a restart is not, and is read back by restore(). */
   dispose(reason = 'Closed', opts: { forget?: boolean } = {}) {
+    if (this.surplusTimer) clearInterval(this.surplusTimer);
     this.adapter.dispose();
     for (const ws of this.sockets) ws.close(4010, reason);
     this.sockets.clear();
@@ -1379,7 +1392,12 @@ export class Session {
 }
 
 function toSurplusInfo(s: Surplus | null): SurplusInfo | null {
-  return s ? { agent: s.agent, label: s.window.label, minutesLeft: s.minutesLeft, headroomPct: s.headroomPct } : null;
+  if (!s) return null;
+  const weekly = quotaStore()
+    .windows(s.agent)
+    .filter((w) => (w.windowDurationMins ?? 0) >= 7 * 24 * 60)
+    .map((w) => ({ label: w.label, usedPercent: w.usedPercent, resetsAt: w.resetsAt ?? null }));
+  return { agent: s.agent, label: s.window.label, minutesLeft: s.minutesLeft, headroomPct: s.headroomPct, resetsAt: s.window.resetsAt ?? undefined, weekly };
 }
 
 /** Thrown by SessionManager.create when guards.oneWriter is 'block'. */

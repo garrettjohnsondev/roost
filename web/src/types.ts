@@ -49,6 +49,11 @@ export interface SurplusInfo {
   label: string;
   minutesLeft: number;
   headroomPct: number;
+  /** Epoch ms, so the countdown can tick on the phone between broadcasts. */
+  resetsAt?: number;
+  /** Every weekly window for this vendor -- for Claude, all-models AND the
+   *  Fable-scoped one -- so the card shows the whole week, not one number. */
+  weekly?: Array<{ label: string; usedPercent: number | null; resetsAt: number | null }>;
 }
 
 /** One gate command the harness ran: command, exit code and output. Evidence,
