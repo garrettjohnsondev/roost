@@ -9,7 +9,8 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { loadConfig, repoRoot, saveConfig } from './config.js';
+import { dataDir, loadConfig, repoRoot, saveConfig } from './config.js';
+import { checkImagePath, imageRoots } from './images.js';
 import { quotaStore } from './quota.js';
 import { modelRegistry, classify, auditRoutes } from './registry.js';
 import { capabilitiesFrom, reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
@@ -197,6 +198,19 @@ app.get('/api/resumable', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }
+});
+
+// A local image, for the in-app viewer (images.ts says what is allowed and why).
+app.get('/api/image', (req, res) => {
+  const check = checkImagePath(String(req.query.path ?? ''), imageRoots(config.projects, dataDir()));
+  if (!check.ok) {
+    res.status(check.status).json({ error: check.reason });
+    return;
+  }
+  res.setHeader('Content-Type', check.type);
+  res.setHeader('Cache-Control', 'no-store'); // agents overwrite screenshots in place
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.sendFile(check.path);
 });
 
 // Read-only recap of a past session — last few messages and touched files, pulled straight

@@ -2778,3 +2778,43 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .crew-strip-faces.bunks .crew-strip-member:not(.sleep) { display: none; }
 .crew-strip-faces.bunks .crew-strip-member.sleep .crew-sprite { width: 44px !important; height: 44px !important; }
 .crew-strip-faces.bunks .crew-strip-name { font-size: 9px; }
+
+/* ---------- pictures in the thread (ImageView.tsx) ---------- */
+
+.img-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.img-thumb {
+  padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  background: var(--surface-2); cursor: zoom-in; line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.img-thumb img { display: block; max-width: min(100%, 240px); max-height: 160px; object-fit: contain; }
+.img-gone {
+  font-size: 12px; color: var(--text-dim); padding: 6px 10px;
+  border: 1px dashed var(--border); border-radius: 8px;
+}
+.img-path { padding: 0; border: none; background: none; font: inherit; color: var(--accent, inherit); cursor: zoom-in; text-align: left; }
+.img-path code { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.md-img { max-width: 100%; border-radius: 8px; }
+.tool-block .img-strip { margin: 6px 0 2px 4px; }
+[data-theme='dark'] .img-thumb, [data-theme='dark'] .img-gone, [data-theme='dark'] .md-img { border-radius: 2px; }
+
+.img-viewer {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column;
+  background: rgba(6, 9, 18, 0.94);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.img-viewer-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; color: #e6e9f2; }
+.img-viewer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.img-viewer-close {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.08);
+  color: #fff; font-size: 18px; line-height: 1;
+}
+.img-viewer-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 8px; }
+.img-viewer-stage img { max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in; image-rendering: auto; }
+/* Full size: the picture at its own pixels, panned by scrolling. */
+.img-viewer-stage.full { align-items: flex-start; justify-content: flex-start; }
+.img-viewer-stage.full img { max-width: none; max-height: none; cursor: zoom-out; }
+.img-viewer-error { color: #e6e9f2; font-size: 15px; text-align: center; max-width: 280px; line-height: 1.4; }
+.img-viewer-path { padding: 8px 16px 12px; font-family: ui-monospace, monospace; font-size: 11px; color: rgba(230, 233, 242, 0.6); word-break: break-all; }

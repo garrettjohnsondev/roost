@@ -10,6 +10,8 @@ import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
+import { ImageStrip } from './ImageView';
+import { findImagePaths } from './imagePaths';
 import { PreviewContent } from './PreviewContent';
 import { useSession, type SessionState } from './useSession';
 import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder } from './types';
@@ -1142,6 +1144,9 @@ function ToolChip({ item, fresh = false }: { item: Extract<ChatItem, { kind: 'to
         {!item.done && <span className="spinner" />}
         {expandable && <span className="tool-expand-hint">{expanded ? '▴' : '▾'}</span>}
       </button>
+      {/* A tool that read or wrote a picture shows it: the Read of a
+          screenshot was a chip you could tap and get nothing (2026-09-24). */}
+      <ImageStrip paths={findImagePaths(`${item.detail ?? ''} ${item.expand?.path ?? ''}`, 3)} />
       {expanded && item.expand && (
         <div className="tool-expand">
           {item.expand.path && <div className="preview-file-path tool-expand-path">{item.expand.path}</div>}
