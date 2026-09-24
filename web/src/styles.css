@@ -2689,8 +2689,13 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .crew-row .consult-msg { max-width: 100%; align-self: flex-start; }
 .crew-row .crew-ident-name { font-size: 15px; }
 
-/* Bubbles with the board's square tail: the crew's hangs off the bottom-left,
-   yours off the bottom-right, pointing at whoever is speaking. */
+/* Bubbles with the board's STEPPED pixel tail (2026-09-24; the first cut was
+   one plain square): three diminishing squares marching diagonally off the
+   bubble's corner -- 6px flush with the corner, then 4px, then 2px, each a
+   box-shadow copy of the same pseudo-element (spread shrinks it uniformly,
+   offset walks it further out), so it is one rule, not three elements.
+   The crew's hangs off the bottom-left, yours off the bottom-right, pointing
+   at whoever is speaking. */
 [data-theme='dark'] .msg,
 [data-theme='dark'] .crew-row .consult-msg { position: relative; }
 [data-theme='dark'] .msg.assistant { border-top-left-radius: 3px; border-bottom-left-radius: 0; }
@@ -2698,6 +2703,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 [data-theme='dark'] .crew-row .consult-msg::after {
   content: ''; position: absolute; left: -1px; bottom: -6px; width: 6px; height: 6px;
   background: var(--surface-2); border-left: 1px solid var(--seam); border-bottom: 1px solid var(--seam);
+  box-shadow: -4px 4px 0 -1px var(--surface-2), -7px 7px 0 -2px var(--surface-2);
 }
 [data-theme='dark'] .crew-row .consult-msg {
   background: var(--surface-2); border: 1px solid var(--seam); border-radius: 3px; border-bottom-left-radius: 0;
@@ -2705,6 +2711,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 }
 [data-theme='dark'] .msg-row.user .msg.user::after {
   content: ''; position: absolute; right: 0; bottom: -6px; width: 6px; height: 6px; background: var(--accent);
+  box-shadow: 4px 4px 0 -1px var(--accent), 7px 7px 0 -2px var(--accent);
 }
 [data-theme='dark'] .msg-row.user .msg.user { max-width: min(100%, 300px); }
 
@@ -2994,3 +3001,27 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .live-frame-wrap.wide { overflow: auto; }
 .live-frame-wrap.wide .live-frame { width: 1280px; height: 100%; min-height: 720px; }
 [data-theme='dark'] .live-frame-wrap { border-radius: 2px; }
+
+/* Day and week rows (chapters.ts groupChaptersByDay, §12d's last gap): a
+   plain label, not a card -- it is a divider in the scroll, not a thing to
+   tap. Only rendered at all when the thread crosses into a new bucket. */
+.day-row {
+  font-family: var(--font-display, inherit);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  margin: 18px 0 6px;
+  position: relative;
+}
+.day-row::before, .day-row::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: calc(50% - 60px);
+  height: 1px;
+  background: var(--border);
+}
+.day-row::before { left: 0; }
+.day-row::after { right: 0; }

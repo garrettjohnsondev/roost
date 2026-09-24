@@ -953,6 +953,44 @@ describe('the four motions MOTION.md \u00a77 called still open', () => {
   });
 })
 
+describe("the bubble tail steps down, not a single square", () => {
+  // Direction board: "square bubbles with a stepped pixel tail" -- the first
+  // cut was one plain square (2026-09-24 review), this is the staircase.
+  const css = read('web/src/styles.css');
+  it('three sizes, walking diagonally away from the bubble corner, no blur', () => {
+    expect(css).toMatch(/\.crew-row \.msg\.assistant::after,\s*\[data-theme='dark'\] \.crew-row \.consult-msg::after \{[\s\S]*?box-shadow: -4px 4px 0 -1px var\(--surface-2\), -7px 7px 0 -2px var\(--surface-2\);/);
+    expect(css).toMatch(/\.msg-row\.user \.msg\.user::after \{[\s\S]*?box-shadow: 4px 4px 0 -1px var\(--accent\), 7px 7px 0 -2px var\(--accent\);/);
+  });
+})
+
+describe('day and week rows -- the last gap named in MOTION.md \u00a77', () => {
+  // \u00a712d's real blocker (transcripts not surviving a restart) was fixed
+  // 2026-09-24; this is the grouping UI itself. Client-side only -- it
+  // changes what you SEE, exactly like the fold it sits beside, never what
+  // the agents remember.
+  const c = read('web/src/ChatView.tsx');
+  const chapters = read('web/src/chapters.ts');
+
+  it('groupChaptersByDay takes `now` as a parameter and never reads the clock itself', () => {
+    // The one function in this file allowed to know about wall-clock time,
+    // and even it is handed the time rather than asking for it -- so it stays
+    // as testable as every other pure function here.
+    const body = chapters.slice(chapters.indexOf('export function groupChaptersByDay'), chapters.indexOf('export function groupChaptersByDay') + 900);
+    expect(body).not.toMatch(/Date\.now\(\)/);
+    expect(chapters).not.toMatch(/\bnew Date\(\)(?!\.)/); // no argless `new Date()` anywhere in the module
+  });
+
+  it('a header only when the thread actually crosses a bucket -- the common single-day thread shows none', () => {
+    expect(c).toMatch(/const showDayRows = groups\.length > 1;/);
+  });
+
+  it('rows stay in the order chapters already render in -- oldest first, never resorted', () => {
+    const body = chapters.slice(chapters.indexOf('export function groupChaptersByDay'));
+    expect(body).toMatch(/for \(const ch of chapters\) \{/);
+    expect(body).not.toMatch(/\.sort\(/);
+  });
+})
+
 describe('the crew bubble visits one member at a time', () => {
   // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
   // fades out and comes back in on another." The one timer the roadmap allows

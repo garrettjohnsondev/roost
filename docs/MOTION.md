@@ -268,9 +268,9 @@ In rough order of value:
 3. ~~**Confetti and the whole crew cheering**~~ (08) — done. On a fresh pass, every member of `chapter.crew` takes the `cheer` pose (not only the live one), and 5 small squares in lamp/claude/codex colours rise and fade once from the verify head, gated on `.fresh`, off under reduced motion.
 4. ~~**The idle breath decision**~~ (§1) — struck, not built. It is exactly the ambient motion §1's rule forbids — reporting nothing that changed — and the board's own footer calls it *"the only unprompted delight"*, a claim item 08 (cheering) already earns honestly. Recorded here so it is a decision, not a silent gap.
 5. ~~**A caret while a command runs**~~ (05) — done. `.tool-chip.running .tool-detail` gets a blinking block caret; it stops the instant `item.done`.
-6. **Day and week rows for chapters** (06) — still open. Transcripts now survive a restart (`.roost-data/transcripts/*.jsonl`, shipped 2026-09-24), so the blocker this doc named is gone, but the grouping UI itself is unbuilt. Next up.
+6. ~~**Day and week rows for chapters**~~ (06) — done, 2026-09-24. `chapters.ts` gains `dayLabel`/`groupChaptersByDay`, pure functions taking `now` as a parameter; `ChatView` renders a `.day-row` divider only when the thread actually crosses a bucket (Today / Yesterday / a weekday / "Week of <date>"), so the common single-day thread shows none of it. `?fixture=chapters-days`.
 7. ~~**Seams versus cards**~~ (§2) — resolved in §2: cards, in dark mode, stay.
-8. **The stepped pixel tail.** Still open. The Direction board says *"square bubbles with a stepped pixel tail"*; the app's tail is a single square.
+8. ~~**The stepped pixel tail.**~~ Done, 2026-09-24. Three diminishing squares (6px flush with the corner, 4px, 2px) marching diagonally off the bubble, one rule via stacked `box-shadow` copies of the existing tail pseudo-element (offset walks each copy further out, negative `spread` shrinks it) rather than new elements.
 9. **Light and dark parity** (§2, new). The board's actual surface language — hard shadow, sharp corners, the tail, Silkscreen — is dark-mode-only. Unifying light mode to match is real, cross-cutting work: every card, sheet, bubble and heading, not one selector. Tracked here, not attempted in this pass.
 
 ### Checklist for a new animation

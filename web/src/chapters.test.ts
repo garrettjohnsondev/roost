@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chaptersOf, chapterName } from './chapters';
+import { chaptersOf, chapterName, dayLabel, groupChaptersByDay, type Chapter } from './chapters';
 import type { ChatItem } from './types';
 
 const ollie = { name: 'Ollie' } as any, juno = { name: 'Juno' } as any, moss = { name: 'Moss' } as any;
@@ -58,5 +58,60 @@ describe('chapterName — named after the work, not the date', () => {
   it('never leaves a row nameless', () => {
     expect(chapterName('')).toBe('Untitled job');
     expect(chapterName('   please  ')).toBe('Untitled job');
+  });
+});
+
+describe('dayLabel — Today, Yesterday, a weekday, then a week', () => {
+  const DAY = 86_400_000;
+  const now = new Date(2026, 8, 24, 15, 0, 0).getTime(); // Thursday, 2026-09-24, 3pm local
+
+  it('the same calendar day, however many hours apart, is Today', () => {
+    expect(dayLabel(now, now)).toBe('Today');
+    expect(dayLabel(new Date(2026, 8, 24, 0, 5).getTime(), now)).toBe('Today');
+  });
+
+  it('midnight-aligned: 11:58pm yesterday and 12:02am today are different days', () => {
+    const lateYesterday = new Date(2026, 8, 23, 23, 58).getTime();
+    expect(dayLabel(lateYesterday, now)).toBe('Yesterday');
+  });
+
+  it('a weekday name for 2–6 days back', () => {
+    expect(dayLabel(now - 2 * DAY, now)).toBe('Tuesday');
+    expect(dayLabel(now - 6 * DAY, now)).toBe('Friday');
+  });
+
+  it('a week label for 7+ days back, naming the Monday that starts that week', () => {
+    const label = dayLabel(now - 10 * DAY, now);
+    expect(label).toMatch(/^Week of /);
+  });
+});
+
+describe('groupChaptersByDay — collapses consecutive same-bucket chapters, never reorders', () => {
+  const DAY = 86_400_000;
+  const now = new Date(2026, 8, 24, 15, 0, 0).getTime();
+  const ch = (startedAt: number, name = 'x'): Chapter => ({ start: 0, end: 1, name, crew: [], turns: 1, status: 'verified', startedAt });
+
+  it('one group when everything is the same day', () => {
+    const groups = groupChaptersByDay([ch(now - 1000), ch(now - 500), ch(now)], now);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe('Today');
+    expect(groups[0].chapters).toHaveLength(3);
+  });
+
+  it('a new group each time the bucket changes, in the original order', () => {
+    const groups = groupChaptersByDay([ch(now - 2 * DAY, 'a'), ch(now - 1 * DAY, 'b'), ch(now, 'c')], now);
+    expect(groups.map((g) => g.label)).toEqual(['Tuesday', 'Yesterday', 'Today']);
+    expect(groups.map((g) => g.chapters[0].name)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('two chapters in the same week, different days, still bucket into ONE week group', () => {
+    const groups = groupChaptersByDay([ch(now - 8 * DAY, 'a'), ch(now - 9 * DAY, 'b')], now);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].chapters.map((c) => c.name)).toEqual(['a', 'b']);
+  });
+
+  it('every group carries a stable key distinct from its label', () => {
+    const groups = groupChaptersByDay([ch(now)], now);
+    expect(groups[0].key).toBe('today');
   });
 });

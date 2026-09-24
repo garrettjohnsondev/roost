@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
-import { chaptersOf, type Chapter } from './chapters';
+import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
 import { trackerOf } from './tracker';
 import { Icon } from './icons';
 import { segmentsOf, summarizeRun } from './toolruns';
@@ -415,7 +415,26 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           // named row, and a verified job folds into it.
           const chapters = chaptersOf(session.items);
           const many = chapters.length > 1;
-          return chapters.map((ch, ci) => {
+          // Day and week rows (§12d), the last gap MOTION.md §7 named once its
+          // real blocker (transcripts not surviving a restart) was fixed: a
+          // header only when the thread actually crosses into a new bucket --
+          // a single day of work, which is most threads, shows none of this.
+          const groups = many ? groupChaptersByDay(chapters, Date.now()) : [];
+          const showDayRows = groups.length > 1;
+          let chapterIndex = -1;
+          return groups.length
+            ? groups.map((g) => (
+                <React.Fragment key={g.key}>
+                  {showDayRows && <div className="day-row">{g.label}</div>}
+                  {g.chapters.map((ch) => {
+                    chapterIndex++;
+                    return renderChapter(ch, chapterIndex);
+                  })}
+                </React.Fragment>
+              ))
+            : renderChapter(chapters[0], 0);
+
+          function renderChapter(ch: Chapter, ci: number) {
             // Consecutive tool calls fold into one line (toolruns.ts); every
             // other item is its own row, as before.
             const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
@@ -439,7 +458,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 {rows}
               </ChapterFold>
             );
-          });
+          }
         })()}
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for

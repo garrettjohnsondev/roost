@@ -20,6 +20,8 @@ export interface Chapter {
   /** Crew turns — assistant replies and conference turns, not tool calls. */
   turns: number;
   status: ChapterStatus;
+  /** ts of the chapter's first item -- for day/week grouping below. */
+  startedAt: number;
 }
 
 export function chaptersOf(items: ChatItem[]): Chapter[] {
@@ -57,7 +59,73 @@ function build(items: ChatItem[], start: number, end: number): Chapter {
   // NOT VERIFIED (no gates) is neither a pass nor work to redo.
   const status: ChapterStatus = last?.report.passed ? 'verified' : last && !last.report.unverified ? 'needs-work' : 'open';
   const firstAsk = slice.find((x): x is Extract<ChatItem, { kind: 'user' }> => x.kind === 'user');
-  return { start, end, name: chapterName(firstAsk?.text ?? ''), crew, turns, status };
+  const startedAt = slice[0]?.ts ?? 0;
+  return { start, end, name: chapterName(firstAsk?.text ?? ''), crew, turns, status, startedAt };
+}
+
+/** Board §12d's day and week rows: chapters grouped under a label, in the
+ *  same chronological order they already render in -- oldest first. Pure of
+ *  the wall clock except for the `now` you hand it, so it stays testable and
+ *  never disagrees with what `dayLabel` alone would say for the same ts. */
+export interface ChapterGroup {
+  /** Stable, comparable bucket id (also a fine React key) -- distinct from
+   *  `label`, which is what a person reads. */
+  key: string;
+  label: string;
+  chapters: Chapter[];
+}
+
+const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Midnight-aligned day number in the LOCAL calendar, so 11:58pm and
+ *  12:02am count as different days even though they are 4 minutes apart. */
+function dayKey(ts: number): number {
+  const d = new Date(ts);
+  return Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() / 86_400_000);
+}
+
+/** The Monday that starts ts's calendar week, as an epoch day-number key --
+ *  so every chapter in the same Mon–Sun window buckets identically, however
+ *  many days apart their own timestamps are within it. */
+function weekKey(ts: number): number {
+  const d = new Date(ts);
+  const mondayOffset = (d.getDay() + 6) % 7; // Sun=0 -> 6 back to Monday; Mon=1 -> 0
+  return dayKey(ts) - mondayOffset;
+}
+
+/** "Today" / "Yesterday" / a weekday name for the rest of this week / "Week
+ *  of <date>" beyond that. `now` is a parameter, never read internally, so
+ *  this never disagrees with the phone's clock by surprise and stays a pure
+ *  function like the rest of this file. */
+export function dayLabel(ts: number, now: number): string {
+  const diff = dayKey(now) - dayKey(ts);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  if (diff > 1 && diff < 7) return WEEKDAY[new Date(ts).getDay()];
+  const monday = new Date(weekKey(ts) * 86_400_000);
+  return `Week of ${monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
+
+/** Groups by the SAME bucket dayLabel would put a chapter in -- today, or a
+ *  named day this week, or a calendar week -- collapsing consecutive
+ *  chapters that land in the same bucket under one header. Chapters already
+ *  arrive chronological, so this is a single pass, not a sort. */
+export function groupChaptersByDay(chapters: Chapter[], now: number): ChapterGroup[] {
+  const out: ChapterGroup[] = [];
+  const keyOf = (ts: number): string => {
+    const diff = dayKey(now) - dayKey(ts);
+    if (diff === 0) return 'today';
+    if (diff === 1) return 'yesterday';
+    if (diff > 1 && diff < 7) return `d:${dayKey(ts)}`;
+    return `w:${weekKey(ts)}`;
+  };
+  for (const ch of chapters) {
+    const key = keyOf(ch.startedAt);
+    const prev = out[out.length - 1];
+    if (prev && prev.key === key) prev.chapters.push(ch);
+    else out.push({ key, label: dayLabel(ch.startedAt, now), chapters: [ch] });
+  }
+  return out;
 }
 
 /** "Add a --json flag to the avatar generator" → "--json flag to the avatar".

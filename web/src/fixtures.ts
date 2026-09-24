@@ -73,6 +73,23 @@ const GATE_FAILED: ChatItem[] = [
   { kind: 'verify', report: failing, ts: at(2) },
 ];
 
+/** Three short jobs on three different days, for the day-row headers
+ *  (§12d's last gap). Real spread timestamps, not the fixture's usual at(n). */
+const NOW = Date.now();
+const DAY = 86_400_000;
+const daySpread = (offsetDays: number, n: number) => NOW - offsetDays * DAY + n * 1000;
+const THREE_DAYS: ChatItem[] = [
+  { kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: daySpread(9, 0) },
+  { kind: 'assistant', text: 'Done.', complete: true, crew: MOSS, ts: daySpread(9, 1) },
+  { kind: 'verify', report: passing, ts: daySpread(9, 2) },
+  { kind: 'user', text: 'Add a --json flag to the avatar generator', imageCount: 0, ts: daySpread(1, 0) },
+  { kind: 'assistant', text: 'Flag added.', complete: true, crew: OLLIE, ts: daySpread(1, 1) },
+  { kind: 'verify', report: passing, ts: daySpread(1, 2) },
+  { kind: 'user', text: 'Move the scales icon out of the composer', imageCount: 0, ts: daySpread(0, 0) },
+  { kind: 'assistant', text: 'Moved.', complete: true, crew: OLLIE, ts: daySpread(0, 1) },
+  { kind: 'verify', report: passing, ts: daySpread(0, 2) },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
@@ -93,6 +110,8 @@ export const FIXTURES: Record<string, () => SessionState> = {
   earned: () => base(EARNED, meta(), 0),
   /** A gate fails, live: the red stamp lands, the badge reads FAILED. */
   'gate-failed': () => base(GATE_FAILED, meta(), 0, { status: 'idle' }),
+  /** Three jobs across three days -- Week of…, Yesterday, Today. */
+  'chapters-days': () => base(THREE_DAYS, meta(), THREE_DAYS.length),
   /** The instant after ↑ in auto mode: Pip, thinking, before triage returns. */
   triage: () =>
     base([{ kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: at(0) }], meta(), 0, {
