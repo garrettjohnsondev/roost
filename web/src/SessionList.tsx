@@ -342,7 +342,6 @@ export function SessionList(props: {
       <header className="page-header">
         <div className="page-header-row">
           <div className="page-header-brand">
-            <img className="brand-icon" src="/icon-192.png" alt="" />
             <div>
               <h1 className="wordmark">
                 <Wordmark />
