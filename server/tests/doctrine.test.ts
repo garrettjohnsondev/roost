@@ -671,6 +671,46 @@ describe('bugs from the phone, 2026-09-24', () => {
   });
 })
 
+describe('the names are the interface: @-mentions and the handoff', () => {
+  // 2026-09-24: "I'm already starting to learn their names and at one point
+  // haiku was under-performing and I had the need to @Nell in the chat."
+  const s = read('server/src/sessions.ts');
+  const c = read('web/src/ChatView.tsx');
+
+  it('a mention is checked before routing, and before the plan/build branch', () => {
+    const body = s.slice(s.indexOf("case 'user_message': {"), s.indexOf("case 'approval_response'"));
+    const at = body.indexOf('parseMention(msg.text');
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(body.indexOf("this.mode === 'plan' || this.mode === 'build'"));
+    expect(at).toBeLessThan(body.indexOf('await this.routeFor(msg.text)'));
+  });
+
+  it('same vendor switches the model for the turn; other vendor is a one-shot that lands as their turn', () => {
+    const m = s.slice(s.indexOf('private async askByName('), s.indexOf('private async deliver('));
+    expect(m).toMatch(/if \(suite === this\.agent && how === 'mention'\) \{[\s\S]*?await this\.adapter\.setModel\(model\);/);
+    expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, cwd: this\.cwd, capability: 'all', role: how, persona: name/);
+    expect(m).toMatch(/this\.pushEvent\(\{ type: 'consult', phase: how, agent: suite, crew: member/);
+    // never silent about what could not travel
+    expect(m).toMatch(/cannot see attached images yet/);
+    // Stop stops it
+    expect(s).toMatch(/this\.activeMention\?\.cancel\(\);/);
+  });
+
+  it('the handoff briefs from the plan file and the thread, and is offered where the meter degrades', () => {
+    expect(s).toMatch(/composeHandoffPrompt\(name, from, context, this\.pendingConsult\?\.planPath \?\? this\.lastPlanPath\)/);
+    expect(c).toMatch(/session\.context\.pressure === 'degrading' \|\| session\.context\.pressure === 'critical'/);
+    expect(c).toMatch(/action: 'handoff', to: other\.name/);
+    const h = read('server/src/mentions.ts');
+    expect(h).toMatch(/check the repository state \(git status, recent diff\) before assuming anything in the summary above is done/);
+  });
+
+  it('the composer completes a name on "@", and settings say how to reach the other vendor', () => {
+    expect(c).toMatch(/const atMatch = text\.match\(\/\(\^\|\\s\)@\(\[A-Za-z\]\*\)\$\/\);/);
+    expect(c).toMatch(/className="mention-pop"/);
+    expect(c).toMatch(/crew: ask them by name in the message box/);
+  });
+})
+
 describe('the crew bubble visits one member at a time', () => {
   // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
   // fades out and comes back in on another." The one timer the roadmap allows

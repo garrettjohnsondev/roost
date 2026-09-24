@@ -18,6 +18,11 @@ export interface UserImage {
  *  plan: read-only, every message yields a plan file. build: the full conference. */
 export type SessionMode = 'chat' | 'auto' | 'plan' | 'build';
 
+/** A conference turn, or a turn from a member asked for by name ('mention'),
+ *  or the briefing-and-continue turn when a full context hands the job to a
+ *  fresh one ('handoff'). */
+export type ConsultPhase = 'plan' | 'critique' | 'reconcile' | 'mention' | 'handoff';
+
 export type ClientMessage =
   | { type: 'user_message'; text: string; images?: UserImage[] }
   | { type: 'approval_response'; requestId: string; decision: 'allow' | 'allow-session' | 'deny' }
@@ -31,7 +36,7 @@ export type ClientMessage =
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
-  | { type: 'context_action'; action: 'compact'; remember?: boolean }
+  | { type: 'context_action'; action: 'compact' | 'handoff'; remember?: boolean; to?: string }
   | { type: 'context_dismiss' }
   | { type: 'set_auto_compact'; on: boolean }
   | { type: 'interrupt' };
@@ -186,7 +191,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
-  | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
+  | { type: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }

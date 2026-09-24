@@ -2708,3 +2708,25 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 /* Drawn icons (icons.tsx) sit on the text line like a glyph would. */
 .icon { display: inline-block; vertical-align: -2px; }
 .full-auto-text .icon { vertical-align: -1px; margin-right: 2px; }
+
+/* @-mentions: the crew, above the field, while "@" is being typed. */
+.mention-pop { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 8px; }
+.mention-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 6px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 13px; font-weight: 600;
+}
+.mention-suite { font-weight: 400; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+[data-theme='dark'] .mention-opt { border-radius: 2px; }
+
+/* The handoff, offered in the context meter once the window is degrading. */
+.context-handoff {
+  font: inherit; font-size: 12px; font-weight: 600;
+  padding: 2px 8px; border-radius: 8px;
+  border: 1px solid currentColor; background: transparent; color: inherit;
+  flex-shrink: 0;
+}
+[data-theme='dark'] .context-handoff { border-radius: 2px; }
+.consult-phase.mention { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); color: var(--ok); }
+.consult-phase.handoff { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }

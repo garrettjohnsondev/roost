@@ -29,6 +29,9 @@ import { statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
 import { TranscriptWriter, lastState, readTranscript, removeTranscript } from './transcripts.js';
+import { composeHandoffPrompt, composeMentionPrompt, modelForPersona, parseMention } from './mentions.js';
+import { runAgentTask, type AgentTaskRun } from './agents/dispatch.js';
+import { allPersonas, personaFor } from './crew.js';
 import { callLedger } from './ledger.js';
 import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
@@ -87,6 +90,10 @@ export class Session {
    *  conference (one is running), so they wait, visibly, and ride the plan. */
   private held: Array<{ text: string; images?: UserImage[] }> = [];
   private activeConsult?: ConsultRun;
+  /** A turn sent to a member of the OTHER vendor by name: a one-shot with its own cancel. */
+  private activeMention?: AgentTaskRun;
+  /** The last plan written in this session, for a handoff briefing after Proceed cleared pendingConsult. */
+  private lastPlanPath?: string;
   private consultCancelled = false;
   pendingConsult?: ConsultState;
   private standardModelFor: (agent: AgentKind) => string;
@@ -568,6 +575,17 @@ export class Session {
           await this.deliver(msg.text, msg.images);
           break;
         }
+        {
+          // "@Nell, look at this": the names are the interface. Same vendor:
+          // this session switches to that member's model for the turn. Other
+          // vendor: a one-shot on that vendor, with the recent conversation as
+          // context, landing in the thread as that member's turn.
+          const mention = parseMention(msg.text, allPersonas().map((p) => p.name));
+          if (mention) {
+            await this.askByName(mention.name, mention.text, msg.images, 'mention');
+            break;
+          }
+        }
         if (this.mode === 'plan' || this.mode === 'build') {
           if (this.consultRunning) {
             this.hold(msg.text, msg.images);
@@ -663,6 +681,7 @@ export class Session {
           this.consultCancelled = true;
           this.activeConsult.cancel();
         }
+        this.activeMention?.cancel();
         await this.adapter.interrupt();
         break;
       case 'consult':
@@ -746,6 +765,19 @@ export class Session {
         this.broadcastMeta();
         break;
       case 'context_action': {
+        if (msg.action === 'handoff') {
+          // Phase 4c's "fresh session seeded from the plan file", as a turn:
+          // the other vendor's flagship (or a named member) is briefed from
+          // the plan and the recent thread and continues the job with a clean
+          // window. This session's own context is left as it is.
+          this.contextOffer = undefined;
+          this.broadcastMeta();
+          const other = this.agent === 'claude' ? 'codex' : 'claude';
+          const to = msg.to ?? personaFor(other, this.otherAutoRoute.heavy.model).name;
+          logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'handoff', agent: this.agent, to });
+          await this.askByName(to, '', undefined, 'handoff');
+          break;
+        }
         if (msg.action !== 'compact') break;
         this.contextOffer = undefined;
         if (msg.remember) this.autoCompact = true;
@@ -838,6 +870,7 @@ export class Session {
       logDecision({ kind: 'review', sessionId: this.id, stage: 'plan', taskId, criteria: criteria.length, planPath: path });
       if (opts.planOnly) {
         this.pendingConsult = { task, plan, critique: '', criteria, taskId, planPath: path };
+        this.lastPlanPath = path;
         this.pushEvent({ type: 'status', state: 'working', message: `Plan written to ${path}`, ts: now() });
         return;
       }
@@ -889,6 +922,7 @@ export class Session {
       }
 
       this.pendingConsult = { task, plan: reconciled, critique: currentCritique, criteria, taskId, planPath: path };
+      this.lastPlanPath = path;
       if (this.sockets.size === 0) {
         sendNotification(`consult:${this.id}`, `Consult ready · ${this.title}`, 'Plan and critique are waiting for your decision.');
       }
@@ -919,6 +953,65 @@ export class Session {
     }
     if (this.autoProceed && this.mode === 'build' && this.pendingConsult && !opts.planOnly) {
       await this.handleClientMessage({ type: 'consult_proceed' });
+    }
+  }
+
+  /** Send a turn to a crew member by name. */
+  private async askByName(name: string, text: string, images: UserImage[] | undefined, how: 'mention' | 'handoff'): Promise<void> {
+    const persona = allPersonas().find((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (!persona) {
+      this.reportError(`No crew member called ${name}.`);
+      return;
+    }
+    const suite: AgentKind = persona.suite ?? this.agent;
+    const route = suite === this.agent ? this.autoRoute : this.otherAutoRoute;
+    const { model, exact } = modelForPersona(persona, suite, modelRegistry().all(), route);
+    if (!exact) this.notice(`${name}'s usual model is not in the roster right now — using ${model}.`);
+
+    if (suite === this.agent && how === 'mention') {
+      // Same vendor: this session becomes theirs for the turn. Auto mode
+      // re-triages on the next message (lastTier cleared).
+      if (model !== (this.routedModel ?? this.model)) {
+        await this.adapter.setModel(model);
+        this.routedModel = model;
+        this.lastTier = undefined;
+      }
+      this.notice(`${name} takes this one — you asked by name.`);
+      await this.deliver(text, images);
+      return;
+    }
+
+    // Other vendor (or a handoff): a one-shot on that vendor, with the recent
+    // thread as context. It lands as that member's turn. Images cannot travel
+    // this way yet; say so rather than drop them silently.
+    if (images?.length) this.notice(`${name} runs on ${suite} as a one-shot and cannot see attached images yet — the text went; the ${images.length === 1 ? 'image' : 'images'} did not.`);
+    const member = crewMember(suite, model, how === 'handoff' ? 'executor' : 'chat');
+    const context = this.transcript
+      .filter((e) => e.type === 'user_message' || e.type === 'assistant_message' || e.type === 'consult')
+      .slice(how === 'handoff' ? -12 : -6)
+      .map((e: any) => `${e.type === 'user_message' ? 'User' : (e.crew?.name ?? 'Agent')}: ${truncate(e.text, how === 'handoff' ? 500 : 300)}`)
+      .join('\n');
+    if (text) this.pushEvent({ type: 'user_message', text, imageCount: 0, ts: now() });
+    const from = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
+    const prompt = how === 'handoff'
+      ? composeHandoffPrompt(name, from, context, this.pendingConsult?.planPath ?? this.lastPlanPath)
+      : composeMentionPrompt(name, text, context);
+    this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : `${name} is on it…`, crew: member, ts: now() });
+    const run = runAgentTask({
+      agent: suite, model, prompt, cwd: this.cwd, capability: 'all', role: how, persona: name,
+      timeoutMs: 20 * 60_000, maxChars: 24_000, onCall: (d) => this.ledgerCall(d, how),
+    });
+    this.activeMention = run;
+    try {
+      const r = await run.promise;
+      this.pushEvent({ type: 'consult', phase: how, agent: suite, crew: member, text: sanitizeAgentOutput(r.text).text, ts: now() });
+      logDecision({ kind: 'dispatch', sessionId: this.id, stage: how, agent: suite, model, persona: name, ms: r.ms });
+    } catch (err: any) {
+      this.reportError(`${name} could not take this (${String(err?.message ?? err)}).`);
+    } finally {
+      if (this.activeMention === run) this.activeMention = undefined;
+      this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+      this.broadcastMeta();
     }
   }
 

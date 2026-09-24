@@ -71,6 +71,26 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // by default: a one-line summary you open on purpose, never a wall you
   // scroll past by accident.
   const [recapOpen, setRecapOpen] = useState(false);
+  // The crew, by name, for @-mentions in the composer and the handoff offer.
+  // One fetch; the roster is a greeting, not a dependency.
+  const [crewNames, setCrewNames] = useState<MentionTarget[]>([]);
+  useEffect(() => {
+    if (fixture) return;
+    fetch('/api/crew')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const seen = new Set<string>();
+        const rows: MentionTarget[] = [];
+        for (const p of d.crew ?? []) {
+          if (seen.has(p.name)) continue;
+          seen.add(p.name);
+          rows.push({ name: p.name, color: p.color, sprite: p.sprite, suite: p.suite ?? 'claude', tier: p.tier });
+        }
+        setCrewNames(rows);
+      })
+      .catch(() => {});
+  }, [fixture]);
   // Tapping Proceed answers on the spot -- the button says so and stops taking
   // taps -- until the server's meta confirms the plan has left the bar.
   const [proceeding, setProceeding] = useState(false);
@@ -300,6 +320,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               {session.context.advice.action}: {session.context.advice.reason}
             </span>
           )}
+          {(session.context.pressure === 'degrading' || session.context.pressure === 'critical') && (() => {
+            // The handoff, offered where the meter says it is time: the other
+            // vendor's flagship is briefed from the plan and the thread and
+            // continues with a fresh window (§4c).
+            const other = crewNames.find((c) => c.suite !== agent && c.tier === 'flagship') ?? crewNames.find((c) => c.suite !== agent);
+            if (!other) return null;
+            return (
+              <button className="context-handoff" onClick={() => session.send({ type: 'context_action', action: 'handoff', to: other.name })}>
+                Hand off to {other.name}
+              </button>
+            );
+          })()}
           {session.meta?.autoCompact && (
             <button
               className="context-auto-off"
@@ -460,6 +492,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           onInterrupt={() => session.send({ type: 'interrupt' })}
           onSend={(text, images) => session.send({ type: 'user_message', text, images })}
           onConsult={(text) => session.send({ type: 'consult', text })}
+          crew={crewNames}
         />
       )}
 
@@ -565,6 +598,15 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   </button>
                 ))}
               </div>
+              {/* A session runs on one vendor; the other vendor's crew is a
+                  message away. Said here, where "where are the Codex models?"
+                  was asked (2026-09-24). */}
+              {crewNames.some((c) => c.suite !== agent) && (
+                <p className="section-hint">
+                  {agent === 'claude' ? 'Codex' : 'Claude'} crew: ask them by name in the message box —{' '}
+                  {crewNames.filter((c) => c.suite !== agent).map((c) => `@${c.name}`).join(', ')}. They answer in this thread.
+                </p>
+              )}
             </div>
             <div className="field">
               <label>Effort</label>
@@ -988,7 +1030,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       // and Nell, I only saw the output." The turns were there; they did not
       // say what they were. The phase label lived only in the no-crew
       // fallback below, so a named planner's turn read as an ordinary reply.
-      const phaseLabel = item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : 'Review';
+      const phaseLabel = item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : item.phase === 'mention' ? 'Asked by name' : item.phase === 'handoff' ? 'Handoff' : 'Review';
       const badges = (
         <>
           <span className={`consult-phase ${item.phase}`}>{phaseLabel}</span>
@@ -1136,14 +1178,25 @@ function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew
   );
 }
 
+/** A crew member the composer can @-mention. */
+interface MentionTarget { name: string; color: string; sprite?: string; suite: 'claude' | 'codex'; tier: 'flagship' | 'worker' }
+
 function Composer(props: {
   disabled: boolean;
   working: boolean;
   onInterrupt: () => void;
   onSend: (text: string, images?: UserImage[]) => boolean;
   onConsult: (text: string) => void;
+  crew?: MentionTarget[];
 }) {
   const [text, setText] = useState('');
+  // "@" then letters at the end of the draft opens the crew; a tap completes
+  // the name. Matched on the draft's tail, so a finished "@Nell " closes it.
+  const atMatch = text.match(/(^|\s)@([A-Za-z]*)$/);
+  const mentionable = atMatch
+    ? (props.crew ?? []).filter((c) => c.name.toLowerCase().startsWith(atMatch[2].toLowerCase()))
+    : [];
+  const completeMention = (name: string) => setText((t) => t.replace(/@([A-Za-z]*)$/, `@${name} `));
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
   /** A send that could not go out. The draft is kept; this says why. */
   const [unsent, setUnsent] = useState(false);
@@ -1208,6 +1261,17 @@ function Composer(props: {
       {unsent && (
         <div className="composer-hint composer-unsent">
           Not connected — your message is kept here until the session reconnects.
+        </div>
+      )}
+      {mentionable.length > 0 && (
+        <div className="mention-pop" role="listbox" aria-label="Crew">
+          {mentionable.map((c) => (
+            <button key={c.name} className="mention-opt" role="option" onMouseDown={(e) => e.preventDefault()} onClick={() => completeMention(c.name)}>
+              {c.sprite ? <SpriteAvatar crew={{ name: c.name, color: c.color, sprite: c.sprite, agent: c.suite, initial: c.name[0], role: '', roleLabel: '', tier: c.tier, model: '' }} pose="idle" size={22} /> : null}
+              <span style={{ color: nameColor(c.color) }}>{c.name}</span>
+              <span className="mention-suite">{c.suite}</span>
+            </button>
+          ))}
         </div>
       )}
       <div className="composer-row">

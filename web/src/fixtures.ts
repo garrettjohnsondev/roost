@@ -91,6 +91,22 @@ export const FIXTURES: Record<string, () => SessionState> = {
       meta({ crew: MOSS, mode: 'chat' }),
       0,
     ),
+  /** "@Nell" from a Claude session: Nell answers in the thread, as her own turn. */
+  mention: () =>
+    base(
+      [
+        { kind: 'user', text: 'Nell, the composer loses the draft on reconnect — can you look?', imageCount: 0, ts: at(0) },
+        {
+          kind: 'consult', phase: 'mention', agent: 'codex',
+          crew: crew('Nell', 'nell', 'codex', 'gpt-5.6-astra', '#8a4b3a', 'Chat'),
+          text: 'Found it: `Composer` resets `text` in the `[sessionId]` effect, which also fires on reconnect because the socket remounts. Moved the reset behind a `sessionId !== prev` check in `web/src/ChatView.tsx:143`. `npm test -w web`: 67 passed.',
+          ts: at(1),
+        },
+      ],
+      meta({ crew: MOSS, mode: 'chat', state: 'idle' }),
+      2,
+      { status: 'idle' },
+    ),
   /** The pizza tracker mid-job: Plan and Review done, Build awaiting your Proceed. */
   tracker: () =>
     base(TWO_JOBS.slice(5, 10), meta({ mode: 'build', consultPending: true, planPath: '/x/.pocket/plans/t1.md' }), 5, { status: 'idle' }),
