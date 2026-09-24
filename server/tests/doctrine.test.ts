@@ -785,7 +785,7 @@ describe('the scene promises only sets that exist, and nothing in it moves on a 
   it('a working member sits in the scene and types, with the laptop', () => {
     const s = read('web/src/Scene.tsx');
     expect(s).toMatch(/const pose = working \? 'type' : poseMissing \? 'idle' : seat\.pose;/);
-    expect(s).toMatch(/const prop = working \? 'laptop' : seat\.prop;/);
+    expect(s).toMatch(/const prop = working \? 'laptop' : poseMissing \? undefined : seat\.prop;/);
   });
 })
 
