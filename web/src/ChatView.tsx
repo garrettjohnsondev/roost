@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, type Chapter } from './chapters';
+import { trackerOf } from './tracker';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
@@ -293,6 +294,8 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </div>
         </div>
       )}
+
+      <JobTracker session={session} />
 
       <div
         className="messages"
@@ -608,6 +611,38 @@ export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose;
         <img src={`${base}-${pose}.webp`} alt="" onError={() => setFailed(true)} />
       )}
     </span>
+  );
+}
+
+/** Where the current job is, as a row of steps -- the pizza tracker.
+ *
+ *  Derived on the client from the thread alone (see tracker.ts), so it never
+ *  claims a step the thread does not show. The active step is lit, not
+ *  animated: the sprite below is the motion, and one moving thing per state
+ *  is enough. Fixed above the thread, so scrolling back through the work does
+ *  not lose where the work is. */
+function JobTracker({ session }: { session: SessionState }) {
+  const t = trackerOf({
+    items: session.items,
+    mode: session.meta?.mode,
+    working: session.status === 'working' || session.triaging,
+    statusMessage: session.statusMessage,
+    consultPending: !!session.meta?.consultPending,
+    approvalPending: !!session.pendingApproval,
+  });
+  if (!t) return null;
+  return (
+    <div className={`job-tracker ${t.status}`} aria-label={`Job: ${t.name}`}>
+      <span className="tracker-name">{t.name}</span>
+      <ol className="tracker-steps">
+        {t.steps.map((s) => (
+          <li key={s.key} className={`tracker-step ${s.state}`}>
+            <span className="tracker-dot" aria-hidden="true">{s.state === 'done' ? '✓' : s.state === 'failed' ? '✗' : ''}</span>
+            <span className="tracker-label">{s.state === 'awaiting' ? `${s.label} · you` : s.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

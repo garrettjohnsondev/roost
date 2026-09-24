@@ -536,6 +536,30 @@ describe('a message you sent is never silently dropped', () => {
   });
 })
 
+describe('the job tracker reports the thread and lights up, it does not perform', () => {
+  // Asked for 2026-09-24 in the message that got dropped: "a progress bar with
+  // the work and/or phases. Think Domino's pizza tracker."
+  it('is derived on the client from the items alone, like chapters', () => {
+    const t = read('web/src/tracker.ts');
+    expect(t).toMatch(/import \{ chaptersOf/);
+    expect(t).not.toMatch(/fetch\(|send\(|WebSocket|setTimeout|setInterval|Date\.now/);
+    for (const f of ['server/src/sessions.ts', 'server/src/protocol.ts']) expect(read(f), f).not.toMatch(/tracker/i);
+  });
+
+  it('never estimates: a step is done only on evidence in the thread', () => {
+    const t = read('web/src/tracker.ts');
+    expect(t).toMatch(/state: evidence\[key\] \? 'done' : 'todo'/);
+    expect(t).not.toMatch(/percent|progress:|\d+%/);
+  });
+
+  it('lights the active step; the sprite is the motion', () => {
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('/* ---------- job tracker'), css.indexOf('/* ---------- auto-route chip'));
+    expect(block).not.toMatch(/animation/);
+    expect(block).toMatch(/\.tracker-step\.active \.tracker-dot/);
+  });
+})
+
 describe('the crew bubble is a stable wink, not a loop', () => {
   // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
   // little things" for idle. Implemented as a pure function of name and pose,

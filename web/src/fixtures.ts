@@ -78,4 +78,7 @@ export const FIXTURES: Record<string, () => SessionState> = {
     }),
   /** Routed to Haiku: "Pip sent this to Moss", and Moss typing below. */
   routed: () => base(MOSS_ROUTED, meta({ crew: MOSS, routedModel: 'claude-haiku-4-5' }), 0),
+  /** The pizza tracker mid-job: Plan and Review done, Build awaiting your Proceed. */
+  tracker: () =>
+    base(TWO_JOBS.slice(5, 10), meta({ mode: 'build', consultPending: true, planPath: '/x/.pocket/plans/t1.md' }), 5, { status: 'idle' }),
 };
