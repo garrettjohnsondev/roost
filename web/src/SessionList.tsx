@@ -37,7 +37,7 @@ function bubbleFor(name: string, pose: Pose): { text: string } | { icon: IconNam
  *  screen (§12a, sleeping on idle): the motion still reports real state --
  *  they really are asleep, or really are idle -- it just does not report it
  *  for everyone simultaneously. Reduced motion: the bubble simply shows. */
-const BUBBLE_VISIT_MS = 3600;
+const BUBBLE_VISIT_MS = 17_000; // 15s held + a slow fade; see .crew-bubble
 function useVisitor(count: number): number {
   const [tick, setTick] = useState(0);
   useEffect(() => {

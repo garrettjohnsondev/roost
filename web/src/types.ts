@@ -29,6 +29,7 @@ export type ClientMessage =
   | { type: 'set_mode'; mode: SessionMode }
   | { type: 'set_builder'; builder: Builder }
   | { type: 'park_remainder' }
+  | { type: 'set_sticky'; name: string | null }
   | { type: 'context_action'; action: 'compact' | 'handoff'; remember?: boolean; to?: string }
   | { type: 'context_dismiss' }
   | { type: 'set_auto_compact'; on: boolean }
@@ -111,6 +112,9 @@ export interface SessionMeta {
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
   planHasRemainder?: boolean;
+  /** Asked for by name: messages without an @ keep going to this member
+   *  until cleared (2026-09-24). */
+  sticky?: string;
   builder?: Builder;
   contextOffer?: { reason: string; percent: number | null };
   autoCompact?: boolean;

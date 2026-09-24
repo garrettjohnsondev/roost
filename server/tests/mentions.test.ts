@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { modelForPersona, parseMention } from '../src/mentions.js';
+import { modelForPersona, parseMention, prettyModel } from '../src/mentions.js';
 
 const NAMES = ['Ollie', 'Moss', 'Nell', 'Juno', 'Pip'];
 
@@ -40,5 +40,17 @@ describe('a persona resolves to a concrete model', () => {
     const r = modelForPersona({ match: 'nonesuch', name: 'X', tier: 'worker', color: '#000' }, 'claude', [], route);
     expect(r.model).toBe('sonnet');
     expect(r.exact).toBe(false);
+  });
+});
+
+describe('a model id as a person reads it', () => {
+  it('names the version', () => {
+    expect(prettyModel('claude-opus-5-5[1m]')).toBe('Claude Opus 5.5');
+    expect(prettyModel('claude-haiku-4-5-20251001')).toBe('Claude Haiku 4.5');
+    expect(prettyModel('claude-sonnet-5')).toBe('Claude Sonnet 5');
+    expect(prettyModel('claude-fable-5-1')).toBe('Claude Fable 5.1');
+    expect(prettyModel('gpt-6-astra')).toBe('GPT-6 Astra');
+    expect(prettyModel('gpt-5.6-sol')).toBe('GPT-5.6 Sol');
+    expect(prettyModel('gpt-5.5')).toBe('GPT-5.5');
   });
 });

@@ -87,7 +87,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         for (const p of d.crew ?? []) {
           if (seen.has(p.name)) continue;
           seen.add(p.name);
-          rows.push({ name: p.name, color: p.color, sprite: p.sprite, suite: p.suite ?? 'claude', tier: p.tier });
+          rows.push({ name: p.name, color: p.color, sprite: p.sprite, suite: p.suite ?? 'claude', tier: p.tier, model: d.models?.[p.name] });
         }
         setCrewNames(rows);
       })
@@ -310,7 +310,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             </span>
           )}
           <span>
-            Context {session.context.percent != null ? `${session.context.percent}%` : 'no data'}
+            Context {session.context.overLimit?.kind === 'hard_limit' ? 'over this model’s window' : session.context.percent != null ? `${session.context.percent}%` : 'no data'}
             {session.context.usedTokens != null && session.context.maxTokens != null
               ? ` · ${fmtTokens(session.context.usedTokens)} of ${fmtTokens(session.context.maxTokens)}`
               : ''}
@@ -493,6 +493,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </button>
         </div>
       ) : (
+        <>
+        {session.meta?.sticky && (
+          <div className="sticky-chip-row">
+            <span className="sticky-chip">
+              With <b>{session.meta.sticky}</b> — messages go to them until you clear this
+              <button className="sticky-clear" aria-label="Clear: send to Pip again" onClick={() => session.send({ type: 'set_sticky', name: null })}>
+                ✕
+              </button>
+            </span>
+          </div>
+        )}
         <Composer
           disabled={!session.connected}
           working={session.status === 'working'}
@@ -501,6 +512,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           onConsult={(text) => session.send({ type: 'consult', text })}
           crew={crewNames}
         />
+        </>
       )}
 
       {signingIn && <ClaudeSignIn onClose={() => setSigningIn(false)} />}
@@ -1217,7 +1229,7 @@ function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew
 }
 
 /** A crew member the composer can @-mention. */
-interface MentionTarget { name: string; color: string; sprite?: string; suite: 'claude' | 'codex'; tier: 'flagship' | 'worker' }
+interface MentionTarget { name: string; color: string; sprite?: string; suite: 'claude' | 'codex'; tier: 'flagship' | 'worker'; model?: string }
 
 function Composer(props: {
   disabled: boolean;
@@ -1306,8 +1318,12 @@ function Composer(props: {
           {mentionable.map((c) => (
             <button key={c.name} className="mention-opt" role="option" onMouseDown={(e) => e.preventDefault()} onClick={() => completeMention(c.name)}>
               {c.sprite ? <SpriteAvatar crew={{ name: c.name, color: c.color, sprite: c.sprite, agent: c.suite, initial: c.name[0], role: '', roleLabel: '', tier: c.tier, model: '' }} pose="idle" size={22} /> : null}
-              <span style={{ color: nameColor(c.color) }}>{c.name}</span>
-              <span className="mention-suite">{c.suite}</span>
+              <span className="mention-text">
+                <span style={{ color: nameColor(c.color) }}>{c.name}</span>
+                {/* The model, with its version, as a small second line: who
+                    you are asking for, without crowding the pop-up. */}
+                <span className="mention-model">{c.model ?? c.suite}</span>
+              </span>
             </button>
           ))}
         </div>

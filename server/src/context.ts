@@ -93,7 +93,14 @@ export function fromClaudeContextUsage(resp: any): Omit<ContextState, 'advice'> 
   const total = typeof u.totalTokens === 'number' ? u.totalTokens : u.total_tokens;
   if (typeof total !== 'number') return null;
   const max = typeof u.rawMaxTokens === 'number' ? u.rawMaxTokens : u.raw_max_tokens;
-  const percent = typeof u.percentage === 'number' ? Math.round(u.percentage) : null;
+  // Over 100% is real, not a glitch: routing moved a long conversation onto a
+  // model with a smaller window (2026-09-24 read 152%, after an auto-compact).
+  // The meter shows 100 and carries the overflow as overLimit, so it never
+  // prints a percentage past full and never hides that the window is blown.
+  const rawPercent = typeof u.percentage === 'number' ? Math.round(u.percentage) : null;
+  const percent = rawPercent == null ? null : Math.min(100, rawPercent);
+  const typeofMax = typeof u.rawMaxTokens === 'number' ? u.rawMaxTokens : u.raw_max_tokens;
+  const overflow = rawPercent != null && rawPercent > 100 && typeof typeofMax === 'number' ? Math.max(0, total - typeofMax) : 0;
   const categories = Array.isArray(u.categories)
     ? u.categories
         .filter((c: any) => c && typeof c.tokens === 'number' && c.kind !== 'deferred' && c.isDeferred !== true)
@@ -107,7 +114,11 @@ export function fromClaudeContextUsage(resp: any): Omit<ContextState, 'advice'> 
     maxTokens: typeof max === 'number' ? max : null,
     percent,
     pressure: pressureFor(percent),
-    overLimit: u.over_limit ? { tokensOver: u.over_limit.tokens_over, kind: u.over_limit.kind } : undefined,
+    overLimit: u.over_limit
+      ? { tokensOver: u.over_limit.tokens_over, kind: u.over_limit.kind }
+      : overflow > 0
+        ? { tokensOver: overflow, kind: 'hard_limit' }
+        : undefined,
     categories,
     observedAt: Date.now(),
   };

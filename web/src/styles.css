@@ -1833,7 +1833,10 @@ button {
   background: var(--surface-2);
   color: var(--text);
   border-radius: 20px;
-  padding: 10px 44px 10px 14px;
+  /* Room for BOTH buttons inside the field: send (32px) and the scales
+     (32px) with their gaps. 44px covered only send, so a long message ran
+     under the scales (2026-09-24). */
+  padding: 10px 76px 10px 14px;
   font: inherit;
   font-size: 16px; /* prevents iOS zoom-on-focus */
   line-height: 1.3;
@@ -2551,15 +2554,17 @@ button {
   pointer-events: none;
   display: inline-flex;
   align-items: center;
-  animation: bubble-visit 3.4s ease-in-out both;
+  /* 15s on one sleeper, a slow fade, then it pops up on the next (2026-09-24:
+     "not staying on long enough"). Matches BUBBLE_VISIT_MS. */
+  animation: bubble-visit 17s linear both;
 }
 .crew-bubble .icon { display: block; }
 .crew-strip-member.sleep .crew-bubble { font-family: var(--font-display, inherit); font-weight: 700; letter-spacing: 0.04em; }
 @keyframes bubble-visit {
-  0% { opacity: 0; transform: translateY(3px); }
-  18% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-3px); }
+  0% { opacity: 0; transform: translateY(3px) scale(0.85); }
+  2.5% { opacity: 1; transform: translateY(0) scale(1); }
+  88% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-4px); }
 }
 @media (prefers-reduced-motion: reduce) { .crew-bubble { animation: none; } }
 [data-theme='dark'] .crew-bubble { border-radius: 2px; }
@@ -2738,6 +2743,10 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 
 .scene {
   position: relative;
+  /* Its own stacking context: seats use z-index for depth (lower = in
+     front), and without this they rose above the settings sheet. */
+  isolation: isolate;
+  z-index: 0;
   display: block;
   width: 100%;
   aspect-ratio: 2 / 1;
@@ -2833,3 +2842,17 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 
 .center-note.splash { flex-direction: column; gap: 14px; }
 .splash-row { width: min(72vw, 300px); height: auto; image-rendering: pixelated; }
+
+/* Sticky @: who your messages go to, and the way back to Pip. */
+.sticky-chip-row { padding: 0 12px 6px; }
+.sticky-chip {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  font-size: 12px; color: var(--text-dim); padding: 4px 4px 4px 10px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
+}
+.sticky-chip b { color: var(--text); }
+.sticky-clear { width: 24px; height: 24px; border-radius: 50%; border: none; background: transparent; color: var(--text-dim); font-size: 13px; line-height: 1; flex-shrink: 0; }
+[data-theme='dark'] .sticky-chip { border-radius: 2px; }
+
+.mention-text { display: inline-flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.mention-model { font-weight: 400; font-size: 10.5px; color: var(--text-dim); }

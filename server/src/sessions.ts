@@ -64,6 +64,7 @@ interface SessionOpts {
     jobAsk?: string;
     jobsDone?: string[];
       builder?: Builder;
+    sticky?: string;
   };
   onChange?: () => void;
 }
@@ -105,6 +106,7 @@ export class Session {
   private crossBuild = false;
   /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
   builder: Builder = 'auto';
+  sticky?: string;
   titleAuto = true;
   jobAsk?: string;
   jobsDone: string[] = [];
@@ -123,6 +125,8 @@ export class Session {
   /** Armed offer awaiting a tap, and the pressure level we last asked at, so the
    *  card appears once per escalation instead of after every turn. */
   private contextOffer?: { reason: string; percent: number | null };
+  /** Tokens the engine last said this conversation occupies. */
+  private contextTokens: number | null = null;
   private contextHandledAt: ContextPressure | null = null;
   private lastSuggestion?: string;
   /** The project's gates as they were when this session began. An agent that
@@ -174,6 +178,7 @@ export class Session {
     this.autoCompact = opts.restore?.autoCompact ?? false;
     this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
     this.builder = opts.restore?.builder ?? 'auto';
+    this.sticky = opts.restore?.sticky;
     this.jobAsk = opts.restore?.jobAsk;
     this.jobsDone = opts.restore?.jobsDone ?? [];
     // Auto and build route per message, which requires the sentinel. Whatever
@@ -298,6 +303,7 @@ export class Session {
       planPath: this.pendingConsult?.planPath,
       planHasRemainder: this.pendingConsult ? hasRemainder(this.pendingConsult) : undefined,
       builder: this.builder,
+      sticky: this.sticky,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
       boost: this.boost || undefined,
@@ -391,6 +397,21 @@ export class Session {
       return triaged;
     }
     const target = { model: decision.model, effort: decision.effort };
+    // A long conversation is never moved DOWN onto a smaller model: the whole
+    // session travels with it, and Haiku answered "prompt too long" to a chat
+    // that had outgrown it (2026-09-24). Past this size, stay where it fits.
+    const LONG_CONVERSATION = 120_000;
+    const rank = (m: string | undefined) => {
+      const r = this.autoRoute;
+      return m === r.heavy.model ? 2 : m === r.standard.model ? 1 : m === r.light.model ? 0 : 1;
+    };
+    const smaller = rank(target.model) < rank(this.routedModel ?? this.model);
+    if (smaller && this.contextTokens != null && this.contextTokens > LONG_CONVERSATION) {
+      const current = this.routedModel ?? this.model;
+      logDecision({ kind: 'route', sessionId: this.id, stage: 'long-conversation', agent: this.agent, kept: current, wanted: target.model, tokens: this.contextTokens });
+      this.notice(`Kept ${crewMember(this.agent, current, 'chat').name}: this conversation (${Math.round(this.contextTokens / 1000)}k tokens) is too long to move to a smaller model.`);
+      return triaged;
+    }
     try {
       let changed = false;
       // Two tiers may share a model. Returning early on a same-model retriage
@@ -504,6 +525,7 @@ export class Session {
     // Phase 4c's last mile. The meter has been emitting pressure and advice all
     // along; nothing ever acted on it or asked. Deferred a tick so the context
     // event is in the transcript before any notice about it.
+    if (event.type === 'context') this.contextTokens = event.context.usedTokens ?? this.contextTokens;
     if (event.type === 'context') {
       const intent = compactionIntent({
         state: { ...event.context, advice: event.context.advice ?? null },
@@ -611,9 +633,21 @@ export class Session {
           // this session switches to that member's model for the turn. Other
           // vendor: a one-shot on that vendor, with the recent conversation as
           // context, landing in the thread as that member's turn.
-          const mention = parseMention(msg.text, allPersonas().map((p) => p.name));
-          if (mention) {
+          const mention = parseMention(msg.text, [...allPersonas().map((p) => p.name), 'Pip']);
+          if (mention?.name === 'Pip') {
+            // @Pip hands routing back to the dispatcher.
+            this.sticky = undefined;
+            this.onChange?.();
+            this.broadcastMeta();
+          } else if (mention) {
+            // Asked for by name, and kept: "I @Ollie on purpose... if I reply
+            // again without the @, it just goes to Pip" (2026-09-24).
+            this.sticky = mention.name;
+            this.onChange?.();
             await this.askByName(mention.name, mention.text, msg.images, 'mention');
+            break;
+          } else if (this.sticky) {
+            await this.askByName(this.sticky, msg.text, msg.images, 'mention', undefined, true);
             break;
           }
         }
@@ -860,6 +894,11 @@ export class Session {
         logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'dismissed', agent: this.agent, pressure: this.contextHandledAt });
         this.broadcastMeta();
         break;
+      case 'set_sticky':
+        this.sticky = msg.name ?? undefined;
+        this.onChange?.();
+        this.broadcastMeta();
+        break;
       case 'set_builder':
         this.builder = msg.builder;
         this.onChange?.();
@@ -1063,7 +1102,7 @@ export class Session {
 
   /** Send a turn to a crew member by name. `promptOverride` carries a
    *  composed brief (a Proceed) instead of the person's text. */
-  private async askByName(name: string, text: string, images: UserImage[] | undefined, how: 'mention' | 'handoff' | 'build', promptOverride?: string): Promise<void> {
+  private async askByName(name: string, text: string, images: UserImage[] | undefined, how: 'mention' | 'handoff' | 'build', promptOverride?: string, quiet = false): Promise<void> {
     const persona = allPersonas().find((p) => p.name.toLowerCase() === name.toLowerCase());
     if (!persona) {
       this.reportError(`No crew member called ${name}.`);
@@ -1082,7 +1121,7 @@ export class Session {
         this.routedModel = model;
         this.lastTier = undefined;
       }
-      this.notice(`${name} takes this one — you asked by name.`);
+      if (!quiet) this.notice(`${name} takes this one — you asked by name.`);
       await this.deliver(text, images);
       return;
     }
@@ -1371,6 +1410,7 @@ interface PersistedSession {
   /** Survives restarts on purpose: "keep doing this" means keep doing it. */
   autoCompact?: boolean;
   builder?: Builder;
+  sticky?: string;
   titleAuto?: boolean;
   jobAsk?: string;
   jobsDone?: string[];
@@ -1431,6 +1471,7 @@ export class SessionManager {
       autoCompact: s.autoCompact,
       titleAuto: s.titleAuto,
       builder: s.builder,
+      sticky: s.sticky,
       jobAsk: s.jobAsk,
       jobsDone: s.jobsDone,
     }));
@@ -1490,6 +1531,7 @@ export class SessionManager {
             autoCompact: entry.autoCompact,
             titleAuto: entry.titleAuto,
             builder: entry.builder,
+            sticky: entry.sticky,
             jobAsk: entry.jobAsk,
             jobsDone: entry.jobsDone,
           },

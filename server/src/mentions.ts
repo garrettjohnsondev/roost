@@ -69,3 +69,15 @@ export function composeHandoffPrompt(name: string, from: string, context: string
     'Continue the work from where it stands: check the repository state (git status, recent diff) before assuming anything in the summary above is done. Report what you found and what you did, briefly.',
   ].join('\n');
 }
+
+/** A model id as a person reads it: "claude-opus-5-5[1m]" -> "Claude Opus 5.5",
+ *  "claude-haiku-4-5-20251001" -> "Claude Haiku 4.5", "gpt-6-astra" ->
+ *  "GPT-6 Astra". For the @ pop-up, which names who you are asking for. */
+export function prettyModel(id: string): string {
+  const clean = id.replace(/\[.*?\]$/, '').replace(/-\d{8}$/, '');
+  const c = clean.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?$/i);
+  if (c) return `Claude ${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[3] ? `${c[2]}.${c[3]}` : c[2]}`;
+  const g = clean.match(/^gpt-([\d.]+)(?:-(.+))?$/i);
+  if (g) return `GPT-${g[1]}${g[2] ? ` ${g[2].split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ')}` : ''}`;
+  return id;
+}

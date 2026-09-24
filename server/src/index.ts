@@ -11,6 +11,7 @@ import express from 'express';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { dataDir, loadConfig, repoRoot, saveConfig } from './config.js';
 import { checkImagePath, imageRoots } from './images.js';
+import { modelForPersona, prettyModel } from './mentions.js';
 import { quotaStore } from './quota.js';
 import { modelRegistry, classify, auditRoutes } from './registry.js';
 import { capabilitiesFrom, reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
@@ -512,7 +513,16 @@ app.post('/api/me', (req, res) => {
 app.get('/api/crew', (_req, res) => {
   // The dispatcher is a role, not a routed model, so allPersonas() never lists it —
   // and the home screen's crew strip would have been missing the one it greets you with.
-  res.json({ crew: allPersonas(), overrides: loadOverrides(), dispatcher: DISPATCHER });
+  // The model each member runs on, named with its version, for the @ pop-up.
+  const cards = modelRegistry().all();
+  const models: Record<string, string> = {};
+  for (const p of allPersonas()) {
+    const suite = p.suite ?? 'claude';
+    const { model } = modelForPersona(p, suite, cards, config.autoRoute[suite]);
+    const card = cards.find((c) => c.agent === suite && c.id === model);
+    models[p.name] = prettyModel(card?.resolvedId ?? model);
+  }
+  res.json({ crew: allPersonas(), overrides: loadOverrides(), dispatcher: DISPATCHER, models });
 });
 
 app.post('/api/crew', (req, res) => {

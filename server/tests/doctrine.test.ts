@@ -857,7 +857,7 @@ describe('the crew bubble visits one member at a time', () => {
     expect(sl).toMatch(/const visiting = bubble && visitable\[visitor\]\?\.name === c\.name;/);
     expect(sl).toMatch(/<span key=\{visit\} className="crew-bubble"/);
     const block = css.slice(css.indexOf('.crew-bubble {'), css.indexOf('.crew-strip-name {'));
-    expect(block).toMatch(/animation: bubble-visit [\d.]+s ease-in-out both;/);
+    expect(block).toMatch(/animation: bubble-visit [\d.]+s (?:ease-in-out|linear) both;/);
     expect(block).not.toMatch(/infinite/);
     expect(block).toMatch(/prefers-reduced-motion: reduce\) \{ \.crew-bubble \{ animation: none; \}/);
   });
