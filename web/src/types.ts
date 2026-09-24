@@ -11,6 +11,7 @@ export interface UserImage {
 /** chat: one agent, no ceremony. auto: triage picks model and effort per message.
  *  plan: read-only, every message yields a plan file. build: the full conference. */
 export type SessionMode = 'chat' | 'auto' | 'plan' | 'build';
+export type Builder = 'auto' | 'claude' | 'codex';
 export type ConsultPhase = 'plan' | 'critique' | 'reconcile' | 'mention' | 'handoff';
 
 export type ClientMessage =
@@ -26,6 +27,8 @@ export type ClientMessage =
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
+  | { type: 'set_builder'; builder: Builder }
+  | { type: 'park_remainder' }
   | { type: 'context_action'; action: 'compact' | 'handoff'; remember?: boolean; to?: string }
   | { type: 'context_dismiss' }
   | { type: 'set_auto_compact'; on: boolean }
@@ -104,6 +107,8 @@ export interface SessionMeta {
   modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
+  planHasRemainder?: boolean;
+  builder?: Builder;
   contextOffer?: { reason: string; percent: number | null };
   autoCompact?: boolean;
   /** Who last worked here, newest first, at most three — the crew the UI wakes

@@ -689,7 +689,7 @@ describe('the names are the interface: @-mentions and the handoff', () => {
     const m = s.slice(s.indexOf('private async askByName('), s.indexOf('private async deliver('));
     expect(m).toMatch(/if \(suite === this\.agent && how === 'mention'\) \{[\s\S]*?await this\.adapter\.setModel\(model\);/);
     expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, cwd: this\.cwd, capability: 'all', role: how, persona: name/);
-    expect(m).toMatch(/this\.pushEvent\(\{ type: 'consult', phase: how, agent: suite, crew: member/);
+    expect(m).toMatch(/this\.pushEvent\(\{ type: 'consult', phase: how === 'build' \? 'handoff' : how, agent: suite, crew: member/);
     // never silent about what could not travel
     expect(m).toMatch(/cannot see attached images yet/);
     // Stop stops it
@@ -786,6 +786,32 @@ describe('the scene promises only sets that exist, and nothing in it moves on a 
     const s = read('web/src/Scene.tsx');
     expect(s).toMatch(/const pose = working \? 'type' : poseMissing \? 'idle' : seat\.pose;/);
     expect(s).toMatch(/const prop = working \? 'laptop' : poseMissing \? undefined : seat\.prop;/);
+  });
+})
+
+describe('the builder is the vendor with room -- item 23, the structural half', () => {
+  const s = read('server/src/sessions.ts');
+  it('a consulted plan goes to the other vendor as a one-shot when its headroom is strictly better and KNOWN', () => {
+    const c = s.slice(s.indexOf('chooseBuilder(): {'), s.indexOf('private async askByName('));
+    expect(c).toMatch(/const known = theirs\.headroom\.state === 'room' \|\| theirs\.headroom\.state === 'tight';/);
+    expect(c).toMatch(/if \(theirs\.presence !== 'absent' && known && b < a\)/);
+    // a named vendor wins, unless it is not signed in
+    expect(c).toMatch(/if \(theirs\.presence === 'absent'\) return \{ agent: this\.agent, reason: `you chose \$\{other\}, but it is not signed in` \};/);
+  });
+  it('the gates are armed BEFORE the build is sent, whichever vendor builds', () => {
+    const b = s.slice(s.indexOf("case 'consult_proceed': {"), s.indexOf("case 'verify': {"));
+    expect(b.indexOf('this.pendingVerify = {')).toBeLessThan(b.indexOf('const pick = this.chooseBuilder();'));
+    expect(b).toMatch(/await this\.askByName\(name, display, undefined, 'build', prompt\);/);
+    expect(b).toMatch(/kind: 'route', sessionId: this\.id, stage: 'build'/);
+  });
+  it('the remainder can be parked in the project roadmap, dated, with its task', () => {
+    expect(s).toMatch(/case 'park_remainder': \{/);
+    expect(s).toMatch(/## Parked \$\{stamp\} — \$\{truncate\(c\.task, 80\)\}/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/session\.meta\.planHasRemainder && \(/);
+  });
+  it('who builds is a per-session setting that survives a restart', () => {
+    expect(s).toMatch(/builder: entry\.builder,/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/<label>Who builds<\/label>/);
   });
 })
 

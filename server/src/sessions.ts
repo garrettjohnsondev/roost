@@ -1,6 +1,6 @@
 import { composeReconcilePrompt } from './consult.js';
 import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
-import type { SessionMode, UserImage } from './protocol.js';
+import type { Builder, SessionMode, UserImage } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
@@ -18,7 +18,8 @@ import { modelRegistry } from './registry.js';
 import { sanitizeAgentOutput } from './sanitize.js';
 import { shouldApplyEffort } from './routing.js';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { WebSocket } from 'ws';
 import { now, type AgentKind, type ApprovalSetting, type ClientMessage, type ServerEvent, type SessionMeta, type CrewInfo } from './protocol.js';
 import { truncate } from './util.js';
@@ -62,6 +63,7 @@ interface SessionOpts {
       titleAuto?: boolean;
     jobAsk?: string;
     jobsDone?: string[];
+      builder?: Builder;
   };
   onChange?: () => void;
 }
@@ -99,6 +101,7 @@ export class Session {
   /** The last plan written in this session, for a handoff briefing after Proceed cleared pendingConsult. */
   private lastPlanPath?: string;
   /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
+  builder: Builder = 'auto';
   titleAuto = true;
   jobAsk?: string;
   jobsDone: string[] = [];
@@ -167,6 +170,7 @@ export class Session {
     this.modeExplicit = opts.restore?.modeExplicit ?? false;
     this.autoCompact = opts.restore?.autoCompact ?? false;
     this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
+    this.builder = opts.restore?.builder ?? 'auto';
     this.jobAsk = opts.restore?.jobAsk;
     this.jobsDone = opts.restore?.jobsDone ?? [];
     // Auto and build route per message, which requires the sentinel. Whatever
@@ -289,6 +293,8 @@ export class Session {
       mode: this.mode,
       modeExplicit: this.modeExplicit || undefined,
       planPath: this.pendingConsult?.planPath,
+      planHasRemainder: this.pendingConsult ? hasRemainder(this.pendingConsult) : undefined,
+      builder: this.builder,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
       boost: this.boost || undefined,
@@ -726,18 +732,30 @@ export class Session {
             this.reportError(`Routing failed (${String(err?.message ?? err)}) — proceeding on the current model.`);
           }
         }
-        await this.adapter.sendUserMessage(
-          composeProceedPrompt(consult.task, consult.plan, consult.critique, consult.criteria ?? []),
-          undefined,
-          `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`,
-        );
-        this.proceeding = true;
         // Verification runs when this turn ends: gates always, the diff
-        // reviewer in build mode. Armed here, fired from pushEvent.
+        // reviewer in build mode. Armed here, fired from pushEvent on the
+        // idle that ends the build -- the adapter's, or the one-shot's.
         if (this.verifyAfterProceed) {
           this.pendingVerify = { taskId: consult.taskId, criteria: consult.criteria, review: this.mode === 'build' };
           this.executing = true;
         }
+        const prompt = composeProceedPrompt(consult.task, consult.plan, consult.critique, consult.criteria ?? []);
+        const display = `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`;
+        // Item 23 (2026-09-24): "if Claude builds and Codex only reviews, the
+        // Codex subscription is wasted." The builder is the vendor with more
+        // headroom unless the person named one. The other vendor builds as a
+        // one-shot briefed with the plan; the gates run on it the same way.
+        const pick = this.chooseBuilder();
+        logDecision({ kind: 'route', sessionId: this.id, stage: 'build', agent: pick.agent, builder: this.builder, reason: pick.reason });
+        if (pick.agent !== this.agent) {
+          const name = personaFor(pick.agent, this.otherAutoRoute.heavy.model).name;
+          this.notice(`Pip sent the build to ${name} on ${pick.agent} — ${pick.reason}.`);
+          this.proceeding = true;
+          await this.askByName(name, display, undefined, 'build', prompt);
+          break;
+        }
+        await this.adapter.sendUserMessage(prompt, undefined, display);
+        this.proceeding = true;
         logDecision({ kind: 'review', sessionId: this.id, stage: 'execute', taskId: consult.taskId, mode: this.mode });
         this.broadcastMeta();
         break;
@@ -826,6 +844,33 @@ export class Session {
         logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'dismissed', agent: this.agent, pressure: this.contextHandledAt });
         this.broadcastMeta();
         break;
+      case 'set_builder':
+        this.builder = msg.builder;
+        this.onChange?.();
+        this.broadcastMeta();
+        break;
+      case 'park_remainder': {
+        // The planner's Fit section named a Remainder that will not fit the
+        // window. Park it in the project's ROADMAP.md, dated, with the task,
+        // so it is not lost when the first slice ships.
+        const c = this.pendingConsult;
+        const rem = c ? remainderOf(c) : null;
+        if (!c || !rem) {
+          this.notice('The plan names no remainder to park.');
+          break;
+        }
+        const file = join(this.cwd, 'ROADMAP.md');
+        const stamp = new Date().toISOString().slice(0, 10);
+        const block = `\n\n## Parked ${stamp} — ${truncate(c.task, 80)}\n\n${rem.trim()}\n`;
+        try {
+          appendFileSync(file, (existsSync(file) ? '' : '# Roadmap\n') + block);
+          this.notice(`Parked the remainder in ${file.split('/').slice(-2).join('/')}.`);
+          logDecision({ kind: 'review', sessionId: this.id, stage: 'park', taskId: c.taskId });
+        } catch (err: any) {
+          this.reportError(`Could not park the remainder (${String(err?.message ?? err)}).`);
+        }
+        break;
+      }
       case 'consult_dismiss':
         this.pendingConsult = undefined;
         this.broadcastMeta();
@@ -978,8 +1023,31 @@ export class Session {
     }
   }
 
-  /** Send a turn to a crew member by name. */
-  private async askByName(name: string, text: string, images: UserImage[] | undefined, how: 'mention' | 'handoff'): Promise<void> {
+  /** Who builds a consulted plan (item 23). A named vendor wins when it is
+   *  present; 'auto' takes the other vendor only when its headroom is
+   *  strictly better and known -- missing data is never a reason to move. */
+  chooseBuilder(): { agent: AgentKind; reason: string } {
+    const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
+    const mine = this.vendorState(this.agent);
+    const theirs = this.vendorState(other);
+    if (this.builder !== 'auto') {
+      if (this.builder === this.agent) return { agent: this.agent, reason: `you chose ${this.agent}` };
+      if (theirs.presence === 'absent') return { agent: this.agent, reason: `you chose ${other}, but it is not signed in` };
+      return { agent: other, reason: `you chose ${other}` };
+    }
+    const rank: Record<string, number> = { room: 0, tight: 1, unknown: 2, stale: 2, gated: 3, exhausted: 4 };
+    const a = rank[mine.headroom.state] ?? 2;
+    const b = rank[theirs.headroom.state] ?? 2;
+    const known = theirs.headroom.state === 'room' || theirs.headroom.state === 'tight';
+    if (theirs.presence !== 'absent' && known && b < a) {
+      return { agent: other, reason: `${this.agent} is ${mine.headroom.state} (${mine.headroom.reason}); ${other} has ${theirs.headroom.state === 'room' ? 'room' : 'more room'}` };
+    }
+    return { agent: this.agent, reason: mine.headroom.state === 'room' ? `${this.agent} has room` : `no better-known headroom elsewhere` };
+  }
+
+  /** Send a turn to a crew member by name. `promptOverride` carries a
+   *  composed brief (a Proceed) instead of the person's text. */
+  private async askByName(name: string, text: string, images: UserImage[] | undefined, how: 'mention' | 'handoff' | 'build', promptOverride?: string): Promise<void> {
     const persona = allPersonas().find((p) => p.name.toLowerCase() === name.toLowerCase());
     if (!persona) {
       this.reportError(`No crew member called ${name}.`);
@@ -1007,7 +1075,7 @@ export class Session {
     // thread as context. It lands as that member's turn. Images cannot travel
     // this way yet; say so rather than drop them silently.
     if (images?.length) this.notice(`${name} runs on ${suite} as a one-shot and cannot see attached images yet — the text went; the ${images.length === 1 ? 'image' : 'images'} did not.`);
-    const member = crewMember(suite, model, how === 'handoff' ? 'executor' : 'chat');
+    const member = crewMember(suite, model, how === 'mention' ? 'chat' : 'executor');
     const context = this.transcript
       .filter((e) => e.type === 'user_message' || e.type === 'assistant_message' || e.type === 'consult')
       .slice(how === 'handoff' ? -12 : -6)
@@ -1015,10 +1083,10 @@ export class Session {
       .join('\n');
     if (text) this.pushEvent({ type: 'user_message', text, imageCount: 0, ts: now() });
     const from = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
-    const prompt = how === 'handoff'
+    const prompt = promptOverride ?? (how === 'handoff'
       ? composeHandoffPrompt(name, from, context, this.pendingConsult?.planPath ?? this.lastPlanPath)
-      : composeMentionPrompt(name, text, context);
-    this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : `${name} is on it…`, crew: member, ts: now() });
+      : composeMentionPrompt(name, text, context));
+    this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : how === 'build' ? `${name} is building the plan…` : `${name} is on it…`, crew: member, ts: now() });
     const run = runAgentTask({
       agent: suite, model, prompt, cwd: this.cwd, capability: 'all', role: how, persona: name,
       timeoutMs: 20 * 60_000, maxChars: 24_000, onCall: (d) => this.ledgerCall(d, how),
@@ -1026,7 +1094,7 @@ export class Session {
     this.activeMention = run;
     try {
       const r = await run.promise;
-      this.pushEvent({ type: 'consult', phase: how, agent: suite, crew: member, text: sanitizeAgentOutput(r.text).text, ts: now() });
+      this.pushEvent({ type: 'consult', phase: how === 'build' ? 'handoff' : how, agent: suite, crew: member, text: sanitizeAgentOutput(r.text).text, ts: now() });
       logDecision({ kind: 'dispatch', sessionId: this.id, stage: how, agent: suite, model, persona: name, ms: r.ms });
     } catch (err: any) {
       this.reportError(`${name} could not take this (${String(err?.message ?? err)}).`);
@@ -1276,6 +1344,7 @@ interface PersistedSession {
   modeExplicit?: boolean;
   /** Survives restarts on purpose: "keep doing this" means keep doing it. */
   autoCompact?: boolean;
+  builder?: Builder;
   titleAuto?: boolean;
   jobAsk?: string;
   jobsDone?: string[];
@@ -1335,6 +1404,7 @@ export class SessionManager {
       modeExplicit: s.modeExplicit,
       autoCompact: s.autoCompact,
       titleAuto: s.titleAuto,
+      builder: s.builder,
       jobAsk: s.jobAsk,
       jobsDone: s.jobsDone,
     }));
@@ -1393,6 +1463,7 @@ export class SessionManager {
             modeExplicit: entry.modeExplicit,
             autoCompact: entry.autoCompact,
             titleAuto: entry.titleAuto,
+            builder: entry.builder,
             jobAsk: entry.jobAsk,
             jobsDone: entry.jobsDone,
           },
@@ -1454,4 +1525,17 @@ function oneLine(s: string, max = 140): string {
     .replace(/\s+/g, ' ')
     .trim();
   return flat.length > max ? flat.slice(0, max - 1).trimEnd() + '…' : flat;
+}
+
+/** The planner's "Remainder": the part of a Fit section it said will not
+ *  fit the window. Looked for in the reconciled plan first, then the plan. */
+function remainderOf(c: ConsultState): string | null {
+  for (const text of [c.plan]) {
+    const m = text.match(/(?:^|\n)\s*(?:#{1,4}\s*|\*\*)?Remainder\b[:*\s—-]*\n?([\s\S]*?)(?=\n\s*(?:#{1,4}\s|\*\*[A-Z])|$)/i);
+    if (m && m[1].trim()) return m[1];
+  }
+  return null;
+}
+function hasRemainder(c: ConsultState): boolean {
+  return remainderOf(c) !== null;
 }

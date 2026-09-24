@@ -21,6 +21,11 @@ export type SessionMode = 'chat' | 'auto' | 'plan' | 'build';
 /** A conference turn, or a turn from a member asked for by name ('mention'),
  *  or the briefing-and-continue turn when a full context hands the job to a
  *  fresh one ('handoff'). */
+/** Who executes a consulted plan: the vendor with more headroom ('auto'), or
+ *  a named vendor. A session is bound to one adapter; the other vendor builds
+ *  as a one-shot with the plan as its brief. */
+export type Builder = 'auto' | 'claude' | 'codex';
+
 export type ConsultPhase = 'plan' | 'critique' | 'reconcile' | 'mention' | 'handoff';
 
 export type ClientMessage =
@@ -36,6 +41,8 @@ export type ClientMessage =
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
+  | { type: 'set_builder'; builder: Builder }
+  | { type: 'park_remainder' }
   | { type: 'context_action'; action: 'compact' | 'handoff'; remember?: boolean; to?: string }
   | { type: 'context_dismiss' }
   | { type: 'set_auto_compact'; on: boolean }
@@ -118,6 +125,9 @@ export interface SessionMeta {
   modeExplicit?: boolean;
   /** The plan file for the pending consult, when there is one. */
   planPath?: string;
+  /** The pending plan names a Remainder (its Fit section said it will not all fit). */
+  planHasRemainder?: boolean;
+  builder?: Builder;
   /** Armed when the engine's context is degrading and the person has not been
    *  asked yet at this level. Mirrors consultPending: server decides, UI renders. */
   contextOffer?: { reason: string; percent: number | null };

@@ -12,7 +12,7 @@ import { GitSheet } from './GitSheet';
 import { Markdown } from './Markdown';
 import { PreviewContent } from './PreviewContent';
 import { useSession, type SessionState } from './useSession';
-import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage } from './types';
+import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -460,6 +460,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             Consult complete{session.meta.planPath ? ` — plan at ${session.meta.planPath.split('/').slice(-3).join('/')}` : ''} — proceed?
           </span>
           <div className="consult-bar-actions">
+            {session.meta.planHasRemainder && (
+              <button className="link" disabled={proceeding} title="The plan says it will not all fit; keep the rest in the project's ROADMAP.md" onClick={() => session.send({ type: 'park_remainder' })}>
+                Park the remainder
+              </button>
+            )}
             <button className="link consult-dismiss" disabled={proceeding} onClick={() => session.send({ type: 'consult_dismiss' })}>
               Dismiss
             </button>
@@ -578,6 +583,28 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="field">
+              <label>Who builds</label>
+              <div className="chips">
+                {(
+                  [
+                    ['auto', 'Auto', 'The vendor with more headroom builds a consulted plan'],
+                    ['claude', 'Claude', 'Claude always builds'],
+                    ['codex', 'Codex', 'Codex always builds'],
+                  ] as Array<[Builder, string, string]>
+                ).map(([value, label, title]) => (
+                  <button
+                    key={value}
+                    title={title}
+                    className={(session.meta!.builder ?? 'auto') === value ? 'chip active' : 'chip'}
+                    onClick={() => session.send({ type: 'set_builder', builder: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="section-hint">A consulted plan is built by this vendor. The other vendor builds as a one-shot briefed with the plan; the gates run on it the same way.</p>
             </div>
             <div className="field">
               <label>Model</label>
