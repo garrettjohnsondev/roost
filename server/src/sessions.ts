@@ -1,6 +1,6 @@
 import { composeReconcilePrompt } from './consult.js';
 import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
-import type { SessionMode } from './protocol.js';
+import type { SessionMode, UserImage } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
@@ -77,6 +77,13 @@ export class Session {
   /** Which hat the live agent is wearing, so ledger rows attribute correctly. */
   private currentRole: CrewRole = 'chat';
   private consultRunning = false;
+  /** A Proceed has been sent and the worker is building the plan. A message
+   *  that arrives now is an ADDITION to the work in flight, not a new job. */
+  private proceeding = false;
+  /** Messages sent while the planner was still drafting. They cannot go to the
+   *  worker (nothing executes before Proceed) and cannot start a second
+   *  conference (one is running), so they wait, visibly, and ride the plan. */
+  private held: Array<{ text: string; images?: UserImage[] }> = [];
   private activeConsult?: ConsultRun;
   private consultCancelled = false;
   pendingConsult?: ConsultState;
@@ -439,6 +446,7 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    if (event.type === 'status' && event.state === 'idle') this.proceeding = false;
     if (event.type === 'status' && event.state === 'idle' && this.executing && this.pendingVerify) {
       const pv = this.pendingVerify;
       this.executing = false;
@@ -519,31 +527,53 @@ export class Session {
 
   async handleClientMessage(msg: ClientMessage): Promise<void> {
     switch (msg.type) {
-      case 'user_message':
+      case 'user_message': {
+        // Recovered 2026-09-24: a message sent while a plan was being built
+        // ("Don't stop your initial plan, these are additions") was triaged by
+        // Pip and then never delivered anywhere -- it survives only inside the
+        // triage prompt. Every path below now ends in one of three visible
+        // outcomes: delivered to the worker, held with a notice, or an error
+        // that names the message as undelivered. Never silence.
         if (this.title === 'New session' && msg.text) this.title = truncate(msg.text, 60);
+        if (this.proceeding) {
+          // The worker is mid-build. This joins the turn -- which is what the
+          // composer has promised all along.
+          await this.deliver(msg.text, msg.images);
+          break;
+        }
         if (this.mode === 'plan' || this.mode === 'build') {
+          if (this.consultRunning) {
+            this.hold(msg.text, msg.images);
+            break;
+          }
           // Plan: a plan file, nothing executes. Build: the full conference,
           // then the Proceed gate (or autoProceed, off by default).
           await this.runConsult(msg.text, { planOnly: this.mode === 'plan' });
           break;
         }
-        {
-          const triaged = this.autoMode ? await this.routeFor(msg.text) : null;
-          // A large task is where the conference earns its keep -- the same
-          // size gate that skips ceremony on small work, read the other way.
-          // Nothing executes without Proceed, so this costs a plan and a
-          // review, not control.
-          if (this.escalate && triaged?.size === 'large' && !this.consultRunning && !msg.images?.length) {
-            const planner = crewMember(this.agent, this.routedModel ?? this.standardModelFor(this.agent), 'planner').name;
-            this.notice(`This looks like a large task (${triaged.reason}) — ${planner} will plan it and the other engine will review before anything runs. Tap Dismiss on the bar to just chat instead.`);
-            logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', tier: triaged.tier, size: triaged.size, reason: triaged.reason });
-            await this.runConsult(msg.text);
-            break;
+        let triaged: TriageResult | null = null;
+        if (this.autoMode) {
+          // Routing is advice about WHERE to send; it must never decide WHETHER.
+          try {
+            triaged = await this.routeFor(msg.text);
+          } catch (err: any) {
+            this.reportError(`Routing failed (${String(err?.message ?? err)}) — sending on the current model.`);
           }
-          await this.adapter.sendUserMessage(msg.text, msg.images);
-          this.broadcastMeta();
         }
+        // A large task is where the conference earns its keep -- the same
+        // size gate that skips ceremony on small work, read the other way.
+        // Nothing executes without Proceed, so this costs a plan and a
+        // review, not control.
+        if (this.escalate && triaged?.size === 'large' && !this.consultRunning && !msg.images?.length) {
+          const planner = crewMember(this.agent, this.routedModel ?? this.standardModelFor(this.agent), 'planner').name;
+          this.notice(`This looks like a large task (${triaged.reason}) — ${planner} will plan it and the other engine will review before anything runs. Tap Dismiss on the bar to just chat instead.`);
+          logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', tier: triaged.tier, size: triaged.size, reason: triaged.reason });
+          await this.runConsult(msg.text);
+          break;
+        }
+        await this.deliver(msg.text, msg.images);
         break;
+      }
       case 'approval_response': {
         // Validated here, once. A malformed decision reaching an adapter used
         // to resolve as ALLOW, because both adapters treated "not deny" as accept.
@@ -622,6 +652,7 @@ export class Session {
           undefined,
           `▶ Proceed with the consulted plan: ${truncate(consult.task, 120)}`,
         );
+        this.proceeding = true;
         // Verification runs when this turn ends: gates always, the diff
         // reviewer in build mode. Armed here, fired from pushEvent.
         if (this.verifyAfterProceed) {
@@ -832,9 +863,38 @@ export class Session {
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
       this.broadcastMeta();
     }
+    // Anything sent while the planner was drafting rides the plan from here:
+    // folded into the task so Proceed carries it, and said out loud so the
+    // person reviewing the plan knows their additions are in it.
+    if (this.held.length) {
+      const held = this.held.splice(0);
+      const additions = held.map((h) => h.text).filter(Boolean);
+      if (this.pendingConsult && additions.length) {
+        this.pendingConsult.task += `\n\nAdditions sent while planning:\n${additions.map((a) => `- ${a}`).join('\n')}`;
+        this.notice(`${additions.length === 1 ? 'Your addition' : `${additions.length} additions`} sent while planning will go with the plan when you tap Proceed.`);
+      } else if (additions.length) {
+        // No plan to ride -- the consult failed or was cancelled. Start again
+        // with the additions as the task, rather than dropping them.
+        await this.runConsult(additions.join('\n\n'), opts);
+        return;
+      }
+    }
     if (this.autoProceed && this.mode === 'build' && this.pendingConsult && !opts.planOnly) {
       await this.handleClientMessage({ type: 'consult_proceed' });
     }
+  }
+
+  private async deliver(text: string, images?: UserImage[]): Promise<void> {
+    await this.adapter.sendUserMessage(text, images);
+    this.broadcastMeta();
+  }
+
+  private hold(text: string, images?: UserImage[]): void {
+    this.held.push({ text, images });
+    // Echoed into the thread so it is visibly received, with what happens next.
+    this.pushEvent({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
+    const planner = crewMember(this.agent, this.routedModel ?? this.standardModelFor(this.agent), 'planner').name;
+    this.notice(`${planner} is still drafting the plan — this will go with it when you tap Proceed.`);
   }
 
   /** Runs when the executor's turn ends after a Proceed: the project gates,

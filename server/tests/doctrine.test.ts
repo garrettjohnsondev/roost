@@ -502,6 +502,40 @@ describe('a resumed chat\'s history is opened on purpose, never scrolled into by
   });
 })
 
+describe('a message you sent is never silently dropped', () => {
+  // Recovered 2026-09-24: "Don't stop your initial plan, these are additions"
+  // was sent while a plan was being built. Pip triaged it -- it survives in the
+  // triage prompt -- and it reached nobody. Every path a user_message can take
+  // now ends visibly: delivered, held with a notice, or an error naming it.
+  const s = read('server/src/sessions.ts');
+  const body = s.slice(s.indexOf("case 'user_message': {"), s.indexOf("case 'approval_response'"));
+
+  it('joins the build in flight instead of starting a second conference', () => {
+    expect(body).toMatch(/if \(this\.proceeding\) \{[\s\S]{0,400}?await this\.deliver\(msg\.text, msg\.images\);\s*break;/);
+    // ...and it is checked BEFORE the plan/build branch, or it would never be reached there.
+    expect(body.indexOf('if (this.proceeding)')).toBeLessThan(body.indexOf("this.mode === 'plan' || this.mode === 'build'"));
+    expect(s).toMatch(/this\.proceeding = true;/);
+    expect(s).toMatch(/if \(event\.type === 'status' && event\.state === 'idle'\) this\.proceeding = false;/);
+  });
+
+  it('holds a message sent mid-plan, echoes it, and folds it into Proceed', () => {
+    expect(body).toMatch(/if \(this\.consultRunning\) \{\s*this\.hold\(msg\.text, msg\.images\);/);
+    const hold = s.slice(s.indexOf('private hold('));
+    expect(hold).toMatch(/this\.pushEvent\(\{ type: 'user_message', text, imageCount/);
+    expect(s).toMatch(/this\.pendingConsult\.task \+= `\\n\\nAdditions sent while planning:/);
+  });
+
+  it('lets routing fail without taking the message with it', () => {
+    expect(body).toMatch(/try \{\s*triaged = await this\.routeFor\(msg\.text\);\s*\} catch/);
+    // and no bare routeFor left outside the try on this path
+    expect(body.match(/await this\.routeFor\(/g)?.length).toBe(1);
+  });
+
+  it('names an undelivered message as undelivered at the socket', () => {
+    expect(read('server/src/index.ts')).toMatch(/Your message was not delivered \(\$\{why\}\)\. It is not in the conversation/);
+  });
+})
+
 describe('the crew bubble is a stable wink, not a loop', () => {
   // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
   // little things" for idle. Implemented as a pure function of name and pose,

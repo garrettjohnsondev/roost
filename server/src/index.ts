@@ -571,7 +571,12 @@ wss.on('connection', (ws: WebSocket, req) => {
     // Shape check before anything downstream trusts it.
     if (!msg || typeof msg !== 'object' || typeof (msg as any).type !== 'string') return;
     void session.handleClientMessage(msg).catch((err) => {
-      session.reportError(String(err?.message ?? err));
+      // A message that died in flight must say so. It used to surface as a
+      // bare error the person could not connect to the thing they had typed.
+      const why = String(err?.message ?? err);
+      session.reportError((msg as any).type === 'user_message'
+        ? `Your message was not delivered (${why}). It is not in the conversation — please send it again.`
+        : why);
     });
   });
 });
