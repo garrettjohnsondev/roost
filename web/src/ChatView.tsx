@@ -432,7 +432,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   })}
                 </React.Fragment>
               ))
-            : renderChapter(chapters[0], 0);
+            // Zero or one job: render what there is. This was `renderChapter(chapters[0], 0)`,
+            // which read `.start` off undefined for a session with no messages yet — a
+            // new session, or every session after a restart — and crashed the whole
+            // chat view. The phone could list its sessions but not open one, all day.
+            : chapters.map((ch, ci) => renderChapter(ch, ci));
 
           function renderChapter(ch: Chapter, ci: number) {
             // Consecutive tool calls fold into one line (toolruns.ts); every

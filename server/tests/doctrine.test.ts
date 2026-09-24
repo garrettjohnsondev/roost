@@ -1090,3 +1090,14 @@ describe('every Claude session carries Roost’s sign-in', () => {
     expect(status).toMatch(/const token = !!loadToken\(\)/);
   });
 })
+
+describe('an empty session opens', () => {
+  it('never renders a chapter it has not checked exists', () => {
+    // 2026-09-24: `renderChapter(chapters[0], 0)` read `.start` off undefined for a
+    // session with no messages — a new one, or every one after a restart — and
+    // crashed the chat view. From the first restart that morning no session could
+    // be opened or started, and because the crash was in the browser the Mac's log
+    // stayed silent all day.
+    expect(read('web/src/ChatView.tsx')).not.toMatch(/chapters\[0\]/);
+  });
+})
