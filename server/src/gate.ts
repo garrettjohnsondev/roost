@@ -13,6 +13,17 @@ import type { AgentKind } from './protocol.js';
 
 export class GateRefused extends Error {
   readonly status = 429;
+  constructor(message: string, readonly agent: AgentKind) {
+    super(message);
+  }
+}
+
+/** True for anything guardDispatch threw — the one place a caller needs to
+ *  tell "no quota" apart from an ordinary agent failure, so it can render as
+ *  a refusal (§12a: "the gate refusing... should *look* refused") rather than
+ *  a sentence indistinguishable from a crash. */
+export function isGateRefusal(err: unknown): err is GateRefused {
+  return err instanceof GateRefused;
 }
 
 export interface GateDeps {
@@ -49,7 +60,7 @@ export interface GateVerdict {
 export function guardDispatch(spec: { agent: AgentKind; taskId?: string; role?: string }, deps: GateDeps = liveGateDeps()): GateVerdict {
   const refuse = (reason: string): never => {
     logDecision({ kind: 'gate', rule: 'quota', action: 'refused', agent: spec.agent, taskId: spec.taskId, role: spec.role, reason });
-    throw new GateRefused(reason);
+    throw new GateRefused(reason, spec.agent);
   };
 
   if (deps.presence(spec.agent) === 'absent') refuse(`${spec.agent} is not signed in`);

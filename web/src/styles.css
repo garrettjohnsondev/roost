@@ -1721,6 +1721,30 @@ button {
   font-size: 13px;
 }
 
+/* The gate refusing (§12a): not a crash, so not the crash-red box -- a
+   boundary, same register as the full-auto banner. The lock lands with a
+   firm, weighted settle (never a shake -- this is the house's calm register,
+   not an alarm) and then holds, because the refusal holds until the window
+   moves. One-shot: `both`, no loop -- doctrine forbids ambient motion here. */
+.msg.error.gate-refused {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  border: 1px solid var(--accent);
+  color: var(--text);
+}
+.gate-lock {
+  flex-shrink: 0;
+  color: var(--accent);
+  animation: gate-lock-land 460ms cubic-bezier(0.2, 1, 0.4, 1) both;
+}
+@keyframes gate-lock-land {
+  0% { transform: translateY(-6px) scale(1.3); opacity: 0; }
+  60% { transform: translateY(1px) scale(0.95); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 .img-note {
   font-size: 12px;
   opacity: 0.8;

@@ -4,6 +4,7 @@ import type { Builder, SessionMode, UserImage } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
+import { isGateRefusal } from './gate.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
 import { compactionIntent, type ContextPressure } from './context.js';
@@ -955,7 +956,7 @@ export class Session {
     const h = quotaStore().headroom(this.agent, this.budget);
     if (h.state === 'exhausted') {
       logDecision({ kind: 'gate', sessionId: this.id, rule: 'quota', action: 'refused', agent: this.agent, role: 'consult', reason: h.reason });
-      this.reportError(`Consult refused: ${this.agent} ${h.reason}.`);
+      this.reportError(`${this.agent} ${h.reason}.`, 'gate');
       return;
     }
     this.consultRunning = true;
@@ -1164,7 +1165,10 @@ export class Session {
       this.pushEvent({ type: 'consult', phase: how === 'build' ? 'handoff' : how, agent: suite, crew: member, text: sanitizeAgentOutput(r.text).text, ts: now() });
       logDecision({ kind: 'dispatch', sessionId: this.id, stage: how, agent: suite, model, persona: name, ms: r.ms });
     } catch (err: any) {
-      this.reportError(`${name} could not take this (${String(err?.message ?? err)}).`);
+      // A quota refusal is not a crash — it should look refused, not read like
+      // one (§12a). The gate already logged why; the person just needs to see it.
+      if (isGateRefusal(err)) this.reportError(`${name}: ${err.message}`, 'gate');
+      else this.reportError(`${name} could not take this (${String(err?.message ?? err)}).`);
     } finally {
       if (this.activeMention === run) this.activeMention = undefined;
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
@@ -1367,8 +1371,8 @@ export class Session {
     }
   }
 
-  reportError(message: string) {
-    this.pushEvent({ type: 'error', message, ts: now() });
+  reportError(message: string, code?: 'auth' | 'context' | 'gate') {
+    this.pushEvent({ type: 'error', message, code, ts: now() });
   }
 
   /** Closes the underlying agent process and every attached socket. `reason` reaches the

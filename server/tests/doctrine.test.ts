@@ -1165,3 +1165,46 @@ describe('never dead in the water', () => {
     expect(read('web/src/ErrorBoundary.tsx')).toContain('href="/rescue"');
   });
 });
+
+describe('the gate refusing looks refused (§12a beyond the eight)', () => {
+  // "The gate refusing — a dispatch blocked at 98% quota should *look*
+  // refused, not print a sentence." A quota refusal now carries its own
+  // error code end to end and renders as a lock, not a plain red sentence.
+
+  it('GateRefused carries which agent refused, and callers can tell it apart from any other failure', () => {
+    const gate = read('server/src/gate.ts');
+    expect(gate).toMatch(/class GateRefused extends Error/);
+    expect(gate).toMatch(/export function isGateRefusal/);
+  });
+
+  it('a quota refusal reaches the client tagged, not as an indistinguishable sentence', () => {
+    const sessions = read('server/src/sessions.ts');
+    expect(sessions).toContain("isGateRefusal(err)");
+    // Every place sessions.ts calls reportError with 'gate' pairs with a check.
+    expect((sessions.match(/reportError\([^)]*'gate'\)/g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("'gate' is a real error code end to end, in the protocol and the client's types", () => {
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) {
+      expect(read(f)).toMatch(/code\?: 'auth' \| 'context' \| 'gate'/);
+    }
+  });
+
+  it('renders as a lock beside the text, not the plain crash-red error box', () => {
+    const chat = read('web/src/ChatView.tsx');
+    expect(chat).toMatch(/item\.code === 'gate'/);
+    expect(chat).toMatch(/<Icon name="lock"/);
+    expect(chat).toMatch(/className="msg error gate-refused"/);
+  });
+
+  it('lands with a one-shot settle, never a loop', () => {
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('.gate-lock {'), css.indexOf('@keyframes gate-lock-land'));
+    expect(block).toMatch(/animation: gate-lock-land [\d.]+ms [\w().,\s-]+ both;/);
+    expect(block).not.toMatch(/infinite/);
+  });
+
+  it('has a design-review fixture', () => {
+    expect(read('web/src/fixtures.ts')).toContain("'quota-refused':");
+  });
+});

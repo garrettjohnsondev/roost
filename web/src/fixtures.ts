@@ -56,6 +56,12 @@ const SIGNED_OUT: ChatItem[] = [
   { kind: 'error', code: 'auth', text: 'Claude turn failed: OAuth token has expired. Please run /login', ts: at(1) },
 ];
 
+/** The gate refusing (§12a): quota, not a crash — a lock, not a red box. */
+const QUOTA_REFUSED: ChatItem[] = [
+  { kind: 'user', text: '@Nell review the auth changes', imageCount: 0, ts: at(0) },
+  { kind: 'error', code: 'gate', text: 'Nell: claude five_hour at 99% — refused by provider', ts: at(1) },
+];
+
 /** A job with TWO crew members speaking before it passes, live -- so both
  *  cheer and the confetti fires. Design-review target for items 01/08. */
 const EARNED: ChatItem[] = [
@@ -103,6 +109,7 @@ export const FIXTURES: Record<string, () => SessionState> = {
   empty: () => base([], meta({ state: 'idle' }), 0),
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
+  'quota-refused': () => base(QUOTA_REFUSED, meta({ state: 'idle' }), QUOTA_REFUSED.length),
   /** Two jobs; the first verified and already folded (history). */
   chapters: () => base(TWO_JOBS, meta(), TWO_JOBS.length),
   /** The same, but the first job closes LIVE — so it stamps, cheers, then folds. */

@@ -218,6 +218,6 @@ export type ServerEvent =
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
-  | { type: 'error'; message: string; code?: 'auth' | 'context'; ts: number };
+  | { type: 'error'; message: string; code?: 'auth' | 'context' | 'gate'; ts: number };
 
 export const now = () => Date.now();

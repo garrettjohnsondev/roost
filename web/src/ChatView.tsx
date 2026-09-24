@@ -1256,6 +1256,16 @@ function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatIte
           </div>
         );
       }
+      if (item.code === 'gate') {
+        // The gate refusing (§12a) should look refused, not read like a crash:
+        // a lock, not a sentence in the same red box as a stack trace.
+        return (
+          <div className="msg error gate-refused">
+            <Icon name="lock" size={16} className="gate-lock" />
+            <span>{item.text}</span>
+          </div>
+        );
+      }
       return <div className="msg error">{item.text}</div>;
   }
 }
