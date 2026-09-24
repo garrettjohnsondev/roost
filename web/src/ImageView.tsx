@@ -10,6 +10,7 @@ const fileName = (p: string) => p.split('/').pop() ?? p;
 export function ImageStrip({ paths }: { paths: string[] }) {
   const [open, setOpen] = useState<string | null>(null);
   const [gone, setGone] = useState<string[]>([]);
+  const [v] = useState(() => Date.now());
   if (!paths.length) return null;
   return (
     <>
@@ -21,12 +22,12 @@ export function ImageStrip({ paths }: { paths: string[] }) {
             </span>
           ) : (
             <button key={p} className="img-thumb" onClick={() => setOpen(p)} title={p} aria-label={`View ${fileName(p)}`}>
-              <img src={imageUrl(p)} alt="" loading="lazy" onError={() => setGone((g) => (g.includes(p) ? g : [...g, p]))} />
+              <img src={imageUrl(p, v)} alt="" loading="lazy" onError={() => setGone((g) => (g.includes(p) ? g : [...g, p]))} />
             </button>
           ),
         )}
       </div>
-      {open && <ImageViewer path={open} onClose={() => setOpen(null)} />}
+      {open && <ImageViewer path={open} v={v} onClose={() => setOpen(null)} />}
     </>
   );
 }
@@ -34,7 +35,8 @@ export function ImageStrip({ paths }: { paths: string[] }) {
 /** Full screen, on top of everything. Tap the picture to see it at full
  *  size (then drag or scroll to pan), tap again to fit; the phone's own
  *  pinch-zoom also works. Tap outside, ✕, or Escape to close. */
-export function ImageViewer({ path, onClose }: { path: string; onClose: () => void }) {
+export function ImageViewer({ path, v, onClose }: { path: string; v?: number; onClose: () => void }) {
+  const [stamp] = useState(() => v ?? Date.now());
   const [full, setFull] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -50,7 +52,7 @@ export function ImageViewer({ path, onClose }: { path: string; onClose: () => vo
   useEffect(() => {
     // The <img> cannot read the server's reason for a refusal; ask once.
     if (!error) return;
-    fetch(imageUrl(path))
+    fetch(imageUrl(path, stamp))
       .then((r) => (r.ok ? null : r.json()))
       .then((d) => d?.error && setError(d.error))
       .catch(() => {});
@@ -68,7 +70,7 @@ export function ImageViewer({ path, onClose }: { path: string; onClose: () => vo
           <div className="img-viewer-error">{error === 'x' ? 'Could not load this image.' : error}</div>
         ) : (
           <img
-            src={imageUrl(path)}
+            src={imageUrl(path, stamp)}
             alt={fileName(path)}
             onClick={(e) => {
               e.stopPropagation();

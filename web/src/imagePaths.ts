@@ -21,4 +21,9 @@ export function isImagePath(s: string): boolean {
   return findImagePaths(t, 1)[0] === t;
 }
 
-export const imageUrl = (path: string) => `/api/image?path=${encodeURIComponent(path)}`;
+/** `v` makes the address unique per view. Agents overwrite files in place
+ *  (the same sheet.png, redrawn), and a phone browser reuses an image it has
+ *  already shown in the page for an identical address -- no-store or not --
+ *  so a new message about a redrawn file showed the OLD picture (2026-09-24). */
+export const imageUrl = (path: string, v?: string | number) =>
+  `/api/image?path=${encodeURIComponent(path)}${v === undefined ? '' : `&v=${encodeURIComponent(String(v))}`}`;

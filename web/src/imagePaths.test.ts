@@ -19,5 +19,7 @@ describe('image paths in what agents say', () => {
     expect(isImagePath(' /tmp/a.png ')).toBe(true);
     expect(isImagePath('see /tmp/a.png')).toBe(false);
     expect(imageUrl('/tmp/a b.png')).toBe('/api/image?path=%2Ftmp%2Fa%20b.png');
+    // a per-view stamp, so a redrawn file is fetched fresh rather than reused
+    expect(imageUrl('/tmp/a.png', 42)).toBe('/api/image?path=%2Ftmp%2Fa.png&v=42');
   });
 });
