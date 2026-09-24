@@ -261,7 +261,12 @@ describe('the only things that repeat are states that persist', () => {
     const css = read('web/src/styles.css');
     const looping = [...css.matchAll(/\n([^\n{}]+)\{[^}]*\binfinite\b/g)].map((m) => m[1].trim());
     // typing-dots: shown only while a session's state is `working`, so it ends when the turn does.
-    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /typing-dots/, /spin|pulse|working|loading/];
+    // .amb-*: the scene's set (stars, fire, lamps, steam, snow, a robot's eye).
+    // Its cause is the scene being on screen -- it ends when the home screen is
+    // left or the set changes on the hour -- and it is the SET, never the crew,
+    // who still only move for real state. Asked for, 2026-09-24: "each scene
+    // needs something animated". Off under reduced motion.
+    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -776,11 +781,16 @@ describe('the scene promises only sets that exist, and nothing in it moves on a 
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) expect(existsSync(join(root, 'web/public/scenes', `${id}.webp`)), id).toBe(true);
   });
-  it('is stills with the crew in them: no interval, no timeout, no animation on the scene', () => {
+  it('the SET moves (CSS only), the crew do not, and all of it stops under reduced motion', () => {
+    // 2026-09-24: "each scene needs something animated" -- stars, fire, lamps,
+    // snow. Still no JS timers in the scene, and the seats themselves never
+    // animate: the crew only move for real state.
     expect(read('web/src/Scene.tsx')).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
     const css = read('web/src/styles.css');
-    const block = css.slice(css.indexOf('/* ---------- the scene'), css.indexOf('/* The bunks:'));
-    expect(block).not.toMatch(/animation/);
+    const seats = css.slice(css.indexOf('/* ---------- the scene'), css.indexOf('/* The bunks:'));
+    expect(seats).not.toMatch(/animation/);
+    const amb = css.slice(css.indexOf('/* ---------- the set moves'));
+    expect(amb).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.amb i \{ animation: none !important; \}/);
   });
   it('a working member sits in the scene and types, with the laptop', () => {
     const s = read('web/src/Scene.tsx');
