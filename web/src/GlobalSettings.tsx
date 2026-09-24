@@ -3,6 +3,7 @@ import { CrewEditor } from './CrewEditor';
 import { api } from './api';
 import type { Theme } from './theme';
 import { AvatarPicker } from './AvatarPicker';
+import { ClaudeSignIn } from './ClaudeSignIn';
 import type { NotificationConfig, ModelsResponse, Me } from './types';
 
 function randomTopic(): string {
@@ -125,6 +126,8 @@ export function GlobalSettings(props: {
         <h3>Settings</h3>
 
         <YouSettings />
+
+        <ClaudeAccountSettings />
 
         <div className="field">
           <label>Appearance</label>
@@ -280,6 +283,34 @@ function YouSettings() {
         color={me.color}
         onPick={(avatar, color) => save({ ...me, avatar, color })}
       />
+    </div>
+  );
+}
+
+/** Which sign-in Claude sessions use, and the controls to change it. */
+function ClaudeAccountSettings() {
+  const [s, setS] = useState<{ using: 'roost-token' | 'mac-login' | 'none'; macLogin: { loggedIn: boolean; email?: string; subscription?: string } | null } | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = () => fetch('/api/auth/claude').then((r) => (r.ok ? r.json() : null)).then(setS).catch(() => {});
+  useEffect(() => { void load(); }, []);
+  const useMac = () => fetch('/api/auth/claude/token', { method: 'DELETE' }).then(load).catch(() => {});
+  if (!s) return null;
+  const who = s.macLogin?.email ? ` (${s.macLogin.email}${s.macLogin.subscription ? `, ${s.macLogin.subscription}` : ''})` : '';
+  return (
+    <div className="field">
+      <label>Claude account</label>
+      <p className="section-hint">
+        {s.using === 'roost-token'
+          ? 'Using Roost’s own sign-in. Signing in or out elsewhere on the Mac won’t affect it.'
+          : s.using === 'mac-login'
+            ? `Using this Mac’s login${who}. If it lapses, you can sign Roost in from here.`
+            : 'Not signed in — Claude sessions will fail until you are.'}
+      </p>
+      <div className="sheet-actions">
+        <button className="chip" onClick={() => setOpen(true)}>{s.using === 'roost-token' ? 'Sign in again' : 'Sign in from here'}</button>
+        {s.using === 'roost-token' && <button className="chip" onClick={useMac}>Use the Mac’s login instead</button>}
+      </div>
+      {open && <ClaudeSignIn onClose={() => setOpen(false)} onDone={() => void load()} />}
     </div>
   );
 }

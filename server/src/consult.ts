@@ -1,5 +1,5 @@
 import type { CallDelta } from './agents/types.js';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from './claudeAuth.js';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { AsyncQueue, truncate } from './util.js';
 import type { AgentKind } from './protocol.js';
@@ -242,7 +242,7 @@ export function startConsultStep(
           // string prompt makes cancel a silent no-op (verified against the SDK docs).
           const input = new AsyncQueue<any>();
           input.push({ type: 'user', message: { role: 'user', content: prompt }, parent_tool_use_id: null, session_id: '' });
-          const q: any = query({
+          const q: any = authedQuery({
             prompt: input as AsyncIterable<any>,
             options: {
               cwd,

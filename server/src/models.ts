@@ -1,4 +1,4 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from './claudeAuth.js';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { AsyncQueue } from './util.js';
 
@@ -34,7 +34,7 @@ let inflight: Promise<ModelCache> | null = null;
 
 async function fetchClaudeModels(cwd: string): Promise<ModelOption[]> {
   const input = new AsyncQueue<any>();
-  const q: any = query({
+  const q: any = authedQuery({
     prompt: input as AsyncIterable<any>,
     options: {
       cwd,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apply } from './useSession';
+import { apply, endsTriage, initialCore, reduceSessionEvent } from './useSession';
 import type { ChatItem, CrewInfo } from './types';
 
 /** The chat reducer is pure, so it is the first thing in the web workspace to
@@ -31,5 +31,44 @@ describe('chat reducer', () => {
     items = apply(items, { type: 'assistant_message', text: 'one', ts });
     items = apply(items, { type: 'assistant_message', text: 'two', ts });
     expect(items).toHaveLength(2);
+  });
+});
+
+const pip: CrewInfo = { name: 'Pip', role: 'dispatcher', roleLabel: 'Dispatch', tier: 'worker', color: '#c9803a', initial: 'P', sprite: 'pip', agent: 'claude', model: '' };
+const moss: CrewInfo = { name: 'Moss', role: 'chat', roleLabel: 'Chat', tier: 'worker', color: '#205a1d', initial: 'M', sprite: 'moss', agent: 'claude', model: 'claude-haiku-4-5' };
+
+describe('the routed turn names who got the work', () => {
+  it('carries the worker onto the chat item, not just the model id', () => {
+    const items = apply([], { type: 'routed', model: 'claude-haiku-4-5', tier: 'light', reason: 'small', crew: pip, worker: moss, ts });
+    expect(items[0]).toMatchObject({ kind: 'routed', worker: { name: 'Moss', sprite: 'moss' } });
+  });
+
+  it("clears Pip's status line when he hands off, so it never sits under the worker", () => {
+    let core = reduceSessionEvent(initialCore(), { type: 'status', state: 'working', message: 'Pip is picking who takes this…', crew: pip, ts });
+    expect(core.statusMessage).toBe('Pip is picking who takes this…');
+    core = reduceSessionEvent(core, { type: 'routed', model: 'claude-haiku-4-5', tier: 'light', reason: 'small', crew: pip, worker: moss, ts });
+    expect(core.statusMessage).toBeNull();
+    expect(core.items.at(-1)).toMatchObject({ kind: 'routed' });
+  });
+});
+
+describe('Pip holds the stage until routing is actually over', () => {
+  it("does not end on Pip's own picking status, or on meter churn", () => {
+    expect(endsTriage({ type: 'status', state: 'working', message: 'Pip is picking who takes this…', crew: pip, ts })).toBe(false);
+    expect(endsTriage({ type: 'usage', usage: { inputTokens: 1, outputTokens: 1 }, ts })).toBe(false);
+    expect(endsTriage({ type: 'user_message', text: 'hi', imageCount: 0, ts })).toBe(false);
+  });
+
+  it('hands off on a route, on the engine starting, or on visible work', () => {
+    expect(endsTriage({ type: 'routed', model: 'm', tier: 'light', reason: '', worker: moss, ts })).toBe(true);
+    // Same model kept: no `routed` fires, so the engine's own status is the hand-off.
+    expect(endsTriage({ type: 'status', state: 'working', ts })).toBe(true);
+    expect(endsTriage({ type: 'assistant_delta', delta: 'x', ts })).toBe(true);
+    expect(endsTriage({ type: 'tool_start', toolId: 't', name: 'Bash', detail: '', ts })).toBe(true);
+  });
+
+  it('ends when the turn ends or fails, so Pip is never stranded', () => {
+    expect(endsTriage({ type: 'status', state: 'idle', ts })).toBe(true);
+    expect(endsTriage({ type: 'status', state: 'error', message: 'boom', ts })).toBe(true);
   });
 });

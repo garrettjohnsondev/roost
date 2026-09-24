@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, type Chapter } from './chapters';
+import { ClaudeSignIn } from './ClaudeSignIn';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -61,10 +62,22 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showGit, setShowGit] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
+  // User-reported 2026-09-23: scrolled into the middle of a resumed session's
+  // recap -- a wall of old diffs with no header in view -- and could not tell
+  // it from live work, or find the actual live thread underneath it. Collapsed
+  // by default: a one-line summary you open on purpose, never a wall you
+  // scroll past by accident.
+  const [recapOpen, setRecapOpen] = useState(false);
   // Pre-ticked: at this point the meter has already crossed a line the person
   // was told about, and the common answer to "do this every time" here is yes.
   // It is still a checkbox they can clear before tapping.
   const [keepCompacting, setKeepCompacting] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
+  useEffect(() => {
+    const open = () => setSigningIn(true);
+    window.addEventListener('roost:claude-signin', open);
+    return () => window.removeEventListener('roost:claude-signin', open);
+  }, []);
   // You, in the thread. One fetch, because your name does not change per project.
   const [me, setMe] = useState<Me | null>(null);
   useEffect(() => {
@@ -202,9 +215,12 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         <div className="surplus-bar on full-auto-bar">
           {/* Full auto is a deliberate, session-wide widening of what runs
               without asking -- it must stay visible for as long as it is on,
-              never a one-time toggle that fades from view. */}
-          <span>Full auto on — nothing in this session will ask before it runs.</span>
-          <button className="chip" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
+              never a one-time toggle that fades from view. User-reported
+              2026-09-23: the original two-line copy plus a full chip button
+              took up too much real estate at the top of every turn. Shrunk to
+              one line, kept always visible either way. */}
+          <span className="full-auto-text">⚡ Full auto — no approvals this session</span>
+          <button className="chip full-auto-off" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
             Turn off
           </button>
         </div>
@@ -285,10 +301,27 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         style={{ '--rot': rotFor(session.context?.percent) } as React.CSSProperties}
       >
         {(recap || recapLoading) && (
-          <div className="recap-card">
-            <div className="recap-header">Picking up from before</div>
-            <PreviewContent preview={recap} loading={recapLoading} />
-            <div className="recap-divider">continuing below</div>
+          <div className={`recap-card${recapOpen ? ' open' : ''}`}>
+            <button className="recap-toggle" onClick={() => setRecapOpen((v) => !v)}>
+              <span className="recap-header">Picking up from before</span>
+              <span className="recap-summary">
+                {recapLoading
+                  ? 'Loading…'
+                  : recap && (recap.messages.length || recap.files.length)
+                    ? [
+                        recap.messages.length ? `${recap.messages.length} message${recap.messages.length === 1 ? '' : 's'}` : '',
+                        recap.files.length ? `${recap.files.length} file${recap.files.length === 1 ? '' : 's'} changed` : '',
+                      ].filter(Boolean).join(' · ')
+                    : 'No history found'}
+              </span>
+              <span className="recap-chevron">{recapOpen ? '▾' : '▸'}</span>
+            </button>
+            {recapOpen && (
+              <>
+                <PreviewContent preview={recap} loading={recapLoading} />
+                <div className="recap-divider">continuing below</div>
+              </>
+            )}
           </div>
         )}
         {session.meta?.recentCrew && session.meta.recentCrew.length > 0 && (
@@ -321,8 +354,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             );
           });
         })()}
-        {session.status === 'working' && !session.closedReason && (
-          <div className="working-indicator">{session.statusMessage ?? 'working…'}</div>
+        {/* `triaging` is set locally on tap, before the server has said
+            anything -- so it must show the indicator on its own, not wait for
+            status to read 'working'. That wait was the reported dead air. */}
+        {(session.triaging || session.status === 'working') && !session.closedReason && (
+          <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
       </div>
@@ -360,6 +396,8 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           onConsult={(text) => session.send({ type: 'consult', text })}
         />
       )}
+
+      {signingIn && <ClaudeSignIn onClose={() => setSigningIn(false)} />}
 
       {session.pendingApproval && (
         <div className="sheet-backdrop">
@@ -573,6 +611,40 @@ export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose;
   );
 }
 
+/** Pip, the dispatcher, known locally so the phone can put him on screen the
+ *  instant ↑ is tapped -- before the server has sent anything that would name
+ *  him. Mirrors DISPATCHER in server/src/crew.ts; doctrine pins the two. */
+export const PIP: CrewInfo = {
+  name: 'Pip', role: 'dispatcher', roleLabel: 'Dispatch', tier: 'worker',
+  color: '#c9803a', initial: 'P', avatar: '/avatars/beacon.png', sprite: 'pip',
+  agent: 'claude', model: '',
+};
+
+/** Who is working, drawn as them working.
+ *
+ *  This replaced a line of text reading "working…" on an infinite opacity
+ *  pulse -- the flashing that was reported. The character's own frames are the
+ *  motion now, and they only move for real state:
+ *  - Pip in `think` while he is picking who takes the message (auto mode);
+ *  - then the worker, in `type` while a reply streams or a tool runs, and in
+ *    `think` in between, when nothing visible is being produced yet.
+ *  Text appears only when there is something specific to say. No generic
+ *  "working…": the moving sprite already says that. */
+function WorkingIndicator({ session }: { session: SessionState }) {
+  const last = session.items[session.items.length - 1];
+  const producing = (last?.kind === 'assistant' && !last.complete) || (last?.kind === 'tool' && !last.done);
+  const crew = session.triaging ? PIP : session.meta?.crew ?? PIP;
+  const pose: Pose = !session.triaging && producing ? 'type' : 'think';
+  // Local copy, so it shows without waiting on the server's matching status.
+  const text = session.triaging ? 'Pip is picking who takes this…' : session.statusMessage;
+  return (
+    <div className="working-indicator" data-crew={crew.name}>
+      <SpriteAvatar crew={crew} pose={pose} size={32} />
+      {text && <span className="working-text">{text}</span>}
+    </div>
+  );
+}
+
 /** The crew waking up.
  *
  *  Open a session and the last few who worked here are asleep, then they wake —
@@ -759,7 +831,19 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
           {item.crew && <SpriteAvatar crew={item.crew} pose="idle" size={22} />}
           {item.crew && <strong style={{ color: nameColor(item.crew.color) }}>{item.crew.name}</strong>}
           {item.crew ? ' sent this to ' : `⚡ ${item.tier} · routed to `}
-          <strong>{item.model}</strong>
+          {/* The crew member, not the model id: "sent this to haiku" named an
+              engine where every other line in the thread names a person. The
+              id stays, quieter, because which model is still worth knowing.
+              Older transcripts have no worker and keep the bare id. */}
+          {item.worker ? (
+            <>
+              <SpriteAvatar crew={item.worker} pose="idle" size={22} />
+              <strong style={{ color: nameColor(item.worker.color) }}>{item.worker.name}</strong>
+              <span className="routed-model"> ({item.model})</span>
+            </>
+          ) : (
+            <strong>{item.model}</strong>
+          )}
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
       );
@@ -832,6 +916,19 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       );
     }
     case 'error':
+      if (item.code === 'auth') {
+        // Not a generic failure: Claude's sign-in has lapsed, and it can be fixed
+        // from here. It used to read "Claude turn failed: OAuth…" and nothing else.
+        return (
+          <div className="msg error auth-needed">
+            <strong>Claude isn&rsquo;t signed in on your Mac.</strong>
+            <span>You can fix that from here.</span>
+            <button className="chip compact-accept" onClick={() => window.dispatchEvent(new Event('roost:claude-signin'))}>
+              Sign in to Claude
+            </button>
+          </div>
+        );
+      }
       return <div className="msg error">{item.text}</div>;
   }
 }

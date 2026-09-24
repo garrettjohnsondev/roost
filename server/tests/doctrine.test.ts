@@ -390,11 +390,19 @@ describe('"stop asking" says what it actually stops', () => {
 
   it('keeps full auto visible for as long as it is on, never a fire-and-forget toggle', () => {
     expect(chat).toMatch(/session\.meta\?\.approvals === 'full-auto'/);
-    expect(chat).toMatch(/Full auto on — nothing in this session will ask before it runs\./);
+    expect(chat).toMatch(/Full auto — no approvals this session/);
     // Off switch present, and it does not reuse boost's "good news" green.
     expect(chat).toMatch(/set_approvals', approvals: 'ask' \}/);
     const css = read('web/src/styles.css');
     expect(css).toMatch(/\.surplus-bar\.on\.full-auto-bar/);
+  });
+
+  it('stays one line, never the two-line-plus-button stack that was reported', () => {
+    // User-reported 2026-09-23: the banner alone was eating a fifth of the
+    // screen on every turn.
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.full-auto-text \{[^}]*white-space: nowrap/);
+    expect(css).toMatch(/\.surplus-bar\.on\.full-auto-bar \{[^}]*flex-wrap: nowrap/);
   });
 })
 
@@ -416,5 +424,122 @@ describe('verify is not hero space', () => {
     // verify row wired to a dead action.
     const sessionList = read('web/src/SessionList.tsx');
     expect(sessionList).toMatch(/<GitSheet cwd=\{gitSheetFor\} onClose=\{\(\) => setGitSheetFor\(null\)\} \/>/);
+  });
+})
+
+describe('someone is always visibly on the job', () => {
+  // User-reported 2026-09-23: tapping send in auto mode gave no sign of life
+  // while Pip triaged; the routed line said "sent this to haiku" instead of
+  // naming Moss; and the working state was "working…" text flashing on a pulse.
+  const chat = read('web/src/ChatView.tsx');
+  const hook = read('web/src/useSession.ts');
+  const sessions = read('server/src/sessions.ts');
+
+  it('puts Pip on screen from the tap itself, not from the server', () => {
+    // Set synchronously in send(), only for a message that actually went out.
+    expect(hook).toMatch(/if \(sent && msg\.type === 'user_message' && core\.meta\?\.mode === 'auto'\) setTriaging\(true\)/);
+    // And the indicator renders on that local flag alone -- waiting for
+    // status 'working' would be the round trip that was the reported delay.
+    expect(chat).toMatch(/\(session\.triaging \|\| session\.status === 'working'\) && !session\.closedReason/);
+  });
+
+  it('says the same words locally as the server does, so nothing jumps when it lands', () => {
+    const local = chat.match(/session\.triaging \? '([^']+)' : session\.statusMessage/)?.[1];
+    const server = sessions.match(/message: '(Pip is picking[^']+)'/)?.[1];
+    expect(local).toBeTruthy();
+    expect(local).toBe(server);
+  });
+
+  it('announces triage before the triage call, not after it', () => {
+    const body = sessions.slice(sessions.indexOf('private async routeFor('));
+    const announce = body.indexOf("crew: crewMember(this.agent, this.model, 'dispatcher')");
+    expect(announce).toBeGreaterThan(-1);
+    expect(announce).toBeLessThan(body.indexOf('await triage('));
+    expect(announce).toBeLessThan(body.indexOf('shouldRetriage('));
+  });
+
+  it('knows Pip exactly as the server does', () => {
+    const crew = read('server/src/crew.ts');
+    const server = crew.slice(crew.indexOf('export const DISPATCHER'), crew.indexOf('};', crew.indexOf('export const DISPATCHER')));
+    const client = chat.slice(chat.indexOf('export const PIP'), chat.indexOf('};', chat.indexOf('export const PIP')));
+    for (const field of ['name', 'color', 'avatar', 'sprite']) {
+      const s = server.match(new RegExp(`${field}: '([^']+)'`))?.[1];
+      expect(s, field).toBeTruthy();
+      expect(client, field).toContain(`${field}: '${s}'`);
+    }
+  });
+
+  it('names the worker on the routed turn, not the model id', () => {
+    expect(sessions).toMatch(/worker: crewMember\(this\.agent, target\.model, this\.currentRole\)/);
+    expect(chat).toMatch(/<strong style=\{\{ color: nameColor\(item\.worker\.color\) \}\}>\{item\.worker\.name\}<\/strong>/);
+  });
+
+  it('draws the worker working, with no pulsing "working…" text', () => {
+    expect(chat).not.toMatch(/'working…'/);
+    const ind = chat.slice(chat.indexOf('function WorkingIndicator('), chat.indexOf('function WorkingIndicator(') + 1400);
+    expect(ind).toMatch(/<SpriteAvatar crew=\{crew\} pose=\{pose\}/);
+    // Motion is real state: typing only while a reply streams or a tool runs.
+    expect(ind).toMatch(/const pose: Pose = !session\.triaging && producing \? 'type' : 'think'/);
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('.working-indicator {'), css.indexOf('}', css.indexOf('.working-indicator {')));
+    expect(block).not.toMatch(/animation/);
+  });
+
+  it('lays the home crew out in rows a phone can read', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.crew-strip-faces \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  });
+})
+
+describe('a resumed chat\'s history is opened on purpose, never scrolled into by accident', () => {
+  // User-reported 2026-09-23: landed mid-scroll inside a resumed session's
+  // recap -- a wall of old diffs with the "Picking up from before" header
+  // already off screen -- and could not tell it from live work.
+  it('starts collapsed, so the wall of old diffs is never the default view', () => {
+    const chat = read('web/src/ChatView.tsx');
+    expect(chat).toMatch(/const \[recapOpen, setRecapOpen\] = useState\(false\)/);
+    expect(chat).toMatch(/\{recapOpen && \(/);
+  });
+})
+
+describe('the crew bubble is a stable wink, not a loop', () => {
+  // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
+  // little things" for idle. Implemented as a pure function of name and pose,
+  // never a timer, so it never joins the small, justified set of things in
+  // this app that move on their own schedule.
+  const sl = read('web/src/SessionList.tsx');
+
+  it('is literal for sleep and a fixed per-name pick for idle, never Math.random', () => {
+    expect(sl).toMatch(/if \(pose === 'sleep'\) return SLEEP_BUBBLE/);
+    expect(sl).not.toMatch(/Math\.random/);
+    expect(sl).toMatch(/return IDLE_BUBBLES\[h % IDLE_BUBBLES\.length\]/);
+  });
+
+  it('says nothing while working -- the typing sprite already reports that', () => {
+    expect(sl).toMatch(/if \(pose !== 'idle'\) return null/);
+  });
+})
+
+describe('every Claude session carries Roost’s sign-in', () => {
+  it('starts Claude only through authedQuery', () => {
+    // A direct SDK `query(` would quietly use the Mac's shared login instead of
+    // Roost's own token — the exact dependency that left the phone stranded.
+    const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+    const walk = (d: string): string[] => readdirSync(d).flatMap((f) => {
+      const p = `${d}/${f}`; return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : [];
+    });
+    const offenders = walk(`${root}server/src`)
+      .filter((f) => !f.endsWith('claudeAuth.ts'))
+      .filter((f) => /(^|[^A-Za-z])query\(\{/.test(readFileSync(f, 'utf8').replace(/authedQuery\(\{/g, '')));
+    expect(offenders.map((f) => f.replace(root, ''))).toEqual([]);
+  });
+
+  it('never hands the token back to the phone', () => {
+    // Status reports WHICH sign-in is used, never the token itself.
+    const a = read('server/src/claudeAuth.ts');
+    const status = a.slice(a.indexOf('export async function authStatus'), a.indexOf('// ---- reading the CLI screen'));
+    // The only use is a boolean: whether a token exists.
+    expect(status.match(/loadToken\(/g) ?? []).toHaveLength(1);
+    expect(status).toMatch(/const token = !!loadToken\(\)/);
   });
 })

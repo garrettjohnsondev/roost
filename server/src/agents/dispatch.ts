@@ -1,6 +1,6 @@
 import { guardDispatch } from '../gate.js';
 import { logDecision } from '../decisions.js';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from '../claudeAuth.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import { AsyncQueue, truncate } from '../util.js';
 import { sanitizeAgentOutput } from '../sanitize.js';
@@ -135,7 +135,7 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
   // string prompt makes cancel a silent no-op.
   const input = new AsyncQueue<any>();
   input.push({ type: 'user', message: { role: 'user', content: spec.prompt }, parent_tool_use_id: null, session_id: '' });
-  const q: any = query({
+  const q: any = authedQuery({
     prompt: input as AsyncIterable<any>,
     options: {
       cwd: spec.cwd,

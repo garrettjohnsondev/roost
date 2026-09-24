@@ -141,13 +141,13 @@ export type ServerEvent =
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
-  | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; ts: number }
+  | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
-  | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
-  | { type: 'error'; message: string; ts: number };
+  | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
+  | { type: 'error'; message: string; code?: 'auth'; ts: number };
 
 export interface ModelOption {
   id: string;
@@ -341,9 +341,9 @@ export type ChatItem =
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
-  | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; ts: number }
+  | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; ts: number; reviewStrength?: string }
-  | { kind: 'error'; text: string; ts: number };
+  | { kind: 'error'; text: string; code?: 'auth'; ts: number };
 
 /** You, in the thread. Mirrors server/src/me.ts. */
 export interface Me {

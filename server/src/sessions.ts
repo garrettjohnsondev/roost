@@ -8,6 +8,7 @@ import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
 import { compactionIntent, type ContextPressure } from './context.js';
 import { describeDrift, loadAliases, noteResolution, saveAliases } from './aliasDrift.js';
+import { clearAuthFailure, noteAuthFailure } from './claudeAuth.js';
 import type { BudgetConfig, AutoRouteConfig as OtherRouteConfig } from './config.js';
 import type { Surplus } from './quota.js';
 import type { SurplusInfo } from './protocol.js';
@@ -288,6 +289,16 @@ export class Session {
   }
 
   private async routeFor(text: string): Promise<TriageResult | null> {
+    // User-reported 2026-09-23: tapping send in auto mode gave no sign anything
+    // was happening until the triage call (a real network round trip) came
+    // back. This is the server-side half of the fix -- it fires whenever auto
+    // mode calls routeFor at all, retriage or not, so the phone's local,
+    // zero-latency "Pip is picking who takes this…" is corroborated rather
+    // than contradicted the moment the real status arrives.
+    this.pushEvent({
+      type: 'status', state: 'working', message: 'Pip is picking who takes this…',
+      crew: crewMember(this.agent, this.model, 'dispatcher'), ts: now(),
+    });
     if (!text || (this.lastTier && !shouldRetriage(text, this.lastTier))) return null;
     const t = this.triageTarget();
     if (t.crossed) {
@@ -390,7 +401,14 @@ export class Session {
           type: 'routed', model: target.model, tier: decision.tier, reason: why,
           // Pip dispatched this, so Pip says it. Until now the routing turn was
           // the only one in the thread with nobody's name on it.
-          crew: crewMember(t.agent, t.model, 'dispatcher'), ts: now(),
+          crew: crewMember(t.agent, t.model, 'dispatcher'),
+          // User-reported: a Haiku-routed turn read "...to haiku" -- the raw
+          // model id -- instead of naming Moss, the persona that id maps to.
+          // The routing target always runs on this session's own agent (only
+          // the throwaway triage call above can cross vendors), so this.agent
+          // is correct here, not t.agent.
+          worker: crewMember(this.agent, target.model, this.currentRole),
+          ts: now(),
         });
         this.broadcastMeta();
       }
@@ -408,6 +426,19 @@ export class Session {
       const model = this.routedModel || (this.model && this.model !== 'auto' ? this.model : this.standardModelFor(this.agent));
       event = { ...event, crew: crewMember(this.agent, model, this.currentRole) };
     }
+    if (event.type === 'error') {
+      // Turn failures reached the phone and nothing else — when Claude's sign-in
+      // broke there was no record of it anywhere on the Mac. Now there is.
+      console.warn(`[roost] ${this.agent} session ${this.id.slice(0, 8)}: ${event.message}`);
+      if (event.code === 'auth') {
+        noteAuthFailure(event.message);
+        if (this.sockets.size === 0) {
+          sendNotification('claude-auth', 'Claude needs you to sign in', 'Open Roost and tap Sign in to Claude — it works from the phone.', { minIntervalMs: 30 * 60_000 });
+        }
+      }
+    }
+    // A reply that arrived is proof the sign-in works; stop showing the warning.
+    if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
     if (event.type === 'status' && event.state === 'idle' && this.executing && this.pendingVerify) {
       const pv = this.pendingVerify;
       this.executing = false;

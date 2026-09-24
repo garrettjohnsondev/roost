@@ -18,6 +18,12 @@ export interface SessionState {
   closedReason: string | null;
   /** Free-text detail attached to the latest status event (e.g. consult progress). */
   statusMessage: string | null;
+  /** Auto mode only: Pip is deciding who takes the message. Set LOCALLY the
+   *  instant ↑ is tapped -- before any round trip -- because triage is a real
+   *  model call and waiting on the server for the first sign of life is the
+   *  delay that was reported. Cleared by the first event that says routing is
+   *  over; see endsTriage. */
+  triaging: boolean;
   context: ContextInfo | null;
   /** false when the socket is not open -- the caller keeps the draft. */
   send: (msg: ClientMessage) => boolean;
@@ -79,7 +85,7 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       break;
     }
     case 'routed':
-      next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, crew: event.crew, ts: event.ts });
+      next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, crew: event.crew, worker: event.worker, ts: event.ts });
       break;
     case 'consult':
       next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });
@@ -88,10 +94,36 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       next.push({ kind: 'verify', report: event.report, ts: event.ts });
       break;
     case 'error':
-      next.push({ kind: 'error', text: event.message, ts: event.ts });
+      next.push({ kind: 'error', text: event.message, code: event.code, ts: event.ts });
       break;
   }
   return next;
+}
+
+/** Whether an event means Pip has handed off. An allowlist, not a catch-all:
+ *  usage and context churn arrive mid-triage and must not clear Pip early, and
+ *  Pip's own "picking who takes this" status must not clear itself.
+ *
+ *  - routed: the model changed, and the event names the worker.
+ *  - a working status from anyone but the dispatcher: the engine started the
+ *    turn. This is the hand-off when routing kept the same model, since
+ *    `routed` only fires on a change.
+ *  - any non-working status: the turn ended or failed; nobody is picking.
+ *  - reply text or a tool: work is visibly under way.
+ *  - replay: a reconnect brings authoritative state; live events follow. */
+export function endsTriage(event: ServerEvent): boolean {
+  switch (event.type) {
+    case 'routed':
+    case 'assistant_delta':
+    case 'assistant_message':
+    case 'tool_start':
+    case 'replay':
+      return true;
+    case 'status':
+      return event.state !== 'working' || event.crew?.role !== 'dispatcher';
+    default:
+      return false;
+  }
 }
 
 export interface SessionCore {
@@ -154,6 +186,11 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
       return { ...prev, context: event.context };
     case 'status':
       return { ...prev, status: event.state, statusMessage: event.message ?? null };
+    case 'routed':
+      // Pip has handed off. The status line at this moment is his "picking who
+      // takes this", and left in place it would sit under the worker's face
+      // until the engine's own status replaced it.
+      return { ...prev, statusMessage: null, items: apply(prev.items, event) };
     case 'approval_request': {
       // A queue, not a slot: two concurrent requests used to strand the first.
       const approvals = prev.approvals.some((a) => a.requestId === event.requestId)
@@ -172,6 +209,7 @@ export function useSession(sessionId: string | null): SessionState {
   const [core, setCore] = useState<SessionCore>(initialCore);
   const [connected, setConnected] = useState(false);
   const [closedReason, setClosedReason] = useState<string | null>(null);
+  const [triaging, setTriaging] = useState(false);
   const socketRef = useRef<SessionSocket | null>(null);
 
   useEffect(() => {
@@ -179,7 +217,11 @@ export function useSession(sessionId: string | null): SessionState {
     if (!sessionId) return;
     setClosedReason(null);
     setCore(initialCore());
-    const handle = (event: ServerEvent) => setCore((prev) => reduceSessionEvent(prev, event));
+    setTriaging(false);
+    const handle = (event: ServerEvent) => {
+      setCore((prev) => reduceSessionEvent(prev, event));
+      if (endsTriage(event)) setTriaging(false);
+    };
     const socket = new SessionSocket(sessionId, handle, setConnected, setClosedReason);
     socketRef.current = socket;
     return () => socket.close();
@@ -195,8 +237,15 @@ export function useSession(sessionId: string | null): SessionState {
     pendingApprovalCount: core.approvals.length,
     closedReason,
     statusMessage: core.statusMessage,
+    triaging,
     context: core.context,
     replayedCount: core.replayedCount,
-    send: (msg) => socketRef.current?.send(msg) ?? false,
+    send: (msg) => {
+      const sent = socketRef.current?.send(msg) ?? false;
+      // Only a message that actually went out starts a triage; a send while
+      // disconnected keeps the draft and must not put Pip on stage for nothing.
+      if (sent && msg.type === 'user_message' && core.meta?.mode === 'auto') setTriaging(true);
+      return sent;
+    },
   };
 }

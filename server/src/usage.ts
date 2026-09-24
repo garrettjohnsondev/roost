@@ -1,4 +1,4 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from './claudeAuth.js';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { loadConfig } from './config.js';
 import { quotaStore, type QuotaWindow } from './quota.js';
@@ -82,7 +82,7 @@ async function fetchClaudeUsage(cwd: string): Promise<{ ok: boolean; error?: str
   const store = quotaStore();
 
   try {
-    const probe: any = query({
+    const probe: any = authedQuery({
       prompt: (async function* () {})(),
       options: { cwd, model: 'haiku', canUseTool: async () => ({ behavior: 'deny', message: 'usage probe' }) } as any,
     });
@@ -109,7 +109,7 @@ async function fetchClaudeUsage(cwd: string): Promise<{ ok: boolean; error?: str
       yield { type: 'user', message: { role: 'user', content: 'hi' }, parent_tool_use_id: null, session_id: '' };
       await new Promise(() => {});
     })();
-    const q: any = query({ prompt: input as AsyncIterable<any>, options: { cwd, model: 'haiku' } as any });
+    const q: any = authedQuery({ prompt: input as AsyncIterable<any>, options: { cwd, model: 'haiku' } as any });
     let saw = false;
     try {
       for await (const m of q) {

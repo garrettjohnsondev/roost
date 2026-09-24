@@ -185,12 +185,12 @@ export type ServerEvent =
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
-  | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; ts: number }
+  | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { type: 'consult'; phase: 'plan' | 'critique' | 'reconcile'; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
-  | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; ts: number }
-  | { type: 'error'; message: string; ts: number };
+  | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
+  | { type: 'error'; message: string; code?: 'auth'; ts: number };
 
 export const now = () => Date.now();

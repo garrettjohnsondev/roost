@@ -40,10 +40,24 @@ const meta = (over: Partial<SessionMeta> = {}): SessionMeta => ({
 
 const base = (items: ChatItem[], m: SessionMeta, replayedCount: number, over: Partial<SessionState> = {}): SessionState => ({
   items, meta: m, status: 'working', connected: true, usage: null, pendingApproval: null, pendingApprovalCount: 0,
-  closedReason: null, statusMessage: null, context: null, replayedCount, send: () => false, ...over,
+  closedReason: null, statusMessage: null, triaging: false, context: null, replayedCount, send: () => false, ...over,
 } as SessionState);
 
+/** A Haiku-routed turn: Pip names Moss, and Moss is mid-reply. */
+const MOSS_ROUTED: ChatItem[] = [
+  { kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: at(0) },
+  { kind: 'routed', model: 'claude-haiku-4-5', tier: 'light', reason: 'rename across two files', crew: PIP, worker: { ...MOSS, role: 'chat', roleLabel: 'Chat' }, ts: at(1) },
+  { kind: 'assistant', text: 'Renaming in', complete: false, crew: MOSS, ts: at(2) },
+];
+
+const SIGNED_OUT: ChatItem[] = [
+  { kind: 'user', text: 'What changed in the auth module?', imageCount: 0, ts: at(0) },
+  { kind: 'error', code: 'auth', text: 'Claude turn failed: OAuth token has expired. Please run /login', ts: at(1) },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
+  /** A turn that failed because Claude's sign-in lapsed. */
+  'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
   /** Two jobs; the first verified and already folded (history). */
   chapters: () => base(TWO_JOBS, meta(), TWO_JOBS.length),
   /** The same, but the first job closes LIVE — so it stamps, cheers, then folds. */
@@ -57,4 +71,11 @@ export const FIXTURES: Record<string, () => SessionState> = {
     }),
   /** Full auto already on — the persistent warning bar should be visible. */
   'full-auto': () => base(TWO_JOBS, meta({ approvals: 'full-auto' }), TWO_JOBS.length),
+  /** The instant after ↑ in auto mode: Pip, thinking, before triage returns. */
+  triage: () =>
+    base([{ kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: at(0) }], meta(), 0, {
+      status: 'idle', triaging: true,
+    }),
+  /** Routed to Haiku: "Pip sent this to Moss", and Moss typing below. */
+  routed: () => base(MOSS_ROUTED, meta({ crew: MOSS, routedModel: 'claude-haiku-4-5' }), 0),
 };

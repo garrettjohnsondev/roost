@@ -1,7 +1,7 @@
 import type { CallDelta } from './agents/types.js';
 import { runAgentTask } from './agents/dispatch.js';
 import type { AgentKind } from './protocol.js';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from './claudeAuth.js';
 import { repoRoot } from './config.js';
 
 export type Tier = 'light' | 'standard' | 'heavy';
@@ -88,7 +88,7 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
       return { tier: 'standard', reason: 'triage failed — defaulted' };
     }
   }
-  const q: any = query({
+  const q: any = authedQuery({
     prompt: TRIAGE_PROMPT + text.slice(0, 2000),
     // A classifier needs no CLAUDE.md, skills or MCP servers; loading them only
     // slows the probe and widens what it can do.

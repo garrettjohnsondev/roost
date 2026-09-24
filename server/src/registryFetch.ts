@@ -1,4 +1,4 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery } from './claudeAuth.js';
 import { JsonRpcProcess } from './jsonrpc.js';
 import { sendNotification } from './notify.js';
 import { describeDrift, loadAliases, noteResolution, saveAliases } from './aliasDrift.js';
@@ -34,7 +34,7 @@ export async function fetchCodexModels(cwd: string): Promise<ModelCard[]> {
 }
 
 export async function fetchClaudeModels(cwd: string): Promise<ModelCard[]> {
-  const probe: any = query({
+  const probe: any = authedQuery({
     prompt: (async function* () {})(),
     options: { cwd, model: 'haiku', canUseTool: async () => ({ behavior: 'deny', message: 'registry probe' }) } as any,
   });

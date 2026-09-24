@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { authedQuery, isAuthFailure } from '../claudeAuth.js';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteClaudeRateLimit } from '../usage.js';
 import { claudeDeltas } from '../usageDelta.js';
@@ -95,7 +95,7 @@ export class ClaudeAdapter implements AgentAdapter {
       },
     };
 
-    this.q = query({ prompt: this.input as AsyncIterable<any>, options: options as any });
+    this.q = authedQuery({ prompt: this.input as AsyncIterable<any>, options: options as any });
     void this.pump();
   }
 
@@ -105,7 +105,8 @@ export class ClaudeAdapter implements AgentAdapter {
       if (!this.disposed) this.emit({ type: 'status', state: 'idle', ts: now() });
     } catch (err: any) {
       if (!this.disposed) {
-        this.emit({ type: 'error', message: `Claude session error: ${err?.message ?? err}`, ts: now() });
+        const msg = `Claude session error: ${err?.message ?? err}`;
+        this.emit({ type: 'error', message: msg, ...(isAuthFailure(msg) ? { code: 'auth' as const } : {}), ts: now() });
         this.emit({ type: 'status', state: 'error', message: String(err?.message ?? err), ts: now() });
       }
     }
@@ -176,7 +177,10 @@ export class ClaudeAdapter implements AgentAdapter {
         // terminal failure behind a blank assistant turn.
         if (m.is_error === true || (typeof m.subtype === 'string' && m.subtype.startsWith('error'))) {
           const why = typeof m.result === 'string' && m.result ? m.result : String(m.subtype ?? 'unknown error');
-          this.emit({ type: 'error', message: `Claude turn failed: ${truncate(why, 500)}`, ts: now() });
+          const msg = `Claude turn failed: ${truncate(why, 500)}`;
+          // An auth failure is a different problem with a different fix, and the
+          // phone can now fix it — so it is marked, not buried in a generic error.
+          this.emit({ type: 'error', message: msg, ...(isAuthFailure(why) ? { code: 'auth' as const } : {}), ts: now() });
         }
         this.emit({
           type: 'usage',

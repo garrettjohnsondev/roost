@@ -8,8 +8,24 @@ import { UsagePanel } from './UsagePanel';
 import { DecisionsPanel } from './DecisionsPanel';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
+import { ClaudeSignIn } from './ClaudeSignIn';
 import type { Theme } from './theme';
 import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
+
+/** A stable pick per name, not a live random. The same character always gets
+ *  the same bubble, so nothing flickers or loops on its own -- pose is still
+ *  the only thing that changes on its own schedule. Different characters land
+ *  on different bubbles because their names hash differently, which is the
+ *  variety asked for without an actual timer driving it. */
+const SLEEP_BUBBLE = 'Zzz';
+const IDLE_BUBBLES = ['✨', '👀', '☕', '🎨', '🔧', '💭', '🎵', '🧩'];
+function bubbleFor(name: string, pose: Pose): string | null {
+  if (pose === 'sleep') return SLEEP_BUBBLE;
+  if (pose !== 'idle') return null; // working already reports itself via the typing sprite
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return IDLE_BUBBLES[h % IDLE_BUBBLES.length];
+}
 
 /** The crew, as the board draws them: faces first, before any number.
  *
@@ -17,7 +33,8 @@ import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProjec
  *  typing. Present in one: awake. Otherwise they are asleep — which is what makes
  *  waking them, when a session opens, mean something. Only the characters with
  *  drawn faces are shown; the rest would be pool avatars standing in for art
- *  that does not exist yet. */
+ *  that does not exist yet. A small bubble rides along with sleep and idle —
+ *  "Zzz" is literal, the idle picks are just a wink (see bubbleFor). */
 function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
   const [crew, setCrew] = useState<CrewInfo[]>([]);
   useEffect(() => {
@@ -48,8 +65,10 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
       <div className="crew-strip-faces">
         {crew.map((c) => {
           const pose = poseOf(c.name);
+          const bubble = bubbleFor(c.name, pose);
           return (
             <div key={c.name} className={`crew-strip-member ${pose}`} title={`${c.name} — ${pose === 'sleep' ? 'asleep' : pose === 'type' ? 'working' : 'awake'}`}>
+              {bubble && <span className="crew-bubble" aria-hidden="true">{bubble}</span>}
               <SpriteAvatar crew={c} pose={pose} size={58} />
               <span className="crew-strip-name" style={{ color: pose === 'sleep' ? undefined : nameColor(c.color) }}>{c.name}</span>
             </div>
@@ -58,6 +77,31 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
       </div>
       <div className="crew-strip-label">The crew</div>
     </section>
+  );
+}
+
+/** A warning on home when Claude can't run — before a turn fails, not after.
+ *  Shown when nothing is signed in, or when a recent turn failed for a sign-in
+ *  reason; either way the fix is one tap away, on the phone. */
+function ClaudeAuthBanner() {
+  const [status, setStatus] = useState<{ using: string; lastFailure: { at: number } | null; canSignInFromPhone: boolean } | null>(null);
+  const [open, setOpen] = useState(false);
+  const load = () => fetch('/api/auth/claude').then((r) => (r.ok ? r.json() : null)).then(setStatus).catch(() => {});
+  useEffect(() => { void load(); }, []);
+  if (!status || (status.using !== 'none' && !status.lastFailure)) return null;
+  return (
+    <>
+      <section className="card auth-banner">
+        <strong>{status.using === 'none' ? 'Claude isn’t signed in on your Mac.' : 'Claude’s sign-in stopped working.'}</strong>
+        <span className="section-hint">Claude sessions will fail until it is. You can fix it from here.</span>
+        {status.canSignInFromPhone ? (
+          <button className="chip compact-accept" onClick={() => setOpen(true)}>Sign in to Claude</button>
+        ) : (
+          <span className="section-hint">This Mac is missing Python 3, which the phone sign-in needs — run <code>claude setup-token</code> on the Mac.</span>
+        )}
+      </section>
+      {open && <ClaudeSignIn onClose={() => setOpen(false)} onDone={() => void load()} />}
+    </>
   );
 }
 
@@ -268,6 +312,7 @@ export function SessionList(props: {
         </div>
       </header>
 
+      <ClaudeAuthBanner />
       <CrewStrip sessions={sessions} />
 
       {sessions.length > 0 && (

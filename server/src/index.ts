@@ -24,6 +24,7 @@ import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
 import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
 import { loadMe, saveMe } from './me.js';
+import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 const config = loadConfig();
@@ -443,6 +444,43 @@ app.post('/api/models/refresh', async (_req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: String(e?.message ?? e) });
   }
+});
+
+// ---- Claude sign-in, from the phone -----------------------------------------
+// The token itself never crosses this API in either direction except as the
+// one-time code the person pastes; nothing here returns it.
+app.get('/api/auth/claude', async (_req, res) => {
+  res.json(await authStatus());
+});
+
+app.post('/api/auth/claude/start', async (_req, res) => {
+  try {
+    res.json(await startSignIn());
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/auth/claude/finish', async (req, res) => {
+  const { flowId, code } = req.body ?? {};
+  if (typeof flowId !== 'string' || typeof code !== 'string') return res.status(400).json({ error: 'flowId and code are required' });
+  try {
+    await finishSignIn(flowId, code);
+    res.json({ ok: true, status: await authStatus() });
+  } catch (err: any) {
+    res.status(400).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/auth/claude/cancel', (_req, res) => {
+  cancelSignIn();
+  res.json({ ok: true });
+});
+
+/** Forget Roost's own token and go back to the Mac's shared login. */
+app.delete('/api/auth/claude/token', async (_req, res) => {
+  clearToken();
+  res.json({ ok: true, status: await authStatus() });
 });
 
 app.get('/api/me', (_req, res) => {

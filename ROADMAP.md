@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**391 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-23: server 347/347, web 44/44 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**424 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-24: server 375/375, web 49/49 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -299,6 +299,8 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 ---
 
 ## 8. Corrections log
+
+**2026-09-23 — stranded on the phone, and a probe that signed in by itself.** A Claude turn failed with an OAuth error on the phone and there was no way to recover without a terminal on the Mac: Roost used the Mac's shared interactive login — the one four separate `claude` binaries on the machine refresh — and had no sign-in of its own. Probing `claude setup-token` to see whether it could be driven headlessly, the CLI opened a browser on the Mac; the Mac was signed in to claude.ai, so the flow completed with nobody present, minted a real one-year token and printed it into the session. The owner was told immediately and asked to revoke it. The fix carries the lesson in code: the phone sign-in sets `BROWSER=/usr/bin/true` (the CLI runs `$BROWSER <url>`), so only a code the person pastes can complete it; and every test of the flow runs against a stand-in program, never the real CLI.
 
 **2026-09-22 — a release the registry could not see.** Claude Opus 5.5 shipped and Roost's roster was byte-identical before and after, because Claude exposes ALIASES: `opus` quietly started resolving to a new model and no id changed. Phase 7's roster diff is built for Codex, whose ids are versioned and carry succession pointers, and it structurally cannot catch this. `aliasDrift.ts` closes it by diffing what an alias RESOLVES to, observed from the engine's own report of what it just ran — first sight is never announced, a pinned id never drifts against itself, and one release is announced once. Found by being told the model existed and then checking the docs rather than the roster; checking also exposed a price table that overstated Opus by nearly 4x and an adaptive-thinking branch that had been unreachable since Phase 4b.
 
