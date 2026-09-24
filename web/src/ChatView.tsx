@@ -767,11 +767,17 @@ function JobTracker({ session }: { session: SessionState }) {
   if (!t) return null;
   return (
     <div className={`job-tracker ${t.status}`} aria-label={`Job: ${t.name}`}>
-      <span className="tracker-name">{t.name}</span>
+      <div className="tracker-head">
+        {t.who?.sprite && (
+          <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : 'idle'} size={22} />
+        )}
+        <span className="tracker-name">{t.name}</span>
+        {t.who && <span className="tracker-who">{t.who.name}</span>}
+      </div>
       <ol className="tracker-steps">
         {t.steps.map((s) => (
           <li key={s.key} className={`tracker-step ${s.state}`}>
-            <span className="tracker-dot" aria-hidden="true">{s.state === 'done' ? '✓' : s.state === 'failed' ? '✗' : ''}</span>
+            <span className="tracker-dot" aria-hidden="true" />
             <span className="tracker-label">{s.state === 'awaiting' ? `${s.label} · you` : s.label}</span>
           </li>
         ))}
@@ -1019,7 +1025,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
     case 'verify': {
       const r = item.report;
       return (
-        <div className={`verify-msg ${r.passed ? 'pass' : 'fail'}${fresh ? ' fresh' : ''}`}>
+        <div className={`verify-msg ${r.passed ? 'pass' : r.unverified ? 'unverified' : 'fail'}${fresh ? ' fresh' : ''}`}>
           <div className="verify-head">
             {/* Finishing is worth something. The cheer frame has existed, shipped
                 and unused, since the sprite work; this is the event it was drawn
@@ -1028,7 +1034,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
             {r.passed && crew?.sprite && (
               <SpriteAvatar crew={crew} pose="cheer" size={30} />
             )}
-            <span className="verify-badge">{r.passed ? 'PASSED' : 'FAILED'}</span> {r.summary}
+            <span className="verify-badge">{r.passed ? 'PASSED' : r.unverified ? 'NOT VERIFIED' : 'FAILED'}</span> {r.summary}
           </div>
           {r.tampered && <div className="verify-tamper">Gate definitions changed during this session — this result cannot be trusted.</div>}
           {r.gates.map((g, i) => (

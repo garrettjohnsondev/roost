@@ -638,40 +638,39 @@ button {
   position: relative;
 }
 /* The track between steps: a hairline, filled once the step before is done. */
+/* The track: pixel dashes, lit once the step before is done (2026-09-24:
+   "it's pretty plain"). Steps are pixel blocks, like the fuel gauge. */
 .tracker-step + .tracker-step::before {
   content: '';
   flex: 1 1 8px;
-  height: 1px;
-  background: var(--border);
-  margin: 0 4px 0 -2px;
+  height: 3px;
+  margin: 0 5px 0 -1px;
   min-width: 6px;
+  background: repeating-linear-gradient(90deg, var(--border) 0 3px, transparent 3px 6px);
 }
-.tracker-step.done + .tracker-step::before,
-.tracker-step.done + .tracker-step.done::before { background: var(--ok); }
+.tracker-step.done + .tracker-step::before { background: repeating-linear-gradient(90deg, var(--ok) 0 3px, transparent 3px 6px); }
 .tracker-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid var(--border);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 9px;
-  line-height: 1;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-dim) 22%, transparent);
   flex-shrink: 0;
-  box-sizing: border-box;
+  position: relative;
 }
 .tracker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tracker-step.done .tracker-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.tracker-step.done .tracker-dot { background: var(--ok); box-shadow: inset -2px -2px 0 color-mix(in srgb, #000 22%, transparent); }
 .tracker-step.done .tracker-label { color: var(--text); }
-/* Lit, not animated: the sprite in the thread is the motion. */
-.tracker-step.active .tracker-dot { border-color: var(--accent); background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+/* Lit, not animated: the sprite in the head is the motion. */
+.tracker-step.active .tracker-dot { background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent), inset -2px -2px 0 color-mix(in srgb, #000 22%, transparent); }
 .tracker-step.active .tracker-label { color: var(--text); font-weight: 600; }
-.tracker-step.awaiting .tracker-dot { border-color: var(--accent); background: transparent; }
+.tracker-step.awaiting .tracker-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
 .tracker-step.awaiting .tracker-label { color: var(--accent); font-weight: 600; }
-.tracker-step.failed .tracker-dot { background: var(--danger); border-color: var(--danger); color: #fff; }
+.tracker-step.failed .tracker-dot { background: var(--danger); }
 .tracker-step.failed .tracker-label { color: var(--danger); }
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
+.tracker-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.tracker-head .tracker-name { flex: 1 1 auto; min-width: 0; }
+.tracker-who { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; color: var(--text-dim); flex-shrink: 0; }
 [data-theme='dark'] .job-tracker { box-shadow: none; }
 
 /* ---------- tool runs (consecutive calls, folded) ---------- */
@@ -2178,6 +2177,8 @@ button {
 .verify-badge { font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.08); }
 .verify-msg.pass .verify-badge { color: #22c55e; }
 .verify-msg.fail .verify-badge { color: #ef4444; }
+.verify-msg.unverified { border-color: color-mix(in srgb, var(--text-dim) 45%, transparent); border-style: dashed; }
+.verify-msg.unverified .verify-badge { color: var(--text-dim); }
 .verify-tamper { color: #ef4444; font-size: 12px; margin: 4px 0 8px; }
 .verify-gate { font-size: 12px; margin: 4px 0; }
 .verify-gate summary { cursor: pointer; }

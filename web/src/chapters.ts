@@ -54,7 +54,8 @@ function build(items: ChatItem[], start: number, end: number): Chapter {
   }
   const verifies = slice.filter((x): x is Extract<ChatItem, { kind: 'verify' }> => x.kind === 'verify');
   const last = verifies[verifies.length - 1];
-  const status: ChapterStatus = last?.report.passed ? 'verified' : last ? 'needs-work' : 'open';
+  // NOT VERIFIED (no gates) is neither a pass nor work to redo.
+  const status: ChapterStatus = last?.report.passed ? 'verified' : last && !last.report.unverified ? 'needs-work' : 'open';
   const firstAsk = slice.find((x): x is Extract<ChatItem, { kind: 'user' }> => x.kind === 'user');
   return { start, end, name: chapterName(firstAsk?.text ?? ''), crew, turns, status };
 }

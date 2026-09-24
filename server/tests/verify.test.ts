@@ -56,7 +56,9 @@ describe('evidence is exit code and output, never a claim', () => {
   it('treats "nothing to check" as not verified', async () => {
     const r = await verifyTask({ cwd: tmp, checks: [] });
     expect(r.passed).toBe(false);
-    expect(r.summary).toMatch(/nothing to verify/);
+    expect(r.summary).toMatch(/no gates yet/);
+    // not a pass, and not a failure: NOT VERIFIED (2026-09-24, it read FAILED)
+    expect(r.unverified).toBe(true);
   });
 
   it('fails a run whose gate definitions changed since the task began', async () => {

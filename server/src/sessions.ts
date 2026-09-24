@@ -100,6 +100,9 @@ export class Session {
   private activeMention?: AgentTaskRun;
   /** The last plan written in this session, for a handoff briefing after Proceed cleared pendingConsult. */
   private lastPlanPath?: string;
+  /** A consulted plan is being built as a one-shot on the other vendor. Its
+   *  own idles are not the end of the build; the gate runs when it returns. */
+  private crossBuild = false;
   /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
   builder: Builder = 'auto';
   titleAuto = true;
@@ -489,8 +492,9 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
-    if (event.type === 'status' && event.state === 'idle') this.proceeding = false;
-    if (event.type === 'status' && event.state === 'idle' && this.executing && this.pendingVerify) {
+    const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
+    if (turnEnded) this.proceeding = false;
+    if (turnEnded && this.executing && this.pendingVerify) {
       const pv = this.pendingVerify;
       this.executing = false;
       this.pendingVerify = undefined;
@@ -751,7 +755,19 @@ export class Session {
           const name = personaFor(pick.agent, this.otherAutoRoute.heavy.model).name;
           this.notice(`Pip sent the build to ${name} on ${pick.agent} — ${pick.reason}.`);
           this.proceeding = true;
-          await this.askByName(name, display, undefined, 'build', prompt);
+          this.crossBuild = true;
+          try {
+            await this.askByName(name, display, undefined, 'build', prompt);
+          } finally {
+            this.crossBuild = false;
+            this.proceeding = false;
+          }
+          const pv = this.pendingVerify;
+          if (this.executing && pv) {
+            this.executing = false;
+            this.pendingVerify = undefined;
+            await this.autoVerify(pv);
+          }
           break;
         }
         await this.adapter.sendUserMessage(prompt, undefined, display);
@@ -1158,7 +1174,7 @@ export class Session {
         review: pv.review ? { executorAgent: this.agent, criteria: pv.criteria?.length ? pv.criteria.map((c) => `- ${c}`).join('\n') : undefined, onCall: (d) => this.ledgerCall(d, 'review') } : undefined,
       });
       this.pushEvent({ type: 'verify', report, ts: now() });
-      if (this.sockets.size === 0) sendNotification(`verify:${this.id}`, `${report.passed ? 'Verified' : 'Verification FAILED'} · ${this.title}`, report.summary);
+      if (this.sockets.size === 0) sendNotification(`verify:${this.id}`, `${report.passed ? 'Verified' : report.unverified ? 'Not verified' : 'Verification FAILED'} · ${this.title}`, report.summary);
     } catch (err: any) {
       this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);
     } finally {
@@ -1286,8 +1302,18 @@ export class Session {
   }
 
   /** A visible, non-error note on the session's status line. */
+  /** True while a notice is being pushed. A notice repeats the current state
+   *  (often 'idle') to carry its message, so it must never be read as "the
+   *  turn just ended" -- 2026-09-24 it fired the gate the instant Proceed
+   *  handed a build to another vendor, 63s before the build finished. */
+  private inNotice = false;
   notice(message: string) {
-    this.pushEvent({ type: 'status', state: this.lastStatus, message, ts: now() });
+    this.inNotice = true;
+    try {
+      this.pushEvent({ type: 'status', state: this.lastStatus, message, ts: now() });
+    } finally {
+      this.inNotice = false;
+    }
   }
 
   reportError(message: string) {

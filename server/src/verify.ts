@@ -206,12 +206,12 @@ export async function verifyTask(opts: VerifyOptions): Promise<VerifyReport> {
 
   const parts: string[] = [];
   if (tampered) parts.push('gate definitions changed during the task');
-  if (nothingChecked) parts.push('nothing to verify — no gates defined and no images given');
+  if (nothingChecked) parts.push('this project has no gates yet — add a `## gates` section to its project file (e.g. `npm test`) and the next run is checked');
   if (commands.length) parts.push(`${gates.filter((g) => g.exitCode === 0).length}/${gates.length} gates passed`);
   if (images.length) parts.push(`${images.filter((c) => c.ok).length}/${images.length} images genuine`);
   if (review) parts.push(`diff reviewed by ${review.agent}/${review.model}`);
 
-  const report: VerifyReport = { taskId: opts.taskId, passed, tampered, gates, images, review, fingerprint, summary: parts.join(' · '), startedAt, ms: Date.now() - startedAt };
+  const report: VerifyReport = { taskId: opts.taskId, passed, unverified: nothingChecked || undefined, tampered, gates, images, review, fingerprint, summary: parts.join(' · '), startedAt, ms: Date.now() - startedAt };
   persistEvidence(report);
   logDecision({ kind: 'verify', taskId: opts.taskId, passed, tampered, gates: gates.length, gatesPassed: gates.filter((g) => g.exitCode === 0).length, images: images.length, reviewed: !!review, ms: report.ms });
   return report;

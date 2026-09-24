@@ -1,5 +1,5 @@
 import { chaptersOf, type Chapter } from './chapters';
-import type { ChatItem, SessionMode } from './types';
+import type { ChatItem, CrewInfo, SessionMode } from './types';
 
 /** The job tracker -- "Domino's pizza tracker, but for this section of work."
  *
@@ -15,7 +15,15 @@ import type { ChatItem, SessionMode } from './types';
 export type StepKey = 'plan' | 'review' | 'build' | 'verify' | 'done';
 export type StepState = 'todo' | 'active' | 'awaiting' | 'done' | 'failed';
 export interface TrackerStep { key: StepKey; label: string; state: StepState }
-export interface Tracker { name: string; steps: TrackerStep[]; status: Chapter['status'] }
+export interface Tracker {
+  name: string;
+  steps: TrackerStep[];
+  status: Chapter['status'];
+  /** Whoever last did something in this job, from the thread itself (the
+   *  latest turn that names its crew) -- so the face follows a handoff from
+   *  Bram to Ollie instead of keeping whoever started it (2026-09-24). */
+  who?: CrewInfo;
+}
 
 const LABEL: Record<StepKey, string> = { plan: 'Plan', review: 'Review', build: 'Build', verify: 'Verify', done: 'Done' };
 
@@ -70,12 +78,18 @@ export function trackerOf(input: TrackerInput): Tracker | null {
     review: hasReview,
     build: built,
     verify: !!lastVerify,
-    done: ch.status === 'verified',
+    // Done is the job's end, not only a passing gate. With no gate step (a
+    // plain chat turn), the job is done when something was built and the
+    // engine went idle -- it could never reach Done before (2026-09-24). With
+    // a gate: a pass, or an honest NOT VERIFIED (no gates to run) once idle.
+    done: gated
+      ? ch.status === 'verified' || (!!lastVerify?.report.unverified && !input.working)
+      : built && !input.working && !input.consultPending,
   };
 
   const steps: TrackerStep[] = keys.map((key) => ({ key, label: LABEL[key], state: evidence[key] ? 'done' : 'todo' }));
   const verifyStep = steps.find((s) => s.key === 'verify');
-  if (verifyStep && lastVerify && !lastVerify.report.passed) verifyStep.state = 'failed';
+  if (verifyStep && lastVerify && !lastVerify.report.passed && !lastVerify.report.unverified) verifyStep.state = 'failed';
 
   // The one step that is happening now, if any. Status text wins when it
   // names a step; otherwise the first step without evidence.
@@ -87,5 +101,11 @@ export function trackerOf(input: TrackerInput): Tracker | null {
     const target = named ? steps.find((s) => s.key === named) : steps.find((s) => s.state === 'todo' || s.state === 'failed');
     if (target && target.key !== 'done') target.state = input.approvalPending ? 'awaiting' : 'active';
   }
-  return { name: ch.name, steps, status: ch.status };
+  let who: CrewInfo | undefined;
+  for (let i = slice.length - 1; i >= 0 && !who; i--) {
+    const it = slice[i];
+    if ((it.kind === 'assistant' || it.kind === 'consult') && it.crew) who = it.crew;
+    else if (it.kind === 'routed') who = it.worker ?? it.crew;
+  }
+  return { name: ch.name, steps, status: ch.status, who };
 }

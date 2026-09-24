@@ -515,7 +515,7 @@ describe('a message you sent is never silently dropped', () => {
     // ...and it is checked BEFORE the plan/build branch, or it would never be reached there.
     expect(body.indexOf('if (this.proceeding)')).toBeLessThan(body.indexOf("this.mode === 'plan' || this.mode === 'build'"));
     expect(s).toMatch(/this\.proceeding = true;/);
-    expect(s).toMatch(/if \(event\.type === 'status' && event\.state === 'idle'\) this\.proceeding = false;/);
+    expect(s).toMatch(/const turnEnded = event\.type === 'status' && event\.state === 'idle' && !this\.inNotice && !this\.crossBuild;\s*if \(turnEnded\) this\.proceeding = false;/);
   });
 
   it('holds a message sent mid-plan, echoes it, and folds it into Proceed', () => {
@@ -812,6 +812,26 @@ describe('the builder is the vendor with room -- item 23, the structural half', 
   it('who builds is a per-session setting that survives a restart', () => {
     expect(s).toMatch(/builder: entry\.builder,/);
     expect(read('web/src/ChatView.tsx')).toMatch(/<label>Who builds<\/label>/);
+  });
+})
+
+describe('a notice is never the end of a turn', () => {
+  // 2026-09-24: Proceed handed the build to Nell on Codex; Pip's notice about
+  // it repeated the idle state, the gate read that as "the build finished",
+  // and ran -- against nothing -- 63 seconds before Nell was done.
+  const s = read('server/src/sessions.ts');
+  it('notices are flagged while pushed, and the gate trigger ignores them', () => {
+    expect(s).toMatch(/this\.inNotice = true;\s*try \{\s*this\.pushEvent\(\{ type: 'status', state: this\.lastStatus, message/);
+    expect(s).toMatch(/if \(turnEnded && this\.executing && this\.pendingVerify\)/);
+  });
+  it('a build on the other vendor is gated when the one-shot RETURNS', () => {
+    const b = s.slice(s.indexOf("case 'consult_proceed': {"), s.indexOf("case 'verify': {"));
+    expect(b).toMatch(/this\.crossBuild = true;\s*try \{\s*await this\.askByName\(name, display, undefined, 'build', prompt\);/);
+    expect(b.indexOf('await this.autoVerify(pv);')).toBeGreaterThan(b.indexOf("await this.askByName(name, display, undefined, 'build', prompt);"));
+  });
+  it('no gates reads NOT VERIFIED, not FAILED, and does not fail the tracker', () => {
+    expect(read('web/src/ChatView.tsx')).toMatch(/r\.passed \? 'PASSED' : r\.unverified \? 'NOT VERIFIED' : 'FAILED'/);
+    expect(read('web/src/tracker.ts')).toMatch(/!lastVerify\.report\.passed && !lastVerify\.report\.unverified/);
   });
 })
 

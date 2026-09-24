@@ -76,6 +76,9 @@ export interface ImageCheck {
 export interface VerifyReport {
   taskId?: string;
   passed: boolean;
+  /** Nothing was checked: the project defines no gates and no images were
+   *  given. Not a pass, and not a failure either -- shown as NOT VERIFIED. */
+  unverified?: boolean;
   /** The gate definitions changed during the task -- the result cannot be trusted. */
   tampered: boolean;
   gates: EvidenceRecord[];
