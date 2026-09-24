@@ -671,21 +671,79 @@ describe('bugs from the phone, 2026-09-24', () => {
   });
 })
 
-describe('the crew bubble is a stable wink, not a loop', () => {
-  // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
-  // little things" for idle. Implemented as a pure function of name and pose,
-  // never a timer, so it never joins the small, justified set of things in
-  // this app that move on their own schedule.
+describe('the crew bubble visits one member at a time', () => {
+  // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
+  // fades out and comes back in on another." The one timer the roadmap allows
+  // on the home screen (§12a): the state it reports (asleep, idle) is real,
+  // it just is not reported for everyone simultaneously.
   const sl = read('web/src/SessionList.tsx');
+  const css = read('web/src/styles.css');
 
   it('is literal for sleep and a fixed per-name pick for idle, never Math.random', () => {
-    expect(sl).toMatch(/if \(pose === 'sleep'\) return SLEEP_BUBBLE/);
+    expect(sl).toMatch(/if \(pose === 'sleep'\) return \{ text: SLEEP_BUBBLE \}/);
     expect(sl).not.toMatch(/Math\.random/);
-    expect(sl).toMatch(/return IDLE_BUBBLES\[h % IDLE_BUBBLES\.length\]/);
+    expect(sl).toMatch(/IDLE_BUBBLES\[h % IDLE_BUBBLES\.length\]/);
   });
 
   it('says nothing while working -- the typing sprite already reports that', () => {
     expect(sl).toMatch(/if \(pose !== 'idle'\) return null/);
+  });
+
+  it('renders exactly one bubble, keyed per visit, and the visit runs once', () => {
+    expect(sl).toMatch(/const visiting = bubble && visitable\[visitor\]\?\.name === c\.name;/);
+    expect(sl).toMatch(/<span key=\{visit\} className="crew-bubble"/);
+    const block = css.slice(css.indexOf('.crew-bubble {'), css.indexOf('.crew-strip-name {'));
+    expect(block).toMatch(/animation: bubble-visit [\d.]+s ease-in-out both;/);
+    expect(block).not.toMatch(/infinite/);
+    expect(block).toMatch(/prefers-reduced-motion: reduce\) \{ \.crew-bubble \{ animation: none; \}/);
+  });
+
+  it('sits beside the head, not on it', () => {
+    const block = css.slice(css.indexOf('.crew-bubble {'), css.indexOf('.crew-strip-name {'));
+    expect(block).toMatch(/left: 62%;/);
+    expect(block).not.toMatch(/translateX\(-50%\)/);
+  });
+})
+
+describe('no emoji anywhere -- Roost draws its own icons', () => {
+  // 2026-09-24. An emoji is the phone vendor's drawing in the phone vendor's
+  // style, sat beside sprites drawn by hand. ⚙ and ⚖ render as glossy colour
+  // pictures on iOS. icons.tsx holds ours, as 12×12 pixel glyphs.
+  const { readdirSync } = require('node:fs') as typeof import('node:fs');
+  const files = readdirSync(join(root, 'web/src')).filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f));
+  // The pictographic block, plus the misc-symbol code points iOS gives emoji
+  // presentation (gear, scales, bolt, coffee, sparkles, star). Typographic
+  // marks that take the text colour and font stay: ✓ ✗ ✕ ★ ↑ ■ …
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2699}\u{2696}\u{26A1}\u{2615}\u{2728}\u{2B50}\u{231B}\u{23F3}\u{2705}\u{274C}]/u;
+  it('web/src carries none', () => {
+    for (const f of files) {
+      const src = read(`web/src/${f}`);
+      const hit = src.match(EMOJI);
+      expect(hit, `${f}: ${hit?.[0]}`).toBeNull();
+    }
+  });
+  it('the icons are drawn here, as pixel rows', () => {
+    const i = read('web/src/icons.tsx');
+    expect(i).toMatch(/shapeRendering="crispEdges"/);
+    expect(i).toMatch(/bolt: \[/);
+    expect(i).toMatch(/gear: \[/);
+    expect(i).toMatch(/scales: \[/);
+    expect(i).toMatch(/lock: \[/);
+    expect(i).toMatch(/camera: \[/);
+  });
+})
+
+describe('the composer behaves like Messages', () => {
+  // 2026-09-24: "if I type more than a line it pushes it up out of sight."
+  const c = read('web/src/ChatView.tsx');
+  const css = read('web/src/styles.css');
+  it('grows with the text, measured from content, not counted from newlines', () => {
+    expect(c).toMatch(/el\.style\.height = 'auto';\s*el\.style\.height = `\$\{el\.scrollHeight\}px`;/);
+    expect(css).toMatch(/\.composer textarea \{[^}]*max-height: 140px;/);
+  });
+  it('keeps ↑ inside the field, not stranded in the corner', () => {
+    expect(c).toMatch(/<div className="composer-field">[\s\S]*?<textarea[\s\S]*?className="primary send"[\s\S]*?<\/div>/);
+    expect(css).toMatch(/\.composer-field \.send \{ position: absolute; right: 4px; bottom: 4px; \}/);
   });
 })
 

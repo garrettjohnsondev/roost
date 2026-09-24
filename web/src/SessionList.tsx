@@ -8,6 +8,7 @@ import { UsagePanel } from './UsagePanel';
 import { DecisionsPanel } from './DecisionsPanel';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
+import { Icon, type IconName } from './icons';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import type { Theme } from './theme';
 import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
@@ -18,13 +19,32 @@ import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProjec
  *  on different bubbles because their names hash differently, which is the
  *  variety asked for without an actual timer driving it. */
 const SLEEP_BUBBLE = 'Zzz';
-const IDLE_BUBBLES = ['✨', '👀', '☕', '🎨', '🔧', '💭', '🎵', '🧩'];
-function bubbleFor(name: string, pose: Pose): string | null {
-  if (pose === 'sleep') return SLEEP_BUBBLE;
-  if (pose !== 'idle') return null; // working already reports itself via the typing sprite
+/** Drawn glyphs, not emoji (icons.tsx). A fixed per-name pick, so Moss's
+ *  little thing is always Moss's. */
+const IDLE_BUBBLES: IconName[] = ['sparkle', 'eye', 'coffee', 'note', 'wrench', 'puzzle'];
+function bubbleFor(name: string, pose: Pose): { text: string } | { icon: IconName } | null {
+  if (pose === 'sleep') return { text: SLEEP_BUBBLE };
+  if (pose !== 'idle') return null;
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return IDLE_BUBBLES[h % IDLE_BUBBLES.length];
+  return { icon: IDLE_BUBBLES[h % IDLE_BUBBLES.length] };
+}
+
+/** One bubble at a time, visiting the crew in turn. 2026-09-24: "not all at
+ *  once -- it fades in slow on one, stays a little, fades out and comes back
+ *  in on another." This is the one timer the roadmap allows on the home
+ *  screen (§12a, sleeping on idle): the motion still reports real state --
+ *  they really are asleep, or really are idle -- it just does not report it
+ *  for everyone simultaneously. Reduced motion: the bubble simply shows. */
+const BUBBLE_VISIT_MS = 3600;
+function useVisitor(count: number): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (count < 2) return;
+    const t = setInterval(() => setTick((n) => n + 1), BUBBLE_VISIT_MS);
+    return () => clearInterval(t);
+  }, [count]);
+  return count ? tick % count : 0;
 }
 
 /** The crew, as the board draws them: faces first, before any number.
@@ -54,21 +74,31 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
       })
       .catch(() => { /* the strip is a greeting, not a dependency */ });
   }, []);
-  if (!crew.length) return null;
   const poseOf = (name: string): Pose => {
     if (sessions.some((s) => s.state === 'working' && s.crew?.name === name)) return 'type';
     if (sessions.some((s) => s.crew?.name === name || s.recentCrew?.some((c) => c.name === name))) return 'idle';
     return 'sleep';
   };
+  const visitable = crew.filter((c) => bubbleFor(c.name, poseOf(c.name)));
+  // Hooks before any early return -- the first cut had this below the
+  // `!crew.length` return and the home screen threw React #310 on load.
+  const visit = useVisitor(visitable.length);
+  const visitor = visit;
+  if (!crew.length) return null;
   return (
     <section className="crew-strip" aria-label="The crew">
       <div className="crew-strip-faces">
         {crew.map((c) => {
           const pose = poseOf(c.name);
           const bubble = bubbleFor(c.name, pose);
+          const visiting = bubble && visitable[visitor]?.name === c.name;
           return (
             <div key={c.name} className={`crew-strip-member ${pose}`} title={`${c.name} — ${pose === 'sleep' ? 'asleep' : pose === 'type' ? 'working' : 'awake'}`}>
-              {bubble && <span className="crew-bubble" aria-hidden="true">{bubble}</span>}
+              {visiting && (
+                <span key={visit} className="crew-bubble" aria-hidden="true">
+                  {'text' in bubble ? bubble.text : <Icon name={bubble.icon} />}
+                </span>
+              )}
               <SpriteAvatar crew={c} pose={pose} size={58} />
               <span className="crew-strip-name" style={{ color: pose === 'sleep' ? undefined : nameColor(c.color) }}>{c.name}</span>
             </div>
@@ -307,7 +337,7 @@ export function SessionList(props: {
             </div>
           </div>
           <button className="ghost" onClick={() => setShowSettings(true)}>
-            ⚙
+            <Icon name="gear" size={24} title="Settings" />
           </button>
         </div>
       </header>
@@ -418,7 +448,7 @@ export function SessionList(props: {
               <label>Model</label>
               <div className="chips">
                 <button className={model === 'auto' ? 'chip active' : 'chip'} onClick={() => setModel('auto')}>
-                  ⚡ Auto
+                  <Icon name="bolt" /> Auto
                 </button>
                 {agentConfig.models.map((m) => (
                   <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>

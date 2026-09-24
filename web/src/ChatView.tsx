@@ -3,6 +3,7 @@ import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, type Chapter } from './chapters';
 import { trackerOf } from './tracker';
+import { Icon } from './icons';
 import { segmentsOf, summarizeRun } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { api } from './api';
@@ -196,7 +197,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           ⎇
         </button>
         <button className="ghost" onClick={() => setShowSettings(true)}>
-          ⚙
+          <Icon name="gear" size={24} title="Session settings" />
         </button>
       </header>
 
@@ -264,7 +265,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               2026-09-23: the original two-line copy plus a full chip button
               took up too much real estate at the top of every turn. Shrunk to
               one line, kept always visible either way. */}
-          <span className="full-auto-text">⚡ Full auto — no approvals this session</span>
+          <span className="full-auto-text"><Icon name="bolt" /> Full auto — no approvals this session</span>
           <button className="chip full-auto-off" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
             Turn off
           </button>
@@ -552,7 +553,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   className={isAuto ? 'chip active' : 'chip'}
                   onClick={() => session.send({ type: 'set_model', model: 'auto' })}
                 >
-                  ⚡ Auto
+                  <Icon name="bolt" /> Auto
                 </button>
                 {agentConfig.models.map((m) => (
                   <button
@@ -878,7 +879,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       return (
         <div className="msg-row user">
           <div className="msg user">
-            {item.imageCount > 0 && <div className="img-note">📷 {item.imageCount} image{item.imageCount > 1 ? 's' : ''}</div>}
+            {item.imageCount > 0 && <div className="img-note"><Icon name="camera" /> {item.imageCount} image{item.imageCount > 1 ? 's' : ''}</div>}
             {item.text}
           </div>
           {me && (
@@ -915,7 +916,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
     case 'approval':
       return (
         <div className="tool-chip approval">
-          🔐 {crewAsking(item.title, crew)}
+          <Icon name="lock" /> {crewAsking(item.title, crew)}
           {item.decision ? ` — ${item.decision === 'deny' ? 'denied' : 'allowed'}` : ' — waiting'}
         </div>
       );
@@ -927,7 +928,7 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
         <div className="routed-chip">
           {item.crew && <SpriteAvatar crew={item.crew} pose="idle" size={22} />}
           {item.crew && <strong style={{ color: nameColor(item.crew.color) }}>{item.crew.name}</strong>}
-          {item.crew ? ' sent this to ' : `⚡ ${item.tier} · routed to `}
+          {item.crew ? ' sent this to ' : <><Icon name="bolt" /> {item.tier} · routed to </>}
           {/* The crew member, not the model id: "sent this to haiku" named an
               engine where every other line in the thread names a person. The
               id stays, quieter, because which model is still worth knowing.
@@ -1147,6 +1148,16 @@ function Composer(props: {
   /** A send that could not go out. The draft is kept; this says why. */
   const [unsent, setUnsent] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // The field grows with the text, like Messages, to the CSS max-height; then
+  // it scrolls. Measured from the content, not counted from newlines, so a
+  // long wrapped line grows it too. Reset to one line after a send.
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
 
   function send() {
     if (!text.trim() && images.length === 0) return;
@@ -1209,34 +1220,37 @@ function Composer(props: {
           ＋
         </button>
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
-        <textarea
-          value={text}
-          rows={1}
-          placeholder="Message…"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
-              e.preventDefault();
-              send();
-            }
-          }}
-        />
-        {text.trim() && !props.working && (
-          <button
-            className="ghost consult-btn"
-            title="Consult: plan first, second agent reviews, you approve"
-            disabled={props.disabled}
-            onClick={() => {
-              props.onConsult(text.trim());
-              setText('');
+        <div className="composer-field">
+          <textarea
+            ref={taRef}
+            value={text}
+            rows={1}
+            placeholder="Message…"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
+                e.preventDefault();
+                send();
+              }
             }}
-          >
-            ⚖
+          />
+          {text.trim() && !props.working && (
+            <button
+              className="ghost consult-btn"
+              title="Consult: plan first, second agent reviews, you approve"
+              disabled={props.disabled}
+              onClick={() => {
+                props.onConsult(text.trim());
+                setText('');
+              }}
+            >
+              <Icon name="scales" size={18} />
+            </button>
+          )}
+          <button className="primary send" disabled={props.disabled} onClick={send}>
+            ↑
           </button>
-        )}
-        <button className="primary send" disabled={props.disabled} onClick={send}>
-          ↑
-        </button>
+        </div>
       </div>
     </div>
   );

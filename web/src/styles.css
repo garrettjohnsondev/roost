@@ -179,13 +179,18 @@ button {
 }
 
 .page-header h1 {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 28px;
+  line-height: 1;
 }
 
+/* Sits under the name, not floating between it and the crew (2026-09-24). */
 .page-header .subtitle {
+  display: block;
+  margin-top: 3px;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.2;
 }
 
 .new-session-toggle {
@@ -504,10 +509,7 @@ button {
 
 /* ---------- consult ---------- */
 
-.consult-btn {
-  font-size: 18px;
-  padding: 8px 6px;
-}
+.consult-btn { display: inline-flex; align-items: center; justify-content: center; }
 
 .consult-msg {
   align-self: stretch;
@@ -611,20 +613,26 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A grid, not a flex row: five nowrap labels in a flex row set a min-content
+   width over 375px and pushed the whole page past the phone's edge (found
+   2026-09-24 in headless shots). minmax(0, 1fr) has a true zero minimum. */
 .tracker-steps {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 0;
+  min-width: 0;
 }
+.job-tracker { min-width: 0; }
 .tracker-step {
   display: flex;
   align-items: center;
   gap: 5px;
-  flex: 1 1 0;
   min-width: 0;
+  overflow: hidden;
   font-size: 11px;
   color: var(--text-dim);
   position: relative;
@@ -1813,17 +1821,27 @@ button {
   gap: 6px;
 }
 
+/* Like Messages: + at the left, the field takes the rest, ↑ lives INSIDE the
+   field at its bottom-right, and the field grows with the text (to ~5 lines)
+   instead of scrolling one visible line. (2026-09-24) */
+.composer-field { position: relative; flex: 1 1 auto; min-width: 0; display: flex; }
+.composer-row > .ghost { width: 40px; height: 40px; padding: 0; font-size: 22px; line-height: 1; flex-shrink: 0; }
+
 .composer textarea {
   flex: 1;
   resize: none;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  border-radius: 18px;
-  padding: 10px 14px;
+  border-radius: 20px;
+  padding: 10px 44px 10px 14px;
   font: inherit;
   font-size: 16px; /* prevents iOS zoom-on-focus */
-  max-height: 120px;
+  line-height: 1.3;
+  min-height: 40px;
+  max-height: 140px;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .composer textarea:focus {
@@ -1831,9 +1849,12 @@ button {
   border-color: var(--accent);
 }
 
+.composer-field .send { position: absolute; right: 4px; bottom: 4px; }
+.composer-field .consult-btn { position: absolute; right: 40px; bottom: 4px; width: 32px; height: 32px; padding: 0; }
+
 .send {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   padding: 0;
   font-size: 18px;
@@ -2503,7 +2524,7 @@ button {
 
 /* The crew strip: faces before numbers. Asleep reads as dimmer, so waking is a
    visible change of state rather than only a change of drawing. */
-.crew-strip { margin-top: 18px; }
+.crew-strip { margin-top: 26px; }
 /* Rows, not one line. Twelve faces in a single flex row at phone width left
    each about 25px -- narrower than the sprite -- and the names ran together.
    Four columns is ~85px each at 375px: room for the face and the whole name. */
@@ -2511,25 +2532,38 @@ button {
 .crew-strip-member { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
 .crew-strip-member.sleep .crew-sprite { opacity: 0.62; filter: saturate(0.7); }
 
-/* A stable per-character pick (see bubbleFor), not a live random -- it never
-   changes on its own, so it does not join the small set of things in this app
-   allowed to move without a state change behind them. */
+/* One bubble at a time, visiting (see useVisitor). Off to the upper right of
+   the head, not on it; a small tail toward the face. The visit is one
+   fade-in / hold / fade-out per visitor, keyed so it runs once per visit --
+   never `infinite`, and gone under reduced motion. */
 .crew-bubble {
   position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: -8px;
+  left: 62%;
   white-space: nowrap;
   font-size: 11px;
   line-height: 1;
-  padding: 2px 6px;
-  border-radius: 8px;
+  padding: 3px 6px;
+  border-radius: 8px 8px 8px 2px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-dim);
   pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  animation: bubble-visit 3.4s ease-in-out both;
 }
-.crew-strip-member.sleep .crew-bubble { font-family: var(--font-display, inherit); font-weight: 700; }
+.crew-bubble .icon { display: block; }
+.crew-strip-member.sleep .crew-bubble { font-family: var(--font-display, inherit); font-weight: 700; letter-spacing: 0.04em; }
+@keyframes bubble-visit {
+  0% { opacity: 0; transform: translateY(3px); }
+  18% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) { .crew-bubble { animation: none; } }
+[data-theme='dark'] .crew-bubble { border-radius: 2px; }
+
 .crew-strip-name { font-family: var(--font-display, inherit); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; text-align: center; overflow-wrap: anywhere; }
 .crew-strip-label {
   font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent);
@@ -2670,3 +2704,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .signin-open { display: inline-block; text-decoration: none; }
 .signin-code-label { font-size: 12px; color: var(--text-dim); }
 .signin-code { width: 100%; box-sizing: border-box; font-family: ui-monospace, monospace; margin: 4px 0 12px; }
+
+/* Drawn icons (icons.tsx) sit on the text line like a glyph would. */
+.icon { display: inline-block; vertical-align: -2px; }
+.full-auto-text .icon { vertical-align: -1px; margin-right: 2px; }
