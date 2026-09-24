@@ -601,6 +601,34 @@ describe('the conference announces itself', () => {
   });
 })
 
+describe('Proceed answers on the spot, and Stop is nowhere near Send', () => {
+  // The last two from the dropped message of 2026-09-24.
+  const c = read('web/src/ChatView.tsx');
+  const s = read('server/src/sessions.ts');
+
+  it('broadcasts the cleared bar BEFORE the triage round trip', () => {
+    const block = s.slice(s.indexOf("case 'consult_proceed': {"), s.indexOf("case 'verify': {"));
+    expect(block.indexOf('this.broadcastMeta();')).toBeGreaterThan(-1);
+    expect(block.indexOf('this.broadcastMeta();')).toBeLessThan(block.indexOf('await this.routeFor(consult.task)'));
+    expect(block).toMatch(/try \{\s*await this\.routeFor\(consult\.task\);\s*\} catch/);
+  });
+
+  it('the button says Proceeding… and stops taking taps until the server confirms', () => {
+    expect(c).toMatch(/\{proceeding \? 'Proceeding…' : '▶ Proceed'\}/);
+    expect(c).toMatch(/if \(!session\.meta\?\.consultPending\) setProceeding\(false\);/);
+  });
+
+  it('drops the "new messages join the conversation" sentence', () => {
+    expect(c).not.toMatch(/new messages join the conversation as it goes\s*</);
+  });
+
+  it('puts Stop first in the composer row, Send last', () => {
+    const row = c.slice(c.indexOf('<div className="composer-row">'), c.indexOf('</div>', c.indexOf('<button className="primary send"')));
+    expect(row.indexOf('className="stop-btn"')).toBeLessThan(row.indexOf('<textarea'));
+    expect(row.indexOf('<textarea')).toBeLessThan(row.indexOf('className="primary send"'));
+  });
+})
+
 describe('the crew bubble is a stable wink, not a loop', () => {
   // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
   // little things" for idle. Implemented as a pure function of name and pose,

@@ -645,8 +645,19 @@ export class Session {
         const consult = this.pendingConsult;
         if (!consult) break;
         this.pendingConsult = undefined;
+        // Recovered 2026-09-24: "there was also a delay when I clicked
+        // proceed." The bar stayed up, dead, through a whole triage round
+        // trip, because the cleared pendingConsult was not broadcast until
+        // after the send. Say it left, now; then route.
+        this.broadcastMeta();
         if (this.title === 'New session' && consult.task) this.title = truncate(consult.task, 60);
-        if (this.autoMode) await this.routeFor(consult.task);
+        if (this.autoMode) {
+          try {
+            await this.routeFor(consult.task);
+          } catch (err: any) {
+            this.reportError(`Routing failed (${String(err?.message ?? err)}) — proceeding on the current model.`);
+          }
+        }
         await this.adapter.sendUserMessage(
           composeProceedPrompt(consult.task, consult.plan, consult.critique, consult.criteria ?? []),
           undefined,

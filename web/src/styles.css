@@ -576,11 +576,20 @@ button {
   flex-shrink: 0;
 }
 
+/* The one button that starts the work: it should be the loudest thing on the
+   bar. Recovered 2026-09-24: "I would like the color of the proceed button
+   to be more prominent." Dismiss steps back to a text link beside it. */
 .consult-proceed {
   color: var(--accent-text);
   background: var(--accent);
   border-color: var(--accent);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 9px 18px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 }
+.consult-proceed:disabled { opacity: 0.7; box-shadow: none; }
+.consult-dismiss { width: auto; margin-top: 0; padding: 6px 10px; }
 
 /* ---------- job tracker (the pizza tracker) ---------- */
 
@@ -919,14 +928,17 @@ button {
   color: var(--text-dim);
 }
 
+/* Far left of the composer row, the width of the box away from Send. */
 .stop-btn {
   flex-shrink: 0;
+  align-self: center;
   color: var(--danger);
   font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--danger);
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 6px 10px;
+  background: transparent;
 }
 
 /* ---------- rename ---------- */

@@ -70,6 +70,12 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // by default: a one-line summary you open on purpose, never a wall you
   // scroll past by accident.
   const [recapOpen, setRecapOpen] = useState(false);
+  // Tapping Proceed answers on the spot -- the button says so and stops taking
+  // taps -- until the server's meta confirms the plan has left the bar.
+  const [proceeding, setProceeding] = useState(false);
+  useEffect(() => {
+    if (!session.meta?.consultPending) setProceeding(false);
+  }, [session.meta?.consultPending]);
   // Pre-ticked: at this point the meter has already crossed a line the person
   // was told about, and the common answer to "do this every time" here is yes.
   // It is still a checkbox they can clear before tapping.
@@ -421,11 +427,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             Consult complete{session.meta.planPath ? ` — plan at ${session.meta.planPath.split('/').slice(-3).join('/')}` : ''} — proceed?
           </span>
           <div className="consult-bar-actions">
-            <button className="chip" onClick={() => session.send({ type: 'consult_dismiss' })}>
+            <button className="link consult-dismiss" disabled={proceeding} onClick={() => session.send({ type: 'consult_dismiss' })}>
               Dismiss
             </button>
-            <button className="chip consult-proceed" onClick={() => session.send({ type: 'consult_proceed' })}>
-              ▶ Proceed
+            <button
+              className="chip consult-proceed"
+              disabled={proceeding}
+              onClick={() => {
+                setProceeding(true);
+                session.send({ type: 'consult_proceed' });
+              }}
+            >
+              {proceeding ? 'Proceeding…' : '▶ Proceed'}
             </button>
           </div>
         </div>
@@ -1166,14 +1179,11 @@ function Composer(props: {
 
   return (
     <div className="composer">
-      {props.working && (
-        <div className="composer-hint">
-          Working… new messages join the conversation as it goes
-          <button className="stop-btn" onClick={props.onInterrupt}>
-            ■ Stop
-          </button>
-        </div>
-      )}
+      {/* Recovered 2026-09-24: the "Working… new messages join the
+          conversation as it goes" line was confusing, and its Stop sat right
+          above the send arrow. The sentence is gone -- the tracker and the
+          sprite say what is happening -- and Stop now lives at the far LEFT
+          of the row, the whole width of the box away from Send. */}
       {images.length > 0 && (
         <div className="previews">
           {images.map((img, i) => (
@@ -1190,6 +1200,11 @@ function Composer(props: {
         </div>
       )}
       <div className="composer-row">
+        {props.working && (
+          <button className="stop-btn" onClick={props.onInterrupt} title="Stop the current turn">
+            ■ Stop
+          </button>
+        )}
         <button className="ghost" onClick={() => fileRef.current?.click()}>
           ＋
         </button>
