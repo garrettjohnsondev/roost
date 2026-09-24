@@ -32,6 +32,7 @@ import { TranscriptWriter, lastState, readTranscript, removeTranscript } from '.
 import { composeHandoffPrompt, composeMentionPrompt, modelForPersona, parseMention } from './mentions.js';
 import { runAgentTask, type AgentTaskRun } from './agents/dispatch.js';
 import { allPersonas, personaFor } from './crew.js';
+import { autoTitle, jobName } from './naming.js';
 import { callLedger } from './ledger.js';
 import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
@@ -58,6 +59,9 @@ interface SessionOpts {
     mode?: SessionMode;
     modeExplicit?: boolean;
     autoCompact?: boolean;
+      titleAuto?: boolean;
+    jobAsk?: string;
+    jobsDone?: string[];
   };
   onChange?: () => void;
 }
@@ -94,6 +98,10 @@ export class Session {
   private activeMention?: AgentTaskRun;
   /** The last plan written in this session, for a handoff briefing after Proceed cleared pendingConsult. */
   private lastPlanPath?: string;
+  /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
+  titleAuto = true;
+  jobAsk?: string;
+  jobsDone: string[] = [];
   private consultCancelled = false;
   pendingConsult?: ConsultState;
   private standardModelFor: (agent: AgentKind) => string;
@@ -158,6 +166,9 @@ export class Session {
     this.mode = (opts.restore?.modeExplicit ? opts.restore.mode : undefined) ?? config.consult?.defaultMode ?? 'auto';
     this.modeExplicit = opts.restore?.modeExplicit ?? false;
     this.autoCompact = opts.restore?.autoCompact ?? false;
+    this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
+    this.jobAsk = opts.restore?.jobAsk;
+    this.jobsDone = opts.restore?.jobsDone ?? [];
     // Auto and build route per message, which requires the sentinel. Whatever
     // concrete model the session had becomes the starting point the router
     // moves from, so a resumed chat continues where it was and then re-triages.
@@ -507,6 +518,17 @@ export class Session {
         setTimeout(() => void this.runCompaction(intent.reason, 'auto'), 0);
       }
     }
+    // Jobs, for the name: the open job starts at its first ask and closes when
+    // its gates pass. The title follows unless a person set one. (The client
+    // folds the same jobs into its own view; this only names things.)
+    if (event.type === 'user_message' && event.text && !event.text.startsWith('▶') && !this.jobAsk) {
+      this.jobAsk = event.text;
+      this.retitle();
+    } else if (event.type === 'verify' && event.report.passed && this.jobAsk) {
+      this.jobsDone.push(jobName(this.jobAsk));
+      this.jobAsk = undefined;
+      this.retitle();
+    }
     this.transcript.push(event);
     this.transcriptWriter.append(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
@@ -568,7 +590,6 @@ export class Session {
         // triage prompt. Every path below now ends in one of three visible
         // outcomes: delivered to the worker, held with a notice, or an error
         // that names the message as undelivered. Never silence.
-        if (this.title === 'New session' && msg.text) this.title = truncate(msg.text, 60);
         if (this.proceeding) {
           // The worker is mid-build. This joins the turn -- which is what the
           // composer has promised all along.
@@ -663,6 +684,8 @@ export class Session {
         const title = truncate(msg.title.trim(), 80);
         if (title) {
           this.title = title;
+          this.titleAuto = false;
+          this.onChange?.();
           this.broadcastMeta();
           // Best-effort: also rename the on-disk Claude session so "Recent" shows it.
           if (this.agent === 'claude') {
@@ -696,7 +719,6 @@ export class Session {
         // trip, because the cleared pendingConsult was not broadcast until
         // after the send. Say it left, now; then route.
         this.broadcastMeta();
-        if (this.title === 'New session' && consult.task) this.title = truncate(consult.task, 60);
         if (this.autoMode) {
           try {
             await this.routeFor(consult.task);
@@ -856,7 +878,7 @@ export class Session {
         .join('\n');
 
       this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is drafting a plan…`, ts: now() });
-      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context), plannerModel, 'plan', (d) => this.ledgerCall(d, 'plan'));
+      this.activeConsult = startConsultStep(this.agent, this.cwd, composePlannerPrompt(task, context, this.fuelNote()), plannerModel, 'plan', (d) => this.ledgerCall(d, 'plan'));
       // Dispatched output is untrusted input: defang control structures before
       // the plan reaches the reviewer's context, the transcript, or execution.
       const plan = sanitizeAgentOutput(await this.activeConsult.promise).text;
@@ -1013,6 +1035,34 @@ export class Session {
       this.pushEvent({ type: 'status', state: 'idle', ts: now() });
       this.broadcastMeta();
     }
+  }
+
+  /** What the planner is told about fuel, so a plan can be sized to what is
+   *  left. 2026-09-24: "Pip and Ollie make a plan. They recognise this may
+   *  push us to the session limit. Then we check if Codex can continue; if
+   *  not, propose slicing the plan, or park the rest on the roadmap." Read
+   *  from the same store the gauge reads; never a guess, and absent when the
+   *  store has nothing fresh. */
+  private fuelNote(): string {
+    const lines: string[] = [];
+    for (const agent of ['claude', 'codex'] as AgentKind[]) {
+      const h = quotaStore().headroom(agent, this.budget);
+      if (h.state === 'unknown' || h.state === 'stale' || h.worstPercent == null) continue;
+      const w = h.worstWindow;
+      const mins = w?.resetsAt ? Math.max(0, Math.round((w.resetsAt - now()) / 60_000)) : null;
+      const when = mins == null ? '' : mins >= 60 ? `, resets in ${Math.floor(mins / 60)}h ${mins % 60}m` : `, resets in ${mins}m`;
+      lines.push(`${agent}${agent === this.agent ? ' (this session)' : ''}: ${w?.label ?? 'window'} ${h.worstPercent}% used${when} — ${h.state}`);
+    }
+    return lines.join('\n');
+  }
+
+  private retitle(): void {
+    if (!this.titleAuto) return;
+    const next = autoTitle(this.jobAsk, this.jobsDone);
+    if (next === this.title) return;
+    this.title = next;
+    this.onChange?.();
+    setTimeout(() => this.broadcastMeta(), 0);
   }
 
   private async deliver(text: string, images?: UserImage[]): Promise<void> {
@@ -1226,6 +1276,9 @@ interface PersistedSession {
   modeExplicit?: boolean;
   /** Survives restarts on purpose: "keep doing this" means keep doing it. */
   autoCompact?: boolean;
+  titleAuto?: boolean;
+  jobAsk?: string;
+  jobsDone?: string[];
 }
 
 export class SessionManager {
@@ -1281,6 +1334,9 @@ export class SessionManager {
       mode: s.mode,
       modeExplicit: s.modeExplicit,
       autoCompact: s.autoCompact,
+      titleAuto: s.titleAuto,
+      jobAsk: s.jobAsk,
+      jobsDone: s.jobsDone,
     }));
     try {
       const path = statePath();
@@ -1335,6 +1391,10 @@ export class SessionManager {
             pendingConsult: entry.pendingConsult,
             mode: entry.mode,
             modeExplicit: entry.modeExplicit,
+            autoCompact: entry.autoCompact,
+            titleAuto: entry.titleAuto,
+            jobAsk: entry.jobAsk,
+            jobsDone: entry.jobsDone,
           },
           onChange: () => this.scheduleSave(),
         });

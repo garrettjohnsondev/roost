@@ -711,6 +711,62 @@ describe('the names are the interface: @-mentions and the handoff', () => {
   });
 })
 
+describe('the gauge is asked, not waited for', () => {
+  // 2026-09-24: the Claude reading went dark for 31 hours -- it only arrived
+  // from a live session's rate-limit events -- and every route in that time
+  // said "no move on missing data". Not conservative; blind.
+  it('refreshes usage on a schedule, unref’d, and once soon after boot', () => {
+    const i = read('server/src/index.ts');
+    expect(i).toMatch(/const usageTimer = setInterval\(\(\) => \{\s*void refreshUsage\(/);
+    expect(i).toMatch(/usageTimer\.unref\(\);/);
+    expect(i).toMatch(/setTimeout\(\(\) => void refreshUsage\([^)]*\)\.catch\(\(\) => \{\}\), 5_000\)\.unref\(\);/);
+  });
+})
+
+describe('a session is named after its jobs', () => {
+  const s = read('server/src/sessions.ts');
+  it('the server and the board name a job with the same regexes', () => {
+    const a = read('server/src/naming.ts');
+    const b = read('web/src/chapters.ts');
+    const pick = (src: string, name: string) => src.match(new RegExp(`const ${name} = (/.*/i);`))?.[1];
+    expect(pick(a, 'PREAMBLE')).toBeTruthy();
+    expect(pick(a, 'PREAMBLE')).toBe(pick(b, 'PREAMBLE'));
+    expect(pick(a, 'VERB')).toBe(pick(b, 'VERB'));
+  });
+  it('the first sixty characters are no longer the title; chapters are, unless you typed one', () => {
+    expect(s).not.toMatch(/this\.title = truncate\(msg\.text, 60\)/);
+    expect(s).toMatch(/this\.jobsDone\.push\(jobName\(this\.jobAsk\)\);/);
+    expect(s).toMatch(/this\.title = title;\s*this\.titleAuto = false;/);
+    expect(s).toMatch(/if \(!this\.titleAuto\) return;/);
+  });
+})
+
+describe('the planner is told the fuel, and sizes the plan to it', () => {
+  it('the note comes from the quota store and is absent when nothing is fresh', () => {
+    const s = read('server/src/sessions.ts');
+    const f = s.slice(s.indexOf('private fuelNote(): string {'), s.indexOf('private retitle(): void {'));
+    expect(f).toMatch(/quotaStore\(\)\.headroom\(agent, this\.budget\)/);
+    expect(f).toMatch(/if \(h\.state === 'unknown' \|\| h\.state === 'stale' \|\| h\.worstPercent == null\) continue;/);
+    expect(s).toMatch(/composePlannerPrompt\(task, context, this\.fuelNote\(\)\)/);
+  });
+  it('asks for a Fit line, a first slice and a remainder -- only when there is fuel to size against', () => {
+    const c = read('server/src/consult.ts');
+    expect(c).toMatch(/fuel\s*\?\s*'## Fit — one line/);
+    expect(c).toMatch(/"First slice"/);
+    expect(c).toMatch(/"Remainder"/);
+  });
+})
+
+describe('the fuel card closes again, and carries the day’s decisions', () => {
+  it('has a Less button when opened from the summary', () => {
+    expect(read('web/src/UsagePanel.tsx')).toMatch(/\{compact && \(\s*<button className="chip" onClick=\{\(\) => setExpanded\(false\)\}>/);
+  });
+  it('the decisions are one line under the fuel, not a card of their own', () => {
+    expect(read('web/src/SessionList.tsx')).not.toMatch(/What the crew decided/);
+    expect(read('web/src/UsagePanel.tsx')).toMatch(/<DecisionsLine \/>/);
+  });
+})
+
 describe('the crew bubble visits one member at a time', () => {
   // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
   // fades out and comes back in on another." The one timer the roadmap allows

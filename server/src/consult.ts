@@ -13,10 +13,11 @@ const PLAN_CAP = 8000;
 const CRITIQUE_CAP = 6000;
 const ONE_SHOT_TIMEOUT_MS = 4 * 60_000;
 
-export function composePlannerPrompt(task: string, context: string): string {
+export function composePlannerPrompt(task: string, context: string, fuel = ''): string {
   return [
     'You are in PLANNING mode: explore the codebase read-only, change NOTHING.',
     context ? `Recent conversation context:\n${context}\n` : '',
+    fuel ? `Fuel (subscription windows, live):\n${fuel}\n` : '',
     `Task to plan:\n${task}`,
     '',
     'Produce a concise implementation plan with EXACTLY these sections, in this order:',
@@ -25,6 +26,9 @@ export function composePlannerPrompt(task: string, context: string): string {
     '## Steps — ordered, each naming the file it touches.',
     '## Acceptance criteria — 3 to 7 bullet points, each a statement that can be CHECKED (a command that passes, a behaviour that can be observed), not a restatement of the steps.',
     '## Risks — unknowns and what would make this plan wrong.',
+    fuel
+      ? '## Fit — one line: will this plan likely fit in what is left of the tightest window above? If not: name a "First slice" that fits, and a "Remainder" to park on the roadmap; if the other vendor has room, say the remainder could go there.'
+      : '',
     'Ground every step in code you actually read. If the task as stated cannot be met, say so under Risks.',
     'No code edits, no commands that modify state. Keep it under 500 words.',
   ]

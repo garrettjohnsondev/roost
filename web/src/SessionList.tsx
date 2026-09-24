@@ -5,7 +5,6 @@ import { GitSheet } from './GitSheet';
 import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
-import { DecisionsPanel } from './DecisionsPanel';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
 import { Icon, type IconName } from './icons';
@@ -511,14 +510,6 @@ export function SessionList(props: {
           }}
         />
       )}
-
-      {/* The harness's own record of what it decided and why. It is the evidence
-          Phase 4 needs, not something to greet you with — so it lives at the
-          bottom, folded, rather than second on the page. */}
-      <details className="card ledger">
-        <summary>What the crew decided</summary>
-        <DecisionsPanel />
-      </details>
 
       {showSettings && (
         <GlobalSettings

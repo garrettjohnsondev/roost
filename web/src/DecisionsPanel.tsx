@@ -49,3 +49,20 @@ export function DecisionsPanel() {
     </section>
   );
 }
+
+/** One line, under the fuel: what the harness did today. The panel above
+ *  was a card of its own and earned a "not sure the value" (2026-09-24);
+ *  the numbers belong next to the fuel they spent. */
+export function DecisionsLine() {
+  const [summary, setSummary] = useState<DecisionsSummary | null>(null);
+  useEffect(() => {
+    api.decisions().then((r) => setSummary(r.summary)).catch(() => {});
+  }, []);
+  if (!summary || !summary.total) return null;
+  const parts = [
+    plural(summary.routes, 'route'),
+    summary.reviews.total ? plural(summary.reviews.total, 'review') : '',
+    summary.dispatches.total ? `${plural(summary.dispatches.total, 'dispatch', 'dispatches')}${summary.dispatches.failed ? ` (${summary.dispatches.failed} failed)` : ''}` : '',
+  ].filter(Boolean);
+  return <div className="fuel-decisions">Today: {parts.join(' · ')}</div>;
+}

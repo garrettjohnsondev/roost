@@ -589,6 +589,18 @@ wss.on('connection', (ws: WebSocket) => {
   alive.add(ws);
   ws.on('pong', () => alive.add(ws));
 });
+// The Claude gauge went dark for 31 hours (2026-09-24): its reading only
+// arrived from a live session's rate-limit events, and nothing else asked.
+// Every route in that time said "no move on missing data" -- the router was
+// not conservative, it was blind. The probe is a zero-token control request,
+// so it is asked on a schedule: once soon after boot, then every 20 minutes.
+const USAGE_REFRESH_MS = 20 * 60_000;
+const usageTimer = setInterval(() => {
+  void refreshUsage(config.projects[0] ?? repoRoot).catch(() => {});
+}, USAGE_REFRESH_MS);
+usageTimer.unref();
+setTimeout(() => void refreshUsage(config.projects[0] ?? repoRoot).catch(() => {}), 5_000).unref();
+
 const keepalive = setInterval(() => {
   for (const ws of wss.clients) {
     if (!alive.has(ws)) {

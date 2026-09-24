@@ -3,6 +3,7 @@ import { api } from './api';
 import type { AgentUsage, UsageSnapshot, WeightEstimate } from './types';
 import { fmtAgo, fmtCountdown, barColor, headroomNote } from './usageView';
 import { fuelBlocks } from './motion';
+import { DecisionsLine } from './DecisionsPanel';
 
 function WeightLines({ usage, weights }: { usage: AgentUsage; weights: WeightEstimate[] }) {
   if (!weights.length) return null;
@@ -120,6 +121,7 @@ function FuelSummary({ usage, prev, onExpand }: { usage: UsageSnapshot; prev: Us
           )}
         </div>
       ))}
+      <DecisionsLine />
     </section>
   );
 }
@@ -170,10 +172,19 @@ export function UsagePanel({ compact = false }: { compact?: boolean }) {
   return (
     <section className="card usage-card">
       <div className="usage-header">
-        <h2>Usage</h2>
-        <button className="chip" disabled={loading} onClick={refresh}>
-          {loading ? 'Checking…' : usage ? 'Refresh' : 'Check now'}
-        </button>
+        <h2>{compact ? 'Fuel' : 'Usage'}</h2>
+        <span className="usage-header-actions">
+          <button className="chip" disabled={loading} onClick={refresh}>
+            {loading ? 'Checking…' : usage ? 'Refresh' : 'Check now'}
+          </button>
+          {/* Opened from the summary, it can close again (2026-09-24: "no
+              way to collapse it back"). */}
+          {compact && (
+            <button className="chip" onClick={() => setExpanded(false)}>
+              Less
+            </button>
+          )}
+        </span>
       </div>
       {error && <div className="error-note">{error}</div>}
       {usage ? (
