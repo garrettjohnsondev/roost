@@ -657,6 +657,46 @@ button {
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
 [data-theme='dark'] .job-tracker { box-shadow: none; }
 
+/* ---------- tool runs (consecutive calls, folded) ---------- */
+
+.tool-run { align-self: stretch; display: flex; flex-direction: column; gap: 6px; }
+.tool-run-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+}
+.tool-run-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool-run-text .tool-name { color: var(--text); font-weight: 600; }
+.tool-run-sofar { opacity: 0.8; }
+.tool-run-failed { color: var(--danger); }
+.tool-run.failed .tool-run-row { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.tool-run-body { display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 2px solid var(--border); margin-left: 10px; }
+[data-theme='dark'] .tool-run-row { border-radius: 2px; }
+
+/* The conference turn says what it is: Plan, Review, Reconciled plan. */
+.consult-phase {
+  font-family: var(--font-display, inherit);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.consult-phase.plan, .consult-phase.reconcile { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--accent); }
+[data-theme='dark'] .consult-phase { border-radius: 2px; }
+
 /* ---------- auto-route chip ---------- */
 
 .routed-chip {

@@ -3,6 +3,7 @@ import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, type Chapter } from './chapters';
 import { trackerOf } from './tracker';
+import { segmentsOf, summarizeRun } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
@@ -375,10 +376,15 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           const chapters = chaptersOf(session.items);
           const many = chapters.length > 1;
           return chapters.map((ch, ci) => {
-            const rows = session.items.slice(ch.start, ch.end).map((item, k) => {
-              const i = ch.start + k;
-              return <Message key={i} item={item} crew={session.meta?.crew} me={me} fresh={i >= session.replayedCount} />;
-            });
+            // Consecutive tool calls fold into one line (toolruns.ts); every
+            // other item is its own row, as before.
+            const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
+              seg.kind === 'item' ? (
+                <Message key={seg.index} item={session.items[seg.index]} crew={session.meta?.crew} me={me} fresh={seg.index >= session.replayedCount} />
+              ) : (
+                <ToolRun key={`run-${seg.start}`} items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} replayedCount={session.replayedCount} />
+              ),
+            );
             const last = ci === chapters.length - 1;
             const awaiting = last && (!!session.pendingApproval || !!session.meta?.consultPending);
             if (ch.status !== 'verified' && !many) return <React.Fragment key={ch.start}>{rows}</React.Fragment>;
@@ -964,8 +970,14 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
     }
     case 'consult': {
       const verdict = item.phase === 'critique' ? item.text.match(/VERDICT:\s*(SOLID|NEEDS CHANGES)/i)?.[1]?.toUpperCase() : undefined;
+      // Recovered 2026-09-24: "I never saw the back and forth between Ollie
+      // and Nell, I only saw the output." The turns were there; they did not
+      // say what they were. The phase label lived only in the no-crew
+      // fallback below, so a named planner's turn read as an ordinary reply.
+      const phaseLabel = item.phase === 'plan' ? 'Plan' : item.phase === 'reconcile' ? 'Reconciled plan' : 'Review';
       const badges = (
         <>
+          <span className={`consult-phase ${item.phase}`}>{phaseLabel}</span>
           {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
           {item.reviewStrength && (
             <span className="review-strength" title="How independent this reviewer is from the author">{item.reviewStrength}</span>
@@ -1053,6 +1065,46 @@ function ToolChip({ item, fresh = false }: { item: Extract<ChatItem, { kind: 'to
           {item.expand.before && <div className="preview-diff-line remove">− {item.expand.before}</div>}
           {item.expand.after && <div className="preview-diff-line add">+ {item.expand.after}</div>}
           {item.expand.raw && <pre className="tool-expand-raw">{item.expand.raw}</pre>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A stretch of tool calls as one line: who, and what they did in plain words.
+ *
+ *  Recovered 2026-09-24: "I don't care about bash and read and the actual
+ *  code... how we can just consolidate that." Folded by default; the calls
+ *  are behind a tap for the people who do care. While the run is still going
+ *  the line names the call in progress, so folding hides no state -- the
+ *  same rule as everywhere else: what is happening is always on screen. */
+function ToolRun({ items, start, end, crew, replayedCount }: { items: ChatItem[]; start: number; end: number; crew?: CrewInfo; replayedCount: number }) {
+  const [open, setOpen] = useState(false);
+  const tools = items.slice(start, end) as Array<Extract<ChatItem, { kind: 'tool' }>>;
+  const s = summarizeRun(tools);
+  return (
+    <div className={`tool-run${open ? ' open' : ''}${s.running ? ' running' : ''}${s.failed ? ' failed' : ''}`}>
+      <button className="tool-run-row" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {crew && <SpriteAvatar crew={crew} pose={s.running ? 'type' : 'idle'} size={22} />}
+        <span className="tool-run-text">
+          {s.running ? (
+            <>
+              <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
+              {s.text ? <span className="tool-run-sofar"> · {s.text} so far</span> : null}
+            </>
+          ) : (
+            s.text
+          )}
+          {s.failed ? <span className="tool-run-failed"> · {s.failed} failed</span> : null}
+        </span>
+        {s.running && <span className="spinner" />}
+        <span className="tool-expand-hint">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="tool-run-body">
+          {tools.map((t, k) => (
+            <ToolChip key={start + k} item={t} fresh={start + k >= replayedCount} />
+          ))}
         </div>
       )}
     </div>

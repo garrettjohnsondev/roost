@@ -78,6 +78,19 @@ export const FIXTURES: Record<string, () => SessionState> = {
     }),
   /** Routed to Haiku: "Pip sent this to Moss", and Moss typing below. */
   routed: () => base(MOSS_ROUTED, meta({ crew: MOSS, routedModel: 'claude-haiku-4-5' }), 0),
+  /** A run of tool calls folded to one line, the last still running. */
+  toolrun: () =>
+    base(
+      [
+        { kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: at(0) },
+        { kind: 'tool', toolId: 'a', name: 'Grep', detail: '“fmtAgo” in web/src', done: true, ok: true, ts: at(1) },
+        { kind: 'tool', toolId: 'b', name: 'Read', detail: 'web/src/format.ts', done: true, ok: true, ts: at(2) },
+        { kind: 'tool', toolId: 'c', name: 'Edit', detail: 'web/src/format.ts', done: true, ok: true, ts: at(3) },
+        { kind: 'tool', toolId: 'd', name: 'Bash', detail: 'npm test -w web', done: false, ts: at(4) },
+      ],
+      meta({ crew: MOSS, mode: 'chat' }),
+      0,
+    ),
   /** The pizza tracker mid-job: Plan and Review done, Build awaiting your Proceed. */
   tracker: () =>
     base(TWO_JOBS.slice(5, 10), meta({ mode: 'build', consultPending: true, planPath: '/x/.pocket/plans/t1.md' }), 5, { status: 'idle' }),

@@ -284,7 +284,7 @@ describe('replayed history does not perform', () => {
     // window to separate "just happened" from "happened before you opened this".
     const s = read('web/src/useSession.ts');
     expect(s).toMatch(/replayedCount: items\.length/);
-    expect(read('web/src/ChatView.tsx')).toMatch(/fresh=\{i >= session\.replayedCount\}/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/fresh=\{seg\.index >= session\.replayedCount\}/);
   });
 
   it('gates every one-shot on freshness', () => {
@@ -571,6 +571,33 @@ describe('the thread follows the work only while you are at the bottom', () => {
   });
   it('pinned is a ref, so a scroll tick never re-renders the thread', () => {
     expect(c).toMatch(/const pinned = useRef\(true\);/);
+  });
+})
+
+describe('tool calls fold into words, and folding hides no state', () => {
+  // Recovered 2026-09-24: "I don't care about bash and read and the actual
+  // code... how we can just consolidate that."
+  it('groups on the client, from the items alone', () => {
+    const t = read('web/src/toolruns.ts');
+    expect(t).not.toMatch(/fetch\(|send\(|WebSocket|setTimeout/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/segmentsOf\(session\.items, ch\.start, ch\.end\)\.map/);
+  });
+  it('names the call in progress on the folded line', () => {
+    const c = read('web/src/ChatView.tsx');
+    const run = c.slice(c.indexOf('function ToolRun('), c.indexOf('function ThinkingBlock('));
+    expect(run).toMatch(/\{s\.running\.name\}/);
+    expect(run).toMatch(/pose=\{s\.running \? 'type' : 'idle'\}/);
+  });
+})
+
+describe('the conference announces itself', () => {
+  // Recovered 2026-09-24: "I never saw the back and forth between Ollie and
+  // Nell, I only saw the output." The turns existed and did not say what they
+  // were: the phase label lived only in the no-crew fallback.
+  it('labels a named planner or reviewer turn with its phase', () => {
+    const c = read('web/src/ChatView.tsx');
+    const block = c.slice(c.indexOf("case 'consult': {"), c.indexOf('if (item.crew) {', c.indexOf("case 'consult': {")));
+    expect(block).toMatch(/<span className=\{`consult-phase \$\{item\.phase\}`\}>\{phaseLabel\}<\/span>/);
   });
 })
 
