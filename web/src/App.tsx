@@ -39,7 +39,15 @@ export function App() {
   }
 
   if (error) return <div className="center-note">Cannot reach the Roost server: {error}</div>;
-  if (!config) return <div className="center-note">Connecting…</div>;
+  if (!config)
+    return (
+      <div className="center-note splash">
+        {/* The crew asleep on the perch while the server answers: the big
+            picture of the same story the icon tells small. */}
+        <img className="splash-row" src="/brand/crew-row.png" alt="" />
+        <span>Connecting…</span>
+      </div>
+    );
 
   return activeSession ? (
     <ChatView

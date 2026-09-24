@@ -342,7 +342,12 @@ export function SessionList(props: {
           <div className="page-header-brand">
             <img className="brand-icon" src="/icon-192.png" alt="" />
             <div>
-              <h1>Roost</h1>
+              {/* The wordmark borrows the icon's night: moonlight letters, an
+                  indigo pixel shadow, and Pip asleep on the T (2026-09-24). */}
+              <h1 className="wordmark">
+                Roost
+                <img className="wordmark-perch" src="/crew/pip-sleep.webp" alt="" draggable={false} />
+              </h1>
               <span className="subtitle">your crew, mid-conversation</span>
             </div>
           </div>

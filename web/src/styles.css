@@ -2467,7 +2467,6 @@ button {
   font-weight: 400;
   letter-spacing: 0.02em;
 }
-[data-theme='dark'] .page-header h1 { font-size: 30px; }
 [data-theme='dark'] .card h2 { font-size: 15px; color: var(--accent); text-transform: uppercase; }
 
 /* Cards: crisp corners on a hard offset shadow, like the board's tiles. A soft
@@ -2818,3 +2817,37 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .img-viewer-stage.full img { max-width: none; max-height: none; cursor: zoom-out; }
 .img-viewer-error { color: #e6e9f2; font-size: 15px; text-align: center; max-width: 280px; line-height: 1.4; }
 .img-viewer-path { padding: 8px 16px 12px; font-family: ui-monospace, monospace; font-size: 11px; color: rgba(230, 233, 242, 0.6); word-break: break-all; }
+
+/* ---------- the wordmark (2026-09-24) ----------
+   One wordmark in both themes: the pixel face, in the icon's palette.
+   Dark: moonlight letters on an indigo pixel shadow. Light: the indigo
+   letters on a moonlight shadow. The shadow is a hard step, never a blur. */
+.page-header h1.wordmark {
+  position: relative;
+  display: inline-block;
+  /* Named directly: --font-display is only defined for the dark theme. */
+  font-family: 'Silkscreen', ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: #2f3a72;
+  text-shadow: 2px 2px 0 #f0c75e;
+  padding-right: 2px;
+}
+[data-theme='dark'] .page-header h1.wordmark {
+  color: #f6dc8c;
+  text-shadow: 2px 2px 0 #2f3a72, 3px 3px 0 #141c38;
+}
+/* Pip, asleep on the top of the T. */
+.wordmark-perch {
+  position: absolute;
+  right: -2px;
+  top: -12px;
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.center-note.splash { flex-direction: column; gap: 14px; }
+.splash-row { width: min(72vw, 300px); height: auto; image-rendering: pixelated; }
