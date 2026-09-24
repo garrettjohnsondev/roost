@@ -5,20 +5,26 @@ import { fmtAgo, fmtCountdown, barColor, headroomNote } from './usageView';
 import { fuelBlocks } from './motion';
 import { DecisionsLine } from './DecisionsPanel';
 
+/** What a million tokens costs in window, in plain words, under the windows
+ *  it refers to. (2026-09-24: the old line led the card with "≈ 0.657% of
+ *  5-hour session per 1M tokens on claude-fable-5-1 (4 samples, low)".) */
 function WeightLines({ usage, weights }: { usage: AgentUsage; weights: WeightEstimate[] }) {
   if (!weights.length) return null;
   const known = weights.filter((w) => w.pctPerMillionTokens != null);
-  if (!known.length) {
-    const n = weights.reduce((s, w) => s + w.samples, 0);
-    return <div className="usage-note usage-note-muted">Window weights: not enough samples yet ({n})</div>;
-  }
+  if (!known.length) return null;
+  const short = (m: string) => m.replace(/^claude-/, '').replace(/^gpt-/, '');
   return (
     <div className="usage-weights">
-      {known.map((w) => (
-        <div key={`${w.key}:${w.model}`} className="usage-note usage-note-muted" title={w.note}>
-          ≈ {w.pctPerMillionTokens}% of {usage.windows.find((x) => x.key === w.key)?.label ?? w.key} per 1M tokens on {w.model} ({w.samples} samples, {w.confidence})
-        </div>
-      ))}
+      {known.map((w) => {
+        const label = usage.windows.find((x) => x.key === w.key)?.label ?? w.key;
+        const pct = w.pctPerMillionTokens!;
+        const shown = pct >= 1 ? pct.toFixed(1) : pct.toFixed(2);
+        return (
+          <div key={`${w.key}:${w.model}`} className="usage-note usage-note-muted" title={w.note}>
+            1M tokens on {short(w.model)} ≈ {shown}% of the {label} · {w.confidence} confidence, {w.samples} sample{w.samples === 1 ? '' : 's'}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -43,7 +49,6 @@ function AgentUsageBlock({ label, usage, prev, weights = [] }: { label: string; 
       </div>
       {usage.error && <div className="usage-block-error">{usage.error}</div>}
       {note && <div className={`usage-note usage-note-${note.tone}`}>{note.text}</div>}
-      <WeightLines usage={usage} weights={weights} />
       {usage.windows.map((w, i) => (
         <div key={w.key ?? i} className={`usage-window${stale ? ' usage-window-stale' : ''}`}>
           <div className="usage-window-top">
@@ -71,6 +76,7 @@ function AgentUsageBlock({ label, usage, prev, weights = [] }: { label: string; 
           )}
         </div>
       ))}
+      <WeightLines usage={usage} weights={weights} />
     </div>
   );
 }
