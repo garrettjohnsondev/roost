@@ -2909,3 +2909,15 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
    margin is for hints under a heading; after chips it drew the text over the
    buttons ("Who builds", 2026-09-24). */
 .chips + .section-hint { margin-top: 8px; }
+
+/* The finished beat: a chat turn that just ended, evidenced by the tracker
+   reaching Done with no gate -- not a timer. Plays once per finish (keyed on
+   the job's end index); a small hop, then settles. */
+.tracker-cheer { animation: tracker-cheer-hop 640ms cubic-bezier(0.3, 1.6, 0.4, 1) both; }
+@keyframes tracker-cheer-hop {
+  0% { transform: translateY(0) scale(0.9); }
+  35% { transform: translateY(-5px) scale(1.08); }
+  65% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .tracker-cheer { animation: none; } }

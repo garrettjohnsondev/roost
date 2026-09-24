@@ -73,4 +73,15 @@ describe('the job tracker reports the thread, never a guess', () => {
     expect(t!.name).toBe('two');
     expect(states(t)).toBe('build:active done:todo');
   });
+
+  it('a plain chat turn reaches Done once work happened and the engine went idle', () => {
+    const t = trackerOf(base([user('hi'), tool], { mode: 'chat', working: false }));
+    expect(states(t)).toBe('build:done done:done');
+  });
+
+  it('endIndex is the job\'s last item + 1, so the UI can tell a finish that just happened from replayed history', () => {
+    const items = [user('one'), tool, pass, user('two'), tool];
+    const t = trackerOf(base(items, { mode: 'chat', working: false }));
+    expect(t!.endIndex).toBe(items.length);
+  });
 });

@@ -19,6 +19,10 @@ export interface Tracker {
   name: string;
   steps: TrackerStep[];
   status: Chapter['status'];
+  /** Index just past the job's last item -- so the caller can tell a job that
+   *  JUST finished (endIndex > replayedCount) from one replayed on open,
+   *  without a timer (2026-09-24: a plain chat turn had no "finished" beat). */
+  endIndex: number;
   /** Whoever last did something in this job, from the thread itself (the
    *  latest turn that names its crew) -- so the face follows a handoff from
    *  Bram to Ollie instead of keeping whoever started it (2026-09-24). */
@@ -107,5 +111,5 @@ export function trackerOf(input: TrackerInput): Tracker | null {
     if ((it.kind === 'assistant' || it.kind === 'consult') && it.crew) who = it.crew;
     else if (it.kind === 'routed') who = it.worker ?? it.crew;
   }
-  return { name: ch.name, steps, status: ch.status, who };
+  return { name: ch.name, steps, status: ch.status, who, endIndex: ch.end };
 }

@@ -718,7 +718,7 @@ export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sle
  *  animation IS. Motion only ever reflects real state: `type` while a reply is
  *  actually streaming, `think` while the engine is actually reasoning. Nothing
  *  loops on its own schedule. */
-export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose; size: number }) {
+export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; pose: Pose; size: number; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   const moving = pose === 'type' || pose === 'think';
@@ -728,7 +728,7 @@ export function SpriteAvatar({ crew, pose, size }: { crew: CrewInfo; pose: Pose;
   // drawn underneath and a typing owl had four wings. A two-frame pose now
   // alternates both frames in antiphase; a held pose draws only itself.
   return (
-    <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
+    <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
       {moving ? (
         <>
           <img className="frame-a" src={`${base}-idle.webp`} alt="" onError={() => setFailed(true)} />
@@ -790,11 +790,22 @@ function JobTracker({ session }: { session: SessionState }) {
     approvalPending: !!session.pendingApproval,
   });
   if (!t) return null;
+  // A finished beat for a plain chat turn (2026-09-24): "a plain-chat turn
+  // that ends after real work has no finished beat at all." The trigger is
+  // the same evidence the tracker uses -- Done, and the job's last item is
+  // newer than replay (it just happened in THIS session) -- never a timer.
+  // Keyed on endIndex, so it plays once per finish and replays on the next.
+  const doneStep = t.steps.find((s) => s.key === 'done');
+  const justFinished = doneStep?.state === 'done' && t.endIndex > session.replayedCount;
   return (
     <div className={`job-tracker ${t.status}`} aria-label={`Job: ${t.name}`}>
       <div className="tracker-head">
         {t.who?.sprite && (
-          <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : 'idle'} size={22} />
+          justFinished ? (
+            <SpriteAvatar key={t.endIndex} crew={t.who} pose="cheer" size={22} className="tracker-cheer" />
+          ) : (
+            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : 'idle'} size={22} />
+          )
         )}
         <span className="tracker-name">{t.name}</span>
         {t.who && <span className="tracker-who">{t.who.name}</span>}

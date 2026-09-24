@@ -845,6 +845,22 @@ describe('a notice is never the end of a turn', () => {
   });
 })
 
+describe('a plain chat turn gets its own finished beat', () => {
+  // 2026-09-24 (item 25): "a plain-chat turn that ends after real work has no
+  // finished beat at all." Triggered by the same evidence the tracker uses
+  // -- Done, and the job's last item newer than replay -- never a timer.
+  const c = read('web/src/ChatView.tsx');
+  it('keys the cheer on the job\'s end index, not a clock', () => {
+    expect(c).toMatch(/const justFinished = doneStep\?\.state === 'done' && t\.endIndex > session\.replayedCount;/);
+    expect(c).toMatch(/<SpriteAvatar key=\{t\.endIndex\} crew=\{t\.who\} pose="cheer"/);
+  });
+  it('the beat is a CSS animation, not JS, and stops under reduced motion', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.tracker-cheer \{ animation: tracker-cheer-hop/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.tracker-cheer \{ animation: none; \} \}/);
+  });
+})
+
 describe('the crew bubble visits one member at a time', () => {
   // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
   // fades out and comes back in on another." The one timer the roadmap allows
