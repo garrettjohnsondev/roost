@@ -6,6 +6,7 @@ import { trackerOf } from './tracker';
 import { Icon } from './icons';
 import { segmentsOf, summarizeRun } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
+import { Contained } from './ErrorBoundary';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -429,7 +430,9 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {session.meta?.recentCrew && session.meta.recentCrew.length > 0 && (
           <CrewWakeUp crew={session.meta.recentCrew} />
         )}
-        {(() => {
+        {/* Computing the chapters can itself throw (it did, all day); inside
+            Contained, that costs the transcript, not the header and composer. */}
+        <Contained what="The conversation" retryOn={session.items.length}>{() => {
           // The thread folded into the jobs it did (the Chapters board). One job
           // renders as a plain conversation; with more than one, each gets its
           // named row, and a verified job folds into it.
@@ -463,9 +466,13 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             // other item is its own row, as before.
             const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
               seg.kind === 'item' ? (
-                <Message key={seg.index} item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} />
+                <Contained key={seg.index} what="This message" retryOn={session.items[seg.index]}>
+                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} />
+                </Contained>
               ) : (
-                <ToolRun key={`run-${seg.start}`} items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} replayedCount={session.replayedCount} />
+                <Contained key={`run-${seg.start}`} what="These tool calls">
+                  <ToolRun items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} replayedCount={session.replayedCount} />
+                </Contained>
               ),
             );
             const last = ci === chapters.length - 1;
@@ -483,7 +490,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               </ChapterFold>
             );
           }
-        })()}
+        }}</Contained>
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}

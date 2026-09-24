@@ -6,9 +6,10 @@
 // and every live session at a true 390px phone viewport, and fails if any page
 // throws, shows the crash screen, or is wider than the phone.
 //
-// It runs against the server that is up, which serves the freshly built web
-// bundle straight from disk — so it tests the new front end before the restart.
-// No server running, or no Chrome on this machine: it says so and does not block.
+// Run by hand (`npm run smoke`) it checks whatever server is up; with no server
+// or no Chrome it says so and does not block. Run by the deploy
+// (scripts/service.mjs) it checks the candidate build, and ROOST_SMOKE_REQUIRED
+// turns every skip into a failure — a gate that could not look has not passed.
 import { readFileSync, existsSync } from 'node:fs';
 
 const BASE = process.env.ROOST_SMOKE_URL ?? 'http://localhost:8790';
@@ -19,7 +20,10 @@ try { puppeteer = (await import('puppeteer-core')).default; } catch { skip('pupp
 if (!existsSync(CHROME)) skip('Google Chrome is not installed');
 try { await fetch(BASE + '/api/config', { signal: AbortSignal.timeout(3000) }); } catch { skip(`no Roost server at ${BASE}`); }
 
-function skip(why) { console.log(`smoke: skipped — ${why}`); process.exit(0); }
+function skip(why) {
+  if (process.env.ROOST_SMOKE_REQUIRED) { console.error(`smoke: FAILED — could not run: ${why}`); process.exit(1); }
+  console.log(`smoke: skipped — ${why}`); process.exit(0);
+}
 
 const fixtures = [...readFileSync(new URL('../web/src/fixtures.ts', import.meta.url), 'utf8').matchAll(/^\s{2}'?([a-z-]+)'?: \(\) =>/gm)].map((m) => m[1]);
 let sessions = [];
@@ -40,8 +44,15 @@ for (const [name, path] of pages) {
   page.on('console', (m) => { if (m.type() === 'error' && /Roost crashed/.test(m.text())) problems.push('crash screen'); });
   await page.goto(BASE + path, { waitUntil: 'networkidle2', timeout: 20000 }).catch((e) => problems.push(`load: ${e.message}`));
   await new Promise((r) => setTimeout(r, 1200));
-  const r = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, crashed: /Something broke|couldn.t continue/i.test(document.body.innerText) })).catch(() => ({ width: 0, crashed: true }));
+  const r = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    crashed: /Something broke|couldn.t continue/i.test(document.body.innerText),
+    // A contained crash keeps the app up for the person — but it is still a
+    // bug, and a deploy must not ship one.
+    contained: [...document.querySelectorAll('.contained-error')].map((e) => e.textContent?.trim() ?? ''),
+  })).catch(() => ({ width: 0, crashed: true, contained: [] }));
   if (r.crashed) problems.push('crash screen shown');
+  for (const c of r.contained) problems.push(`contained crash: ${c.slice(0, 160)}`);
   if (r.width > 390) problems.push(`page is ${r.width}px wide on a 390px phone`);
   console.log(`  ${problems.length ? '✗' : '✓'} ${name}${problems.length ? ' — ' + [...new Set(problems)].join('; ') : ''}`);
   if (problems.length) failures.push(name);

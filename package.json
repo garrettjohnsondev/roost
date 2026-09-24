@@ -13,11 +13,12 @@
     "start": "npm run start -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
     "test": "npm run test -w server && npm run test -w web",
-    "service:install": "npm run build && npm run smoke && node scripts/service.mjs install",
+    "service:install": "node scripts/service.mjs install",
     "service:uninstall": "node scripts/service.mjs uninstall",
     "service:status": "node scripts/service.mjs status",
     "roadmap": "node scripts/roadmap-stats.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "service:rollback": "node scripts/service.mjs rollback"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

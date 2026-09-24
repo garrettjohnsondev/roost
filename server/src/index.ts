@@ -29,13 +29,20 @@ import { getCachedUsage, refreshUsage } from './usage.js';
 import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
 import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
+import { noteLogLine, registerRescue, webRoot } from './rescue.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 // Every log line gets a time. The log had none, so on the day every session
 // crashed there was no way to say when anything happened.
 for (const level of ['log', 'warn', 'error'] as const) {
   const original = console[level].bind(console);
-  console[level] = (...args: unknown[]) => original(new Date().toISOString(), ...args);
+  console[level] = (...args: unknown[]) => {
+    const at = new Date().toISOString();
+    // Warnings and errors also go to the rescue page, which is how the phone
+    // sees what went wrong without the Mac's log file.
+    if (level !== 'log') noteLogLine(`${at} ${args.map((a) => (a instanceof Error ? a.stack ?? a.message : typeof a === 'string' ? a : JSON.stringify(a))).join(' ')}`);
+    original(at, ...args);
+  };
 }
 
 const config = loadConfig();
@@ -637,8 +644,12 @@ const LIVE_SWEEP_INTERVAL_MS = 5 * 60_000;
 const liveSweep = setInterval(() => liveManager.sweepIdle(), LIVE_SWEEP_INTERVAL_MS);
 liveSweep.unref();
 
-// Serve the built web app when present (production mode).
-const webDist = join(repoRoot, 'web', 'dist');
+// The rescue page first: it must not depend on the front end below it.
+registerRescue(app, { sessions: () => manager.list().map(({ id, title, agent, cwd, state }) => ({ id, title, agent, cwd, state })) });
+
+// Serve the web app (production mode) — the current RELEASE, i.e. the last
+// build that passed the smoke check, not whatever was built most recently.
+const webDist = webRoot();
 if (existsSync(webDist)) {
   app.use(express.static(webDist));
   app.get(/^\/(?!api|ws).*/, (_req, res) => res.sendFile(join(webDist, 'index.html')));

@@ -871,7 +871,9 @@ describe('live preview: same origin, never an arbitrary port, never a file outsi
   });
   it('the proxy is mounted before the SPA catch-all, and the upgrade path only acts on \/live', () => {
     const idx = read('server/src/index.ts');
-    expect(idx.indexOf("app.use('/live/:pid'")).toBeLessThan(idx.indexOf('Serve the built web app'));
+    // Anchored on the catch-all itself, not the comment above it (which changed).
+    expect(idx.indexOf("app.use('/live/:pid'")).toBeGreaterThan(-1);
+    expect(idx.indexOf("app.use('/live/:pid'")).toBeLessThan(idx.indexOf('app.get(/^\\/(?!api|ws)'));
     expect(idx).toMatch(/if \(!isLivePath\(req\.url\)\) return;/);
   });
   it('serveStatic never serves a file outside its resolved root, even through a symlinked root', () => {
@@ -1101,3 +1103,56 @@ describe('an empty session opens', () => {
     expect(read('web/src/ChatView.tsx')).not.toMatch(/chapters\[0\]/);
   });
 })
+
+describe('never dead in the water', () => {
+  // 2026-09-24: one bad build crashed every session for a day. Three things would
+  // have saved it, and each is pinned here.
+
+  it('the rescue page depends on nothing the front end ships', () => {
+    const rescue = read('server/src/rescue.ts');
+    const page = rescue.slice(rescue.indexOf('const RESCUE_HTML'));
+    for (const dep of ['/assets/', '/fonts/', '/crew/', 'src="', 'rel="stylesheet"', '<link']) {
+      expect(page, dep).not.toContain(dep);
+    }
+  });
+
+  it('the rescue page is registered before the front end catch-all', () => {
+    const index = read('server/src/index.ts');
+    const rescue = index.indexOf('registerRescue(app');
+    const spa = index.indexOf('app.get(/^\\/(?!api|ws)');
+    expect(rescue).toBeGreaterThan(-1);
+    expect(spa).toBeGreaterThan(rescue);
+  });
+
+  it('the server serves the smoke-checked release, not the latest build', () => {
+    const index = read('server/src/index.ts');
+    expect(index).toContain('const webDist = webRoot()');
+    expect(index).not.toMatch(/const webDist = join\(repoRoot, 'web', 'dist'\)/);
+  });
+
+  it('a deploy smoke-checks the candidate before promoting it, and rolls back if the live check fails', () => {
+    const svc = read('scripts/service.mjs');
+    const smokeCandidate = svc.indexOf('serveCandidate(');
+    const promoteAt = svc.indexOf('promote()');
+    expect(smokeCandidate).toBeGreaterThan(-1);
+    expect(promoteAt).toBeGreaterThan(smokeCandidate);
+    expect(svc.slice(promoteAt)).toContain('rollback()');
+    // A gate that could not look has not passed; and a blocking call would
+    // freeze the in-process candidate server so the check never sees it.
+    expect(svc).toContain("ROOST_SMOKE_REQUIRED: '1'");
+    expect(svc).not.toMatch(/execSync\([^)]*smoke/);
+    // A stopped deploy has already overwritten server/dist, which launchd runs.
+    expect(svc.match(/restoreServer\(\); console\.error\([^)]*NOT deploying/g)?.length).toBe(2);
+  });
+
+  it('a message that fails to render costs one message, not the chat', () => {
+    const chat = read('web/src/ChatView.tsx');
+    expect(chat).toMatch(/<Contained[^>]*what="This message"/);
+    expect(chat).toMatch(/<Contained[^>]*what="These tool calls"/);
+    expect(chat).toMatch(/<Contained[^>]*what="The conversation"/);
+  });
+
+  it('the crash screen offers a way out that does not need this app', () => {
+    expect(read('web/src/ErrorBoundary.tsx')).toContain('href="/rescue"');
+  });
+});
