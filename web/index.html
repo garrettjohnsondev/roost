@@ -9,6 +9,11 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="/icon-192.png" />
+    <!-- Pip is put on screen the instant ↑ is tapped, before any server round
+         trip. His frames must already be here, or the text lands and his face
+         follows a beat later (seen on the phone, 2026-09-24). -->
+    <link rel="preload" as="image" href="/crew/pip-idle.webp" />
+    <link rel="preload" as="image" href="/crew/pip-think.webp" />
     <title>Roost</title>
   </head>
   <body>

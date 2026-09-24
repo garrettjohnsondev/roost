@@ -25,7 +25,8 @@ describe('SessionManager.sweepIdle', () => {
 
     manager.sweepIdle();
 
-    expect(stale.dispose).toHaveBeenCalledWith(expect.stringContaining('24h of inactivity'));
+    // A swept session is gone for good: its on-disk thread goes with it.
+    expect(stale.dispose).toHaveBeenCalledWith(expect.stringContaining('24h of inactivity'), { forget: true });
     expect(manager.sessions.has('stale')).toBe(false);
     expect(fresh.dispose).not.toHaveBeenCalled();
     expect(manager.sessions.has('fresh')).toBe(true);

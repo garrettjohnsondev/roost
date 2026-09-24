@@ -168,7 +168,11 @@ export function GlobalSettings(props: {
               {models.models.filter((m) => !m.hidden && !m.supersededBy && m.suggested.tier === null).map((m) => (
                 <div key={`${m.agent}:${m.id}`} className="models-new">
                   <span>
-                    <strong>New {m.agent} model:</strong> {m.displayName} — {m.description || m.id}. Not routed until you place it:
+                    {/* These chips are placements, not a selector -- nothing is
+                        "selected" because the model has no tier yet. Said so. */}
+                    <strong>New {m.agent} model: {m.displayName}.</strong> {m.description || m.id}
+                    <br />
+                    <span className="section-hint">Pip cannot route to it until it has a tier. Tap one to place it:</span>
                   </span>
                   <span className="chips">
                     {(['light', 'standard', 'heavy'] as const).map((t) => (
@@ -193,8 +197,8 @@ export function GlobalSettings(props: {
                 <span className="section-hint">
                   {models.fetchedAt ? `Roster fetched ${new Date(models.fetchedAt).toLocaleString()}` : 'Roster never fetched'} · {models.capabilities.reviewLabel}
                 </span>
-                <button className="ghost" disabled={!!modelsBusy} onClick={refreshRoster}>
-                  {modelsBusy === 'refresh' ? 'Refreshing…' : 'Refresh roster'}
+                <button className="chip" disabled={!!modelsBusy} onClick={refreshRoster} title="Ask both vendors what models they offer today">
+                  {modelsBusy === 'refresh' ? 'Checking…' : 'Check for new models'}
                 </button>
               </div>
             </div>

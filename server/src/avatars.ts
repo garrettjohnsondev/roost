@@ -70,7 +70,10 @@ export class AvatarGenError extends Error {}
 export async function generateAvatar(subject: string, color: string, timeoutMs = 6 * 60_000): Promise<string> {
   const clean = String(subject ?? '').trim().slice(0, 120);
   if (clean.length < 2) throw new AvatarGenError('describe the avatar you want');
-  if (!SAFE_COLOR.test(color)) throw new AvatarGenError('color must be #rrggbb');
+  // 2026-09-24: a persona with no colour yet sent "" and got a 400 for it --
+  // the person had typed a subject and been refused over a field they never
+  // saw. A missing or odd colour is not their mistake; the house blue stands in.
+  if (!SAFE_COLOR.test(color)) color = '#2f3a72';
 
   const dir = avatarDir();
   const id = randomUUID().slice(0, 8);

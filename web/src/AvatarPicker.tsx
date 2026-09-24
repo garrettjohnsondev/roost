@@ -38,6 +38,16 @@ export function AvatarPicker({
     api.avatars().then((r) => setCustom(r.custom ?? [])).catch(() => {});
   }, []);
 
+  // Generation takes about a minute; a button that only says "Generating…" for
+  // that long reads as hung. The seconds tick so it visibly is not.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!busy) return;
+    setElapsed(0);
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [busy]);
+
   const generate = async () => {
     setBusy(true);
     setErr(null);
@@ -109,14 +119,20 @@ export function AvatarPicker({
           onKeyDown={(e) => { if (e.key === 'Enter' && subject.trim().length > 1 && !busy) void generate(); }}
         />
         <button disabled={busy || subject.trim().length < 2} onClick={() => void generate()}>
-          {busy ? 'Generating…' : 'Generate'}
+          {busy ? 'Drawing…' : 'Generate'}
         </button>
       </div>
-      <div className="avatar-note">
-        Generating uses your own Codex subscription and takes a minute or two. Measured cost is
-        small — about a dozen images moved a weekly window by one percentage point — so this is
-        not something you need to ration. Picking from the pool above is still instant.
-      </div>
+      {busy ? (
+        <div className="avatar-note avatar-progress">
+          Codex is drawing it — {elapsed}s. Usually under a minute; the picture appears above when it lands.
+        </div>
+      ) : (
+        <div className="avatar-note">
+          Drawn by your own Codex subscription in about a minute. Measured cost is small — about a
+          dozen images moved a weekly window by one point — so there is no need to ration it.
+          Picking from the pool above is instant.
+        </div>
+      )}
       {err && <div className="avatar-note" style={{ color: 'var(--err, #f87171)' }}>{err}</div>}
     </div>
   );

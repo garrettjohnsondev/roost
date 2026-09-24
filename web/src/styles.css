@@ -721,8 +721,11 @@ button {
   color: var(--text-dim);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
-  border-radius: 999px;
-  padding: 3px 12px;
+  /* Not a pill: the line wraps to two rows on a phone, and a 999px radius on a
+     two-row box is a half-circle that swallows the corners of the text. */
+  border-radius: 12px;
+  padding: 5px 14px;
+  max-width: calc(100% - 24px);
 }
 
 .routed-chip strong {

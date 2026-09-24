@@ -28,6 +28,7 @@ import { CodexAdapter } from './agents/codex.js';
 import { statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
+import { TranscriptWriter, lastState, readTranscript, removeTranscript } from './transcripts.js';
 import { callLedger } from './ledger.js';
 import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
@@ -66,6 +67,7 @@ export class Session {
   agentSessionId?: string;
   readonly resumedFrom?: string;
   private transcript: ServerEvent[] = [];
+  private readonly transcriptWriter: TranscriptWriter;
   private sockets = new Set<WebSocket>();
   private adapter: AgentAdapter;
   private lastStatus: SessionMeta['state'] = 'idle';
@@ -172,6 +174,23 @@ export class Session {
     this.escalate = config.consult?.escalateToConference ?? true;
     this.verifyAfterProceed = config.consult?.verifyAfterProceed ?? true;
     this.otherAutoRoute = config.autoRoute[this.agent === 'claude' ? 'codex' : 'claude'];
+    this.transcriptWriter = new TranscriptWriter(this.id);
+    if (opts.restore) {
+      // The thread as the phone last saw it, back from disk -- then a line
+      // saying what happened, because a restart mid-turn ends that turn and
+      // nothing else in the thread would say so.
+      this.transcript = readTranscript(this.id, TRANSCRIPT_CAP);
+      const cut = lastState(this.transcript) === 'working';
+      const at = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      if (this.transcript.length) {
+        setTimeout(() => {
+          this.notice(cut
+            ? `Roost restarted at ${at} — the turn that was running was cut off. The thread above is what happened before; say "continue" to pick it back up.`
+            : `Roost restarted at ${at}. The thread above is what happened before.`);
+          if (cut) this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+        }, 0);
+      }
+    }
     try {
       const gates = gatesFrom(loadProjectKnowledge(this.cwd));
       this.gateFingerprintAtStart = gates.length ? gateFingerprint(gates) : null;
@@ -471,10 +490,18 @@ export class Session {
         setTimeout(() => this.broadcastMeta(), 0);
       } else if (intent.kind === 'auto') {
         this.contextHandledAt = intent.pressure;
+        // 2026-09-24: with "keep doing this" remembered, the compaction ran and
+        // the offer box stayed up. Only the tap path cleared it; this path
+        // never did. A compaction that is happening is an offer answered.
+        if (this.contextOffer) {
+          this.contextOffer = undefined;
+          setTimeout(() => this.broadcastMeta(), 0);
+        }
         setTimeout(() => void this.runCompaction(intent.reason, 'auto'), 0);
       }
     }
     this.transcript.push(event);
+    this.transcriptWriter.append(event);
     if (this.transcript.length > TRANSCRIPT_CAP) this.transcript.splice(0, this.transcript.length - TRANSCRIPT_CAP);
     // Meaningful activity only — status/usage churn shouldn't bump a session to the top
     // of the "recent" switcher just because it's mid-turn.
@@ -976,6 +1003,11 @@ export class Session {
   private async runCompaction(why: string, how: 'auto' | 'accepted' | 'accepted-remembered'): Promise<void> {
     try {
       const res = await this.adapter.compact();
+      // Belt and braces: whatever path got here, the offer it answers is gone.
+      if (this.contextOffer) {
+        this.contextOffer = undefined;
+        this.broadcastMeta();
+      }
       this.notice(
         how === 'auto'
           ? `Compacting automatically — ${why}. Turn this off in the context meter.`
@@ -1054,10 +1086,19 @@ export class Session {
   /** Closes the underlying agent process and every attached socket. `reason` reaches the
    *  client as the WebSocket close reason (code 4010) so the UI can explain why, instead
    *  of the socket just silently dying and retrying forever. */
-  dispose(reason = 'Closed') {
+  /** `forget` removes the on-disk thread too: a session closed on purpose is
+   *  gone; one lost to a restart is not, and is read back by restore(). */
+  dispose(reason = 'Closed', opts: { forget?: boolean } = {}) {
     this.adapter.dispose();
     for (const ws of this.sockets) ws.close(4010, reason);
     this.sockets.clear();
+    this.transcriptWriter.flush();
+    if (opts.forget) removeTranscript(this.id);
+  }
+
+  /** For shutdown: write what is buffered, keep the file. */
+  flushTranscript(): void {
+    this.transcriptWriter.flush();
   }
 }
 
@@ -1110,7 +1151,7 @@ export class SessionManager {
     let removed = false;
     for (const [id, session] of this.sessions) {
       if (session.updatedAt < cutoff) {
-        session.dispose(`Closed automatically after ${hours}h of inactivity`);
+        session.dispose(`Closed automatically after ${hours}h of inactivity`, { forget: true });
         this.sessions.delete(id);
         removed = true;
       }
@@ -1129,6 +1170,7 @@ export class SessionManager {
   }
 
   saveNow(): void {
+    for (const s of this.sessions.values()) s.flushTranscript?.();
     const entries: PersistedSession[] = [...this.sessions.values()].map((s) => ({
       id: s.id,
       agent: s.agent,
@@ -1243,7 +1285,7 @@ export class SessionManager {
   close(id: string): boolean {
     const session = this.sessions.get(id);
     if (!session) return false;
-    session.dispose('Closed');
+    session.dispose('Closed', { forget: true });
     this.sessions.delete(id);
     this.saveNow();
     return true;

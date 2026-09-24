@@ -629,6 +629,48 @@ describe('Proceed answers on the spot, and Stop is nowhere near Send', () => {
   });
 })
 
+describe('bugs from the phone, 2026-09-24', () => {
+  const s = read('server/src/sessions.ts');
+
+  it('an auto-compaction clears the offer it answers, on both paths', () => {
+    const auto = s.slice(s.indexOf("intent.kind === 'auto'"), s.indexOf('this.transcript.push(event);'));
+    expect(auto).toMatch(/this\.contextOffer = undefined;/);
+    const run = s.slice(s.indexOf('private async runCompaction('), s.indexOf('private lastLine('));
+    expect(run).toMatch(/await this\.adapter\.compact\(\);[\s\S]{0,200}this\.contextOffer = undefined;/);
+  });
+
+  it('the thread survives a restart: written as it happens, read back on restore, and the cut turn named', () => {
+    expect(s).toMatch(/this\.transcriptWriter\.append\(event\);/);
+    expect(s).toMatch(/this\.transcript = readTranscript\(this\.id, TRANSCRIPT_CAP\);/);
+    expect(s).toMatch(/Roost restarted at \$\{at\} — the turn that was running was cut off/);
+    // closing on purpose forgets the file; a sweep does too; a restart does not
+    expect(s).toMatch(/session\.dispose\('Closed', \{ forget: true \}\)/);
+    expect(s).toMatch(/of inactivity`, \{ forget: true \}\)/);
+    const t = read('server/src/transcripts.ts');
+    expect(t).toMatch(/if \(event\.type === 'assistant_delta' \|\| event\.type === 'thinking_delta'\) return;/);
+    expect(t).toMatch(/\.unref\(\)/);
+  });
+
+  it("Pip's frames are preloaded, so his face lands with his line", () => {
+    const html = read('web/index.html');
+    expect(html).toMatch(/<link rel="preload" as="image" href="\/crew\/pip-idle\.webp" \/>/);
+    expect(html).toMatch(/<link rel="preload" as="image" href="\/crew\/pip-think\.webp" \/>/);
+  });
+
+  it('the routed chip is not a pill, because it wraps', () => {
+    const css = read('web/src/styles.css');
+    const chip = css.slice(css.indexOf('.routed-chip {'), css.indexOf('.routed-chip strong'));
+    expect(chip).not.toMatch(/border-radius: 999px/);
+  });
+
+  it('the avatar generator does not refuse over a colour the person never typed', () => {
+    const a = read('server/src/avatars.ts');
+    expect(a).not.toMatch(/throw new AvatarGenError\('color must be/);
+    expect(a).toMatch(/if \(!SAFE_COLOR\.test\(color\)\) color = '#[0-9a-f]{6}';/);
+    expect(read('web/src/AvatarPicker.tsx')).toMatch(/Codex is drawing it — \{elapsed\}s/);
+  });
+})
+
 describe('the crew bubble is a stable wink, not a loop', () => {
   // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
   // little things" for idle. Implemented as a pure function of name and pose,
