@@ -110,6 +110,28 @@ def props(ids):
         print(f'prop/{pid}: transparent={transparent(im)} -> {out.name} ({out.stat().st_size}b)')
 
 
+def sheet(names):
+    """idle + the four scene poses per character, one row each, on the app's
+    background -- the crew-comparison sheet that caught Bram's and Rue's
+    style drift last time. Written to /tmp/roost-shots/scene-sheet.png."""
+    cols = ['idle'] + POSES
+    rows = []
+    for name in names:
+        row = []
+        for pose in cols:
+            f = CREW / f'{name}-{pose}.webp'
+            row.append(Image.open(f).convert('RGBA') if f.exists() else Image.new('RGBA', (256, 256), (0, 0, 0, 0)))
+        rows.append(row)
+    out = Image.new('RGBA', (256 * len(cols), 256 * len(rows)), (13, 20, 36, 255))
+    for r, row in enumerate(rows):
+        for c, im in enumerate(row):
+            out.paste(im, (256 * c, 256 * r), im)
+    dest = Path('/tmp/roost-shots/scene-sheet.png')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    out.save(dest)
+    print(f'sheet: {dest} ({len(rows)} rows x {len(cols)})')
+
+
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet}[mode](rest)

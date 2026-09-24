@@ -36,7 +36,8 @@ export function SceneView({ awake, onOverflow }: { awake: Array<{ member: CrewIn
 function Seated({ placed: { member, seat, working } }: { placed: Placed }) {
   const [poseMissing, setPoseMissing] = useState(false);
   const pose = working ? 'type' : poseMissing ? 'idle' : seat.pose;
-  const prop = working ? 'laptop' : seat.prop;
+  // An idle fallback has its paws at its sides; a prop over them would float.
+  const prop = working ? 'laptop' : poseMissing ? undefined : seat.prop;
   const flip = !working && seat.flip;
   // 512×256 space -> percentages, so the scene scales with the card.
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
