@@ -17,6 +17,7 @@ const PIP = crew('Pip', 'pip', 'claude', 'claude-haiku-4-5', '#c9803a', 'Dispatc
 
 const at = (n: number) => 1_790_150_000_000 + n * 1000;
 const passing = { passed: true, summary: 'all gates passed', gates: [{ command: 'npm test', exitCode: 0, ms: 4200, stdoutTail: '372 passed', stderrTail: '' }], images: [], tampered: false } as any;
+const failing = { passed: false, unverified: false, summary: '1/2 gates passed', gates: [{ command: 'npm test', exitCode: 0, ms: 4200, stdoutTail: '372 passed', stderrTail: '' }, { command: 'npm run typecheck', exitCode: 2, ms: 900, stdoutTail: '', stderrTail: 'error TS2345' }], images: [], tampered: false } as any;
 
 const TWO_JOBS: ChatItem[] = [
   { kind: 'routed', model: 'haiku', tier: 'light', reason: 'rename across two files', crew: PIP, ts: at(0) },
@@ -55,6 +56,23 @@ const SIGNED_OUT: ChatItem[] = [
   { kind: 'error', code: 'auth', text: 'Claude turn failed: OAuth token has expired. Please run /login', ts: at(1) },
 ];
 
+/** A job with TWO crew members speaking before it passes, live -- so both
+ *  cheer and the confetti fires. Design-review target for items 01/08. */
+const EARNED: ChatItem[] = [
+  { kind: 'user', text: 'Add a --json flag to the avatar generator', imageCount: 0, ts: at(0) },
+  { kind: 'consult', phase: 'plan', agent: 'claude', crew: { ...OLLIE, roleLabel: 'Planner' }, text: 'Plan is up.', ts: at(1) },
+  { kind: 'assistant', text: 'Flag added, banner moved behind the check.', complete: true, crew: OLLIE, ts: at(2) },
+  { kind: 'consult', phase: 'critique', agent: 'codex', crew: JUNO, reviewStrength: 'cross-vendor', text: 'VERDICT: OK.', ts: at(3) },
+  { kind: 'verify', report: passing, ts: at(4) },
+];
+
+/** A fresh FAILING verify, for the red stamp (item 01). */
+const GATE_FAILED: ChatItem[] = [
+  { kind: 'user', text: 'Add a --json flag to the avatar generator', imageCount: 0, ts: at(0) },
+  { kind: 'assistant', text: 'Done. Running the gates.', complete: true, crew: OLLIE, ts: at(1) },
+  { kind: 'verify', report: failing, ts: at(2) },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
@@ -71,6 +89,10 @@ export const FIXTURES: Record<string, () => SessionState> = {
     }),
   /** Full auto already on — the persistent warning bar should be visible. */
   'full-auto': () => base(TWO_JOBS, meta({ approvals: 'full-auto' }), TWO_JOBS.length),
+  /** A job two people worked, closing live: both cheer, confetti fires once. */
+  earned: () => base(EARNED, meta(), 0),
+  /** A gate fails, live: the red stamp lands, the badge reads FAILED. */
+  'gate-failed': () => base(GATE_FAILED, meta(), 0, { status: 'idle' }),
   /** The instant after ↑ in auto mode: Pip, thinking, before triage returns. */
   triage: () =>
     base([{ kind: 'user', text: 'Rename fmtAgo to formatAgo everywhere', imageCount: 0, ts: at(0) }], meta(), 0, {

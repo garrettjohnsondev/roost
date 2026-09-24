@@ -217,18 +217,21 @@ describe('motion reports state — including the one case that repeats', () => {
     expect(block('.crew-sprite.pose-cheer')).not.toMatch(/infinite/);
   });
 
-  it('stamps the badge, never the sprite beside it', () => {
+  it('stamps the badge, never the sprite beside it -- on both a pass and a fail', () => {
     // Scaling pixel art on a non-integer factor blurs it, even for 300ms — so
-    // the stamp scales the TEXT badge and leaves the crew member alone.
+    // the stamp scales the TEXT badge and leaves the crew member alone. The
+    // red stamp on failure (item 01) shares the same rule, not a new one.
     const css = read('web/src/styles.css');
-    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge \{ animation: stamp-land/);
+    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge,\s*\.verify-msg\.fail\.fresh \.verify-badge \{ animation: stamp-land/);
     expect(css).not.toMatch(/\.verify-msg\.pass \.crew-sprite \{ animation/);
   });
 
-  it('only celebrates a gate that actually passed', () => {
+  it('only celebrates a gate that actually passed -- the WHOLE job\'s crew, not just whoever is live', () => {
     // A failed gate getting a cheer would undo the reason for having a gate.
+    // Item 08: every member of the chapter cheers, not only the live one.
     const c = read('web/src/ChatView.tsx');
-    expect(c).toMatch(/\{r\.passed && crew\?\.sprite && \(/);
+    expect(c).toMatch(/const cheerers = r\.passed \? \(chapterCrew\?\.length \? chapterCrew : crew \? \[crew\] : \[\]\) : \[\];/);
+    expect(c).toMatch(/\{cheerers\.filter\(\(c\) => c\.sprite\)\.map\(\(c\) => \(/);
   });
 
   it('lets exactly one pose repeat, because its state persists', () => {
@@ -266,7 +269,10 @@ describe('the only things that repeat are states that persist', () => {
     // left or the set changes on the hour -- and it is the SET, never the crew,
     // who still only move for real state. Asked for, 2026-09-24: "each scene
     // needs something animated". Off under reduced motion.
-    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/];
+    // .tool-caret: the command-typing caret (item 05), rendered only while
+    // !item.done and removed from the DOM the instant it flips -- so the loop
+    // itself is not the gate, the element's presence is.
+    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -295,11 +301,16 @@ describe('replayed history does not perform', () => {
   it('gates every one-shot on freshness', () => {
     const css = read('web/src/styles.css');
     expect(css).toMatch(/\.verify-msg\.fresh \.crew-sprite\.pose-cheer \{ animation/);
-    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge \{ animation/);
+    expect(css).toMatch(/\.verify-msg\.pass\.fresh \.verify-badge,\s*\.verify-msg\.fail\.fresh \.verify-badge \{ animation/);
     expect(css).toMatch(/\.tool-detail\.typing \{ animation/);
     // …and none of them fire on the un-gated selector.
     expect(css).not.toMatch(/\n\.crew-sprite\.pose-cheer \{ animation/);
     expect(css).not.toMatch(/\n\.verify-msg\.pass \.verify-badge \{ animation/);
+    // The three new one-shots (07's ring, 08's confetti) also gate on a
+    // real arrival: the ring on requestId, confetti on a fresh pass.
+    const c = read('web/src/ChatView.tsx');
+    expect(c).toMatch(/<span className="approval-ring" key=\{session\.pendingApproval\.requestId\}>/);
+    expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
   });
 })
 
@@ -882,6 +893,63 @@ describe('a plain chat turn gets its own finished beat', () => {
     const css = read('web/src/styles.css');
     expect(css).toMatch(/\.tracker-cheer \{ animation: tracker-cheer-hop/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.tracker-cheer \{ animation: none; \} \}/);
+  });
+})
+
+describe('the four motions MOTION.md \u00a77 called still open', () => {
+  // Reviewed 2026-09-24, then built the same day: the red stamp on failure,
+  // the approval ring and haptic, confetti with the whole job's crew, and a
+  // caret while a command runs -- items 01, 07 and 08 from the board, plus
+  // 05's caret. The idle-breath item was reviewed too and struck, not built
+  // (recorded in MOTION.md \u00a77 with why, not silently dropped).
+  const css = read('web/src/styles.css');
+  const c = read('web/src/ChatView.tsx');
+
+  it("the caret is its own element, not a pseudo-element clipped by .tool-detail's own ellipsis, and is gone the instant the call finishes", () => {
+    // .tool-detail truncates with overflow: hidden; a ::after caret inside it
+    // would have been invisible on any truncated (i.e. most) command.
+    expect(c).toMatch(/\{!item\.done && <span className="tool-caret" aria-hidden="true" \/>\}/);
+    expect(css).toMatch(/\.tool-caret \{[\s\S]*?animation: caret-blink 900ms steps\(1, end\) infinite;/);
+    const rm = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce) {\n  .verify-msg.fresh"));
+    expect(rm.slice(0, 700)).toMatch(/\.tool-caret \{ animation: none; \}/);
+  });
+
+  it('the folded run row also gets the caret -- that row, not the expanded ToolChip, is what a live run actually shows', () => {
+    // Consecutive tool calls fold into one line by default (4edc827); a
+    // caret only on the hidden, expanded ToolChip would never be seen.
+    const run = c.slice(c.indexOf('function ToolRun('), c.indexOf('function ThinkingBlock('));
+    expect(run).toMatch(/\{s\.running \? \(/);
+    expect(run).toMatch(/<span className="tool-caret" aria-hidden="true" \/>/);
+  });
+
+  it('the approval ring is a ONE-SHOT keyed per distinct approval, not a loop, and the haptic fires the same way', () => {
+    expect(css).toMatch(/\.approval-ring::before \{[\s\S]*?animation: approval-ring-expand 900ms[^;]*;[\s\S]*?\}/);
+    expect(css).not.toMatch(/approval-ring-expand[^;]*infinite/);
+    expect(c).toMatch(/if \(session\.pendingApproval && typeof navigator\.vibrate === 'function'\) navigator\.vibrate\(60\);/);
+    expect(c).toMatch(/\}, \[session\.pendingApproval\?\.requestId\]\);/);
+  });
+
+  it('confetti is once, gated on a fresh pass, and never on a fail', () => {
+    expect(css).toMatch(/@keyframes confetti-rise \{/);
+    expect(css).not.toMatch(/confetti-rise[^;]*infinite/);
+    expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
+  });
+
+  it('everyone who worked the job cheers, not just whoever is live -- falls back to the live one when a chapter is not known', () => {
+    expect(c).toMatch(/const cheerers = r\.passed \? \(chapterCrew\?\.length \? chapterCrew : crew \? \[crew\] : \[\]\) : \[\];/);
+    expect(c).toMatch(/chapterCrew=\{ch\.crew\}/);
+  });
+
+  it('every new one-shot has a reduced-motion rule that turns it off', () => {
+    const rm = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce) {\n  .verify-msg.fresh"));
+    const block = rm.slice(0, 700);
+    expect(block).toMatch(/\.confetti-piece \{ display: none; \}/);
+    expect(block).toMatch(/\.approval-ring::before \{ animation: none; opacity: 0; \}/);
+  });
+
+  it('the idle-breath item is a recorded decision, not a silent gap', () => {
+    const doc = read('docs/MOTION.md');
+    expect(doc).toMatch(/struck, not built/);
   });
 })
 

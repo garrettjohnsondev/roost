@@ -2367,7 +2367,8 @@ button {
 /* The stamp. The badge lands, it does not fade in — a gate result should arrive
    with the weight of a verdict. Scales the TEXT badge only, never the sprite
    beside it: pixel art at a non-integer scale blurs, even for 300ms. */
-.verify-msg.pass.fresh .verify-badge { animation: stamp-land 420ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.verify-msg.pass.fresh .verify-badge,
+.verify-msg.fail.fresh .verify-badge { animation: stamp-land 420ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
 @keyframes stamp-land {
   0% { transform: scale(1.8); opacity: 0; }
   55% { transform: scale(0.94); opacity: 1; }
@@ -2376,13 +2377,71 @@ button {
 .verify-badge { display: inline-block; transform-origin: center; }
 
 /* The crew sits on the line in both places it now appears. */
-.verify-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.verify-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; }
 .approval-head { display: flex; align-items: center; gap: 10px; }
+
+/* Earned delight (item 08's confetti): a handful of pixels in the crew's own
+   colours, rising off the verdict and fading, once. Absolutely positioned
+   over the verify head so it never pushes the badge or the gate list. */
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.confetti-piece {
+  position: absolute; left: calc(14px + var(--i) * 13px); top: 4px;
+  width: 5px; height: 6px; border-radius: 1px;
+  animation: confetti-rise 1.4s cubic-bezier(0.15, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
+}
+.confetti-piece.lamp { background: var(--accent); }
+.confetti-piece.claude { background: var(--claude); }
+.confetti-piece.codex { background: var(--codex); }
+@keyframes confetti-rise {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateY(-26px) rotate(50deg); opacity: 0; }
+}
+
+/* Commands type themselves (item 05's caret): blinks only while the call is
+   actually running, in the doctrine's own words -- it stops the instant
+   item.done, which is a real state change, not a clock running out. */
+.tool-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 4px;
+  flex-shrink: 0;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: caret-blink 900ms steps(1, end) infinite;
+}
+@keyframes caret-blink { 0%, 49.99% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+/* An agent that needs you (item 07's ring): one expanding lamp ring per
+   DISTINCT approval -- the element itself is keyed on requestId, so a new
+   approval remounts it and the animation plays again; `both` holds the
+   settled state rather than looping. */
+.approval-ring { position: relative; display: inline-flex; }
+.approval-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: approval-ring-expand 900ms cubic-bezier(0.15, 0.8, 0.3, 1) both;
+  pointer-events: none;
+}
+@keyframes approval-ring-expand {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  70% { opacity: 0.35; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .verify-msg.fresh .crew-sprite.pose-cheer,
   .crew-sprite.pose-peek,
-  .verify-msg.pass.fresh .verify-badge { animation: none; }
+  .verify-msg.pass.fresh .verify-badge,
+  .verify-msg.fail.fresh .verify-badge { animation: none; }
+  .confetti-piece { display: none; }
+  .tool-caret { animation: none; }
+  .approval-ring::before { animation: none; opacity: 0; }
 }
 
 /* ---- Fuel, rot and expiry — three more of the eight ------------------------ */

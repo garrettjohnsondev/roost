@@ -190,6 +190,15 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       .finally(() => setRecapLoading(false));
   }, [sessionId, session.meta?.resumedFrom, session.meta?.agent, session.meta?.cwd, session.items.length]);
 
+  // An agent that needs you: one short tap when a NEW approval arrives, so it
+  // can be felt without looking. `requestId` changing is the trigger -- the
+  // same one-shot-per-arrival rule as the ring below, not a timer. iOS Safari
+  // does not implement navigator.vibrate; those readers still get the visual
+  // ring, and the existing ntfy push when nobody is watching.
+  useEffect(() => {
+    if (session.pendingApproval && typeof navigator.vibrate === 'function') navigator.vibrate(60);
+  }, [session.pendingApproval?.requestId]);
+
   const agent = session.meta?.agent ?? 'claude';
   const agentConfig = config[agent];
   const isAuto = session.meta?.model === 'auto';
@@ -411,7 +420,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             // other item is its own row, as before.
             const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
               seg.kind === 'item' ? (
-                <Message key={seg.index} item={session.items[seg.index]} crew={session.meta?.crew} me={me} fresh={seg.index >= session.replayedCount} />
+                <Message key={seg.index} item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} />
               ) : (
                 <ToolRun key={`run-${seg.start}`} items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} replayedCount={session.replayedCount} />
               ),
@@ -513,9 +522,14 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             <h3 className="approval-head">
               {/* An agent that needs you. The peek pose — crouched, leaning in,
                   reading — is what "I am waiting on you" looks like, and it has
-                  been drawn and unreferenced until now. */}
+                  been drawn and unreferenced until now. A ring expands off the
+                  face once per DISTINCT approval (keyed on requestId, which is
+                  the only "fresh" an approval has -- it is either pending or
+                  it is not, never replayed history the way a chat item is). */}
               {session.meta?.crew?.sprite && (
-                <SpriteAvatar crew={session.meta.crew} pose="peek" size={34} />
+                <span className="approval-ring" key={session.pendingApproval.requestId}>
+                  <SpriteAvatar crew={session.meta.crew} pose="peek" size={34} />
+                </span>
               )}
               <span>
                 {/* The server names the vendor ("Claude wants to use Bash"); the
@@ -746,6 +760,22 @@ export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; 
       ) : (
         <img src={`${base}-${pose}.webp`} alt="" onError={() => setFailed(true)} />
       )}
+    </span>
+  );
+}
+
+const CONFETTI_COLOURS = ['lamp', 'claude', 'codex', 'lamp', 'claude'] as const;
+
+/** A handful of pixels in the crew's own colours, rising off the verdict and
+ *  fading, once. The board's one unprompted moment ("Finishing is worth
+ *  something") -- earned because a whole job just verified, never decoration.
+ *  Pure CSS, `aria-hidden`, gone under reduced motion. */
+function Confetti() {
+  return (
+    <span className="confetti" aria-hidden="true">
+      {CONFETTI_COLOURS.map((c, i) => (
+        <i key={i} className={`confetti-piece ${c}`} style={{ '--i': i } as React.CSSProperties} />
+      ))}
     </span>
   );
 }
@@ -993,7 +1023,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: CrewInfo; me?: Me | null; fresh?: boolean }) {
+function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean }) {
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1069,17 +1099,25 @@ function Message({ item, crew, me, fresh = false }: { item: ChatItem; crew?: Cre
       );
     case 'verify': {
       const r = item.report;
+      // Finishing is worth something, and it is the WHOLE job's crew, not
+      // just whoever is live right now: chapterCrew is everyone who spoke in
+      // this chapter, in order of first appearance (chapters.ts). Falls back
+      // to the single live `crew` for a verify item with no chapter context.
+      const cheerers = r.passed ? (chapterCrew?.length ? chapterCrew : crew ? [crew] : []) : [];
       return (
         <div className={`verify-msg ${r.passed ? 'pass' : r.unverified ? 'unverified' : 'fail'}${fresh ? ' fresh' : ''}`}>
           <div className="verify-head">
-            {/* Finishing is worth something. The cheer frame has existed, shipped
-                and unused, since the sprite work; this is the event it was drawn
-                for. Only on a PASS — a failed gate gets no celebration, which is
-                the whole point of having a gate. */}
-            {r.passed && crew?.sprite && (
-              <SpriteAvatar crew={crew} pose="cheer" size={30} />
-            )}
+            {/* Finishing is worth something. Only on a PASS -- a failed gate
+                gets no celebration, which is the whole point of having a gate. */}
+            {cheerers.filter((c) => c.sprite).map((c) => (
+              <SpriteAvatar key={c.name} crew={c} pose="cheer" size={30} />
+            ))}
             <span className="verify-badge">{r.passed ? 'PASSED' : r.unverified ? 'NOT VERIFIED' : 'FAILED'}</span> {r.summary}
+            {/* Earned delight, once: a handful of pixels in the crew's own
+                colours rising off the verdict and fading. The board's one
+                unprompted moment, and it only fires because something real
+                just passed. */}
+            {r.passed && fresh && <Confetti />}
           </div>
           {r.tampered && <div className="verify-tamper">Gate definitions changed during this session — this result cannot be trusted.</div>}
           {r.gates.map((g, i) => (
@@ -1191,6 +1229,13 @@ function ToolChip({ item, fresh = false }: { item: Extract<ChatItem, { kind: 'to
         >
           {item.detail}
         </span>
+        {/* Commands type themselves (item 05): a caret while the call is
+            actually running. Rendered as its own element, not a pseudo-
+            element inside .tool-detail -- that span clips with an ellipsis,
+            which would have hidden the caret on any truncated (i.e. most)
+            command the instant it mattered. Gated on the same boolean the
+            chip's own colour is (!item.done), never a timer. */}
+        {!item.done && <span className="tool-caret" aria-hidden="true" />}
         {item.done && item.endDetail && <span className="tool-detail"> · {item.endDetail}</span>}
         {!item.done && <span className="spinner" />}
         {expandable && <span className="tool-expand-hint">{expanded ? '▴' : '▾'}</span>}
@@ -1230,6 +1275,11 @@ function ToolRun({ items, start, end, crew, replayedCount }: { items: ChatItem[]
             <>
               <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
               {s.text ? <span className="tool-run-sofar"> · {s.text} so far</span> : null}
+              {/* The folded row is the one actually on screen during a live
+                  run -- calls fold into this line by default (4edc827) -- so
+                  the caret has to live here too, not only on the expanded
+                  ToolChip nobody is looking at. */}
+              <span className="tool-caret" aria-hidden="true" />
             </>
           ) : (
             s.text
