@@ -2818,70 +2818,17 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .img-viewer-error { color: #e6e9f2; font-size: 15px; text-align: center; max-width: 280px; line-height: 1.4; }
 .img-viewer-path { padding: 8px 16px 12px; font-family: ui-monospace, monospace; font-size: 11px; color: rgba(230, 233, 242, 0.6); word-break: break-all; }
 
-/* ---------- the wordmark (2026-09-24) ----------
-   One wordmark in both themes: the pixel face, in the icon's palette.
-   Dark: moonlight letters on an indigo pixel shadow. Light: the indigo
-   letters on a moonlight shadow. The shadow is a hard step, never a blur. */
-.page-header h1.wordmark {
-  position: relative;
-  display: inline-block;
-  /* Named directly: --font-display is only defined for the dark theme. */
-  font-family: 'Silkscreen', ui-monospace, monospace;
-  font-weight: 400;
-  font-size: 30px;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  color: #2f3a72;
-  text-shadow: 2px 2px 0 #f0c75e;
-  padding-right: 2px;
-  margin-top: 14px;
-}
-[data-theme='dark'] .page-header h1.wordmark {
-  color: #f6dc8c;
-  text-shadow: 2px 2px 0 #2f3a72, 3px 3px 0 #141c38;
-}
-/* The OO are eyes: a pupil and a highlight pixel in each counter. */
-.wm-eyes { position: relative; display: inline-block; }
-.wm-eye { position: relative; display: inline-block; }
-.wm-eye::after {
-  content: '';
-  position: absolute;
-  width: 0.2em;
-  height: 0.2em;
-  left: calc(50% - 0.03em - 0.1em);
-  top: calc(50% - 0.1em);
-  background: #141c38;
-  box-shadow: inset 0.067em 0.067em 0 #ffffff00;
-}
-.wm-eye::before {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  width: 0.067em;
-  height: 0.067em;
-  left: calc(50% - 0.03em - 0.1em);
-  top: calc(50% - 0.1em);
-  background: #fff;
-}
-/* Ear tufts on the eyes' outer top corners, in the letters' own pixel. */
-.wm-ear {
-  position: absolute;
-  width: 0.4375em;   /* 3.5 cells: 3 of tuft + half a cell of shadow */
-  height: 0.4375em;
-  /* Measured in the rendered font: the cap starts 0.696em above the eye box's
-     bottom once the half-cell of shadow is allowed for, so the tuft's base
-     row rests exactly on the top of the O. */
-  bottom: 0.696em;
-  overflow: visible;
-  pointer-events: none;
-}
-/* Each O is drawn one cell (0.125em) in from its box; the second O's box
-   also carries the letter-spacing after it. */
-.wm-ear.left { left: 0.125em; }
-.wm-ear.right { right: 0.119em; }
-.wm-ears-fill { fill: #2f3a72; }
-.wm-ears-shadow { fill: #f0c75e; }
-[data-theme='dark'] .wm-ears-fill { fill: #f6dc8c; }
-[data-theme='dark'] .wm-ears-shadow { fill: #2f3a72; }
+/* ---------- the wordmark (Wordmark.tsx, locked 2026-09-24) ---------- */
+.page-header h1.wordmark { margin: 0; line-height: 0; }
+.wordmark-svg { display: block; }
+.wm-ink { fill: #2f3a72; }
+.wm-shadow { fill: #f0c75e; }
+.wm-white { fill: #fbe7a6; }
+.wm-pupil { fill: #141c38; }
+.wm-glint { fill: #ffffff; }
+[data-theme='dark'] .wm-ink { fill: #f6dc8c; }
+[data-theme='dark'] .wm-shadow { fill: #2f3a72; }
+[data-theme='dark'] .wm-white { fill: #ffffff; }
+
 .center-note.splash { flex-direction: column; gap: 14px; }
 .splash-row { width: min(72vw, 300px); height: auto; image-rendering: pixelated; }
