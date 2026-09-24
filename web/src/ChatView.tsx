@@ -112,6 +112,26 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     window.addEventListener('roost:claude-signin', open);
     return () => window.removeEventListener('roost:claude-signin', open);
   }, []);
+  // "Start fresh": a new session on the same project and engine, opened in place.
+  useEffect(() => {
+    const fresh = async () => {
+      const m = session.meta;
+      if (!m) return;
+      try {
+        const r = await fetch('/api/sessions', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ agent: m.agent, cwd: m.cwd, title: `Fresh start — ${m.title}`.slice(0, 80) }),
+        });
+        const d = await r.json();
+        const id = d.id ?? d.session?.id;
+        if (id) onSwitch(id);
+      } catch {
+        /* the button stays; nothing was lost */
+      }
+    };
+    window.addEventListener('roost:start-fresh', fresh);
+    return () => window.removeEventListener('roost:start-fresh', fresh);
+  }, [session.meta, onSwitch]);
   // You, in the thread. One fetch, because your name does not change per project.
   const [me, setMe] = useState<Me | null>(null);
   useEffect(() => {
@@ -1212,6 +1232,19 @@ function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatIte
             <span>You can fix that from here.</span>
             <button className="chip compact-accept" onClick={() => window.dispatchEvent(new Event('roost:claude-signin'))}>
               Sign in to Claude
+            </button>
+          </div>
+        );
+      }
+      if (item.code === 'context') {
+        // Every later message fails the same way, and a restart resumes the same
+        // oversized conversation — so the only way on is a fresh session.
+        return (
+          <div className="msg error auth-needed">
+            <strong>This conversation is too long for Claude to continue.</strong>
+            <span>Every message here will fail the same way. A fresh session on this project picks up where you are; this one stays readable.</span>
+            <button className="chip compact-accept" onClick={() => window.dispatchEvent(new Event('roost:start-fresh'))}>
+              Start fresh on this project
             </button>
           </div>
         );

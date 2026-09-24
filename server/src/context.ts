@@ -206,3 +206,12 @@ export function compactionIntent(opts: {
   const base = { reason, percent: s.percent, pressure: s.pressure };
   return opts.auto ? { kind: 'auto', ...base } : { kind: 'offer', ...base };
 }
+
+/** The conversation has outgrown the model's window. Once this happens every
+ *  later message fails the same way — the session is stuck, and resuming it
+ *  after a restart resumes the same oversized conversation. It needs a fresh
+ *  session, and the phone should be able to start one. */
+const OVERFLOW = /prompt is too long|input (is )?too long|context (window|length) (exceeded|limit)|maximum context length|too many tokens/i;
+export function isContextOverflow(message: string | null | undefined): boolean {
+  return !!message && OVERFLOW.test(message);
+}

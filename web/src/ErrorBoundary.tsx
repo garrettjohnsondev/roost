@@ -1,3 +1,4 @@
+import { reportCrash } from './reportCrash';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface Props {
@@ -22,6 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     this.setState({ info: info.componentStack ?? null });
     console.error('Roost crashed:', error, info.componentStack);
+    reportCrash('crash screen', error, info.componentStack ?? undefined);
   }
 
   render() {

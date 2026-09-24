@@ -1,3 +1,4 @@
+import { reportCrash } from './reportCrash';
 import { useEffect, useState } from 'react';
 
 interface Caught {
@@ -20,6 +21,8 @@ export function GlobalErrorBanner() {
       const message = e.reason instanceof Error ? e.reason.message : String(e.reason);
       setErrors((prev) => [...prev, { id: nextId++, message }].slice(-3));
     };
+    window.addEventListener('error', (e) => reportCrash('uncaught error', e.error ?? e.message));
+    window.addEventListener('unhandledrejection', (e) => reportCrash('unhandled rejection', e.reason));
     window.addEventListener('error', onError);
     window.addEventListener('unhandledrejection', onRejection);
     return () => {

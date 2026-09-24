@@ -3,7 +3,7 @@ import { authedQuery, isAuthFailure } from '../claudeAuth.js';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteClaudeRateLimit } from '../usage.js';
 import { claudeDeltas } from '../usageDelta.js';
-import { fromClaudeContextUsage, withAdvice } from '../context.js';
+import { fromClaudeContextUsage, isContextOverflow, withAdvice } from '../context.js';
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 import { toolDetail } from '../toolDetail.js';
@@ -180,7 +180,8 @@ export class ClaudeAdapter implements AgentAdapter {
           const msg = `Claude turn failed: ${truncate(why, 500)}`;
           // An auth failure is a different problem with a different fix, and the
           // phone can now fix it — so it is marked, not buried in a generic error.
-          this.emit({ type: 'error', message: msg, ...(isAuthFailure(why) ? { code: 'auth' as const } : {}), ts: now() });
+          const code = isAuthFailure(why) ? ('auth' as const) : isContextOverflow(why) ? ('context' as const) : undefined;
+          this.emit({ type: 'error', message: msg, ...(code ? { code } : {}), ts: now() });
         }
         this.emit({
           type: 'usage',

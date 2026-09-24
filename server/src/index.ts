@@ -31,6 +31,13 @@ import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
+// Every log line gets a time. The log had none, so on the day every session
+// crashed there was no way to say when anything happened.
+for (const level of ['log', 'warn', 'error'] as const) {
+  const original = console[level].bind(console);
+  console[level] = (...args: unknown[]) => original(new Date().toISOString(), ...args);
+}
+
 const config = loadConfig();
 initNotify(config);
 const manager = new SessionManager(config);
@@ -498,6 +505,16 @@ app.post('/api/auth/claude/cancel', (_req, res) => {
 app.delete('/api/auth/claude/token', async (_req, res) => {
   clearToken();
   res.json({ ok: true, status: await authStatus() });
+});
+
+// The phone reports its own crashes here, so the Mac's log is not silent when
+// the app breaks in the browser — the whole of 2026-09-24's outage was invisible
+// from the Mac for exactly that reason.
+app.post('/api/client-error', (req, res) => {
+  const b = req.body ?? {};
+  const s = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').slice(0, n);
+  console.error(`[roost] phone ${s(b.kind, 40)} at ${s(b.url, 120)}: ${s(b.message, 300)} | ${s(b.stack, 400)}`);
+  res.json({ ok: true });
 });
 
 app.get('/api/me', (_req, res) => {

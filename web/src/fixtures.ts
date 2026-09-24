@@ -90,7 +90,17 @@ const THREE_DAYS: ChatItem[] = [
   { kind: 'verify', report: passing, ts: daySpread(0, 2) },
 ];
 
+const TOO_LONG: ChatItem[] = [
+  { kind: 'user', text: 'Keep going with the review', imageCount: 0, ts: at(0) },
+  { kind: 'error', code: 'context', text: 'Claude turn failed: Prompt is too long', ts: at(1) },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
+  /** A conversation that outgrew Claude's window, as 725ffb4e did. */
+  'too-long': () => base(TOO_LONG, meta({ state: 'idle' }), TOO_LONG.length),
+  /** A session with no messages yet — a new one, or any one after a restart.
+   *  The case that crashed every chat view on 2026-09-24. */
+  empty: () => base([], meta({ state: 'idle' }), 0),
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
   /** Two jobs; the first verified and already folded (history). */

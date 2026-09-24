@@ -165,7 +165,7 @@ export type ServerEvent =
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
-  | { type: 'error'; message: string; code?: 'auth'; ts: number };
+  | { type: 'error'; message: string; code?: 'auth' | 'context'; ts: number };
 
 export interface ModelOption {
   id: string;
@@ -361,7 +361,7 @@ export type ChatItem =
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
   | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; ts: number; reviewStrength?: string }
-  | { kind: 'error'; text: string; code?: 'auth'; ts: number };
+  | { kind: 'error'; text: string; code?: 'auth' | 'context'; ts: number };
 
 /** You, in the thread. Mirrors server/src/me.ts. */
 export interface Me {

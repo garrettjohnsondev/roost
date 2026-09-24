@@ -195,3 +195,16 @@ describe('compactionIntent — asking again after it drained', () => {
     expect(step(65)).toBe('offer');   // fills again -> asks again
   });
 })
+
+describe('isContextOverflow — the stuck-session failure', () => {
+  it('recognises the ways an oversized conversation is reported', async () => {
+    const { isContextOverflow } = await import('../src/context.js');
+    for (const m of ['Prompt is too long', 'Claude turn failed: prompt is too long', 'input is too long for requested model', 'maximum context length exceeded'])
+      expect(isContextOverflow(m), m).toBe(true);
+  });
+  it('does not mistake other failures for it', async () => {
+    const { isContextOverflow } = await import('../src/context.js');
+    for (const m of ['error_during_execution', 'OAuth token has expired', "You've hit your session limit"])
+      expect(isContextOverflow(m), m).toBe(false);
+  });
+});
