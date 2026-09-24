@@ -2904,3 +2904,8 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
   .amb i { animation: none !important; }
   .amb-shooting, .amb-steam { display: none !important; }
 }
+
+/* A hint under a row of chips sits below them. .section-hint's negative top
+   margin is for hints under a heading; after chips it drew the text over the
+   buttons ("Who builds", 2026-09-24). */
+.chips + .section-hint { margin-top: 8px; }
