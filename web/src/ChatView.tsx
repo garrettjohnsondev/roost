@@ -684,7 +684,7 @@ export function avatarUrl(avatar?: string): string | null {
 
 /** The poses the drawn sets ship. `idle` is the resting frame every animation
  *  cuts back to. */
-export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep';
+export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep' | 'sit' | 'side' | 'hold' | 'dance';
 
 /** A drawn crew member, animated by CUTTING between two frames rather than
  *  cross-fading them.

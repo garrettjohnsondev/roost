@@ -8,6 +8,7 @@ import { UsagePanel } from './UsagePanel';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
 import { Icon, type IconName } from './icons';
+import { SceneView } from './Scene';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import type { Theme } from './theme';
 import type { AgentKind, CrewInfo, GitSummary, RoostConfigResponse, RecentProject, SessionMeta } from './types';
@@ -84,9 +85,19 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
   const visit = useVisitor(visitable.length);
   const visitor = visit;
   if (!crew.length) return null;
+  // The scene takes the awake crew, most recently active first (docs/SCENES.md);
+  // the bunks take the sleepers. Working members sit in the scene and type.
+  const lastActive = (name: string) =>
+    Math.max(0, ...sessions.filter((s) => s.crew?.name === name || s.recentCrew?.some((c) => c.name === name)).map((s) => s.updatedAt ?? 0));
+  const awake = crew
+    .filter((c) => poseOf(c.name) !== 'sleep')
+    .sort((a, b) => lastActive(b.name) - lastActive(a.name))
+    .map((c) => ({ member: c, working: poseOf(c.name) === 'type' }));
+  const sleepers = crew.filter((c) => poseOf(c.name) === 'sleep');
   return (
     <section className="crew-strip" aria-label="The crew">
-      <div className="crew-strip-faces">
+      <SceneView awake={awake} />
+      <div className={`crew-strip-faces${sleepers.length ? ' bunks' : ''}`}>
         {crew.map((c) => {
           const pose = poseOf(c.name);
           const bubble = bubbleFor(c.name, pose);

@@ -767,6 +767,28 @@ describe('the fuel card closes again, and carries the day’s decisions', () => 
   });
 })
 
+describe('the scene promises only sets that exist, and nothing in it moves on a timer', () => {
+  // docs/SCENES.md. The scene list is client code; each id it names must have
+  // a shipped backdrop, or the home screen would show a broken image.
+  it('every listed scene has its backdrop', () => {
+    const { existsSync } = require('node:fs') as typeof import('node:fs');
+    const ids = [...read('web/src/scenes.ts').matchAll(/^\s+id: '([a-z-]+)',$/gm)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(existsSync(join(root, 'web/public/scenes', `${id}.webp`)), id).toBe(true);
+  });
+  it('is stills with the crew in them: no interval, no timeout, no animation on the scene', () => {
+    expect(read('web/src/Scene.tsx')).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
+    const css = read('web/src/styles.css');
+    const block = css.slice(css.indexOf('/* ---------- the scene'), css.indexOf('/* The bunks:'));
+    expect(block).not.toMatch(/animation/);
+  });
+  it('a working member sits in the scene and types, with the laptop', () => {
+    const s = read('web/src/Scene.tsx');
+    expect(s).toMatch(/const pose = working \? 'type' : poseMissing \? 'idle' : seat\.pose;/);
+    expect(s).toMatch(/const prop = working \? 'laptop' : seat\.prop;/);
+  });
+})
+
 describe('the crew bubble visits one member at a time', () => {
   // 2026-09-24: "not all at once -- fades in slow on one, stays a little,
   // fades out and comes back in on another." The one timer the roadmap allows

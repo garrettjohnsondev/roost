@@ -1,0 +1,50 @@
+{
+  "bram": {
+    "desc": "a small round fox-like creature with two pointed triangular ears, a large bushy tail curled at its side, and two small paws",
+    "body": "smooth violet-purple fur (#5b45c7) with a pale lavender-cream chest, muzzle and tail-tip, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "otto": {
+    "desc": "a small round sea-otter-like creature with tiny round ears, a short flat tail, and two small flipper-like paws",
+    "body": "smooth teal-blue fur (#1f6fa8) with a pale cream belly and chest, a small dark grey nose, big round dark eyes"
+  },
+  "tuck": {
+    "desc": "a small round chunky robot creature with a short springy antenna on top, stubby round tank-tread feet, and two small rounded mechanical arms",
+    "body": "smooth amber-gold metal plating (#c7850b) with a paler cream-gold belly panel, a simple rounded dark screen-face showing two big round friendly digital eyes with a single white highlight pixel in each"
+  },
+  "fig": {
+    "desc": "a small round teardrop-shaped creature with a single small leaf sprouting from the top of its head, and two small stubby feet",
+    "body": "smooth deep teal-green skin (#0f766e) with a soft plum-purple blush near the top, a pale cream belly, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "rue": {
+    "desc": "a small round creature with a poofy tufted crown of fluffy fronds on top of its head like folded balloon fabric, and two small round woven-basket-like feet",
+    "body": "smooth forest green fur (#2d6a4f) with a pale moss-green belly and chest, a small dark brown nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "nell": {
+    "desc": "a small round creature with a small rounded dome-shaped cap on top of its head like a lighthouse lantern room, and two short stubby legs",
+    "body": "rust-red fur (#b3452f) with horizontal cream-white stripes banding around its round belly like a lighthouse, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "bly": {
+    "desc": "a small round fuzzy bee creature with two small translucent wings on its back, thin curved antennae, and two tiny stubby legs",
+    "body": "soft slate blue-gray fuzzy fur (#5b7c99) with muted honey-gold horizontal stripes across its round belly, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "ollie": {
+    "desc": "a small round owl creature with two short ear tufts, wings folded at its sides, and two small talon feet",
+    "body": "deep indigo-blue feathers (#2f3a72) with a pale ice-blue face disc and chest, a small orange-gold beak, big round dark eyes with a single white highlight pixel in each"
+  },
+  "moss": {
+    "desc": "a small round creature with two tall leaf-shaped ears standing up from its head, a round body, two small paws and two stubby feet",
+    "body": "moss-green skin (#6f9a3d) with a pale lime-cream belly, a darker green vein line down each leaf ear, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "pip": {
+    "desc": "a small round sparrow chick with a single tiny curled tuft on top of its head, short folded wings, and two small orange feet",
+    "body": "warm cream feathers (#f0d0b0) on the face and belly with warm tan-brown wings and back (#b06040), a small orange beak, big round dark eyes with a single white highlight pixel in each"
+  },
+  "juno": {
+    "desc": "a small round creature with a flame-shaped tuft of fire rising from the top of its head, a round body, and two small stubby feet",
+    "body": "bright orange skin (#f08020) with a pale cream belly, the head-flame in orange-red with a yellow core, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  },
+  "wren": {
+    "desc": "a small round mouse-like creature with two large round ears, a round body, two small paws and two stubby feet",
+    "body": "soft violet-purple fur (#673eb4) with a pale lilac belly and inner ears, a small dark nose, big round dark eyes with a single white highlight pixel in each"
+  }
+}

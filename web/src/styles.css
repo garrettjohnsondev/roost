@@ -2733,3 +2733,46 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 
 .usage-header-actions { display: inline-flex; gap: 6px; }
 .fuel-decisions { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+
+/* ---------- the scene (docs/SCENES.md) ---------- */
+
+.scene {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  padding: 0;
+  margin: 0 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.scene-bg { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.seat { position: absolute; display: block; }
+.seat-sprite { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.seat.flip .seat-sprite { transform: scaleX(-1); }
+.seat-mono {
+  display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  border-radius: 50%; color: #fff; font-family: var(--font-display, inherit); font-size: 14px;
+}
+/* The prop sits over the paws: centred, a little below the middle, half the sprite's size. */
+.seat-prop {
+  position: absolute; left: 25%; top: 32%; width: 50%; height: 50%;
+  image-rendering: pixelated; pointer-events: none;
+}
+.seat.working .seat-prop { top: 40%; }
+.scene-name {
+  position: absolute; left: 8px; bottom: 6px;
+  font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim); opacity: 0.8;
+}
+[data-theme='dark'] .scene { border-radius: 2px; border-color: var(--seam); }
+
+/* The bunks: the sleepers only, stacked and overlapping, one Zzz visiting. */
+.crew-strip-faces.bunks { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 0; }
+.crew-strip-faces.bunks .crew-strip-member:not(.sleep) { display: none; }
+.crew-strip-faces.bunks .crew-strip-member.sleep .crew-sprite { width: 44px !important; height: 44px !important; }
+.crew-strip-faces.bunks .crew-strip-name { font-size: 9px; }
