@@ -11,7 +11,7 @@
 // it and the phone, and nothing on the phone could undo it.
 
 import { execSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync, renameSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, rmSync, writeFileSync, renameSync, readFileSync } from 'node:fs';
 import { promote, rollback, readMeta, restoreServer, serveCandidate } from './releases.mjs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -64,9 +64,25 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 
-/** Write the plist and (re)start the service. Throws if launchd will not take it. */
+const loaded = () => !!shQuiet(`launchctl print gui/${uid}/${LABEL}`);
+
+/** (Re)start the service. Throws if launchd will not take it.
+ *
+ *  Already loaded with the same plist: `kickstart -k`, which restarts the
+ *  server in place and leaves the job LOADED. 2026-09-24: this used to always
+ *  bootout + bootstrap. A deploy run by an agent inside Roost is a descendant
+ *  of the server, so the bootout killed the deploy before it reached the
+ *  bootstrap — nothing loaded, nothing for launchd to restart, the app down
+ *  until someone came back to the Mac. Only a changed or missing plist takes
+ *  the bootout path now, and that path runs in a detached process (see
+ *  `finish-deploy`) so it outlives the server it replaces. */
 function start() {
     mkdirSync(dirname(plistPath), { recursive: true });
+    const unchanged = existsSync(plistPath) && readFileSync(plistPath, 'utf8') === plist;
+    if (unchanged && loaded()) {
+      sh(`launchctl kickstart -k gui/${uid}/${LABEL}`);
+      return;
+    }
     writeFileSync(plistPath, plist);
     shQuiet(`launchctl bootout gui/${uid}/${LABEL}`); // remove any previous copy
     shQuiet(`launchctl bootout gui/${uid}/${OLD_LABEL}`); // and the pre-rename one
@@ -74,7 +90,7 @@ function start() {
     // launchd sometimes hasn't fully released the old label by the time bootout returns —
     // an immediate bootstrap can then fail with "Bootstrap failed: 5: Input/output error".
     // Retry with a growing delay instead of leaving the service down on a lost race.
-    const attempts = [300, 1000, 2000];
+    const attempts = [300, 1000, 2000, 4000, 8000];
     let lastErr;
     let started = false;
     for (const delayMs of attempts) {
@@ -85,6 +101,7 @@ function start() {
         break;
       } catch (err) {
         lastErr = err;
+        if (loaded()) { started = true; break; } // "already loaded" is success
         shQuiet(`launchctl bootout gui/${uid}/${LABEL}`);
       }
     }
@@ -151,6 +168,25 @@ switch (command) {
     const meta = promote();
     console.log(`     ${meta.commit} — ${meta.subject}`);
 
+    // Steps 4–5 restart the server this script may be running under (a deploy
+    // run by an agent inside Roost is the server's descendant). They run in a
+    // detached process with its own session, so killing the server cannot kill
+    // them halfway — which is how the service ended up unloaded, 2026-09-24.
+    // We wait and relay its output; if we are killed, it carries on alone.
+    const deployLog = join(repoRoot, '.roost-data', 'releases', 'deploy.log');
+    writeFileSync(deployLog, '');
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url), 'finish-deploy'], {
+      cwd: repoRoot, detached: true, stdio: ['ignore', openSync(deployLog, 'a'), openSync(deployLog, 'a')],
+    });
+    let shown = 0;
+    const relay = () => { const t = readFileSync(deployLog, 'utf8'); process.stdout.write(t.slice(shown)); shown = t.length; };
+    const tick = setInterval(relay, 500);
+    const code = await new Promise((resolve) => child.on('exit', resolve));
+    clearInterval(tick); relay();
+    process.exit(code ?? 1);
+  }
+  case 'finish-deploy': {
+    const meta = readMeta('current');
     console.log('4/5  restarting');
     try { start(); } catch (e) { console.error(String(e.message ?? e)); process.exit(1); }
 
@@ -167,7 +203,7 @@ switch (command) {
       }
       process.exit(1);
     }
-    console.log(`Installed and started ${LABEL} — ${meta.commit}.`);
+    console.log(`Installed and started ${LABEL} — ${meta?.commit}.`);
     console.log(`It now starts automatically at login and restarts if it crashes.`);
     console.log(`Logs: tail -f ${logPath}`);
     break;

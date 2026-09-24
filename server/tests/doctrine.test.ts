@@ -1145,6 +1145,15 @@ describe('never dead in the water', () => {
     expect(svc.match(/restoreServer\(\); console\.error\([^)]*NOT deploying/g)?.length).toBe(2);
   });
 
+  it('a deploy cannot be killed halfway and leave the service unloaded', () => {
+    // 2026-09-24, 17:35: a deploy run from inside Roost booted the service out,
+    // which killed the deploy before it bootstrapped it again. App down.
+    const svc = read('scripts/service.mjs');
+    expect(svc).toContain('launchctl kickstart -k');
+    expect(svc).toMatch(/if \(unchanged && loaded\(\)\)/);
+    expect(svc).toMatch(/'finish-deploy'\], \{[\s\S]*?detached: true/);
+  });
+
   it('a message that fails to render costs one message, not the chat', () => {
     const chat = read('web/src/ChatView.tsx');
     expect(chat).toMatch(/<Contained[^>]*what="This message"/);
