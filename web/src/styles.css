@@ -1338,7 +1338,28 @@ button {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  position: relative;
 }
+
+/* What arrived while you were reading above. Tapping it takes you back down;
+   scrolling down yourself clears it. Held still, no motion: the count is the
+   news. */
+.new-below {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 92px;
+  z-index: 3;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text, #fff);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+[data-theme='dark'] .new-below { border-radius: 2px; box-shadow: var(--shadow-hard); }
 
 .chat-header {
   display: flex;

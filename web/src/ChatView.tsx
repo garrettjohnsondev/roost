@@ -91,14 +91,51 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   }, []);
   const recapFetchedFor = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Recovered 2026-09-24: "I can't scroll up and read anything because it
+  // jumps me down when there's something new." The thread follows the work
+  // only while you are AT the bottom. Scroll up and it holds still; what
+  // arrives meanwhile is counted on a pill that takes you back down. Pinned
+  // is a ref, not state: it changes on every scroll tick and must not re-render.
+  const pinned = useRef(true);
+  const seenCount = useRef(0);
+  const [unseen, setUnseen] = useState(0);
 
   useEffect(() => {
     const el = scrollRef.current;
+    if (!el) return;
+    if (pinned.current) {
+      el.scrollTop = el.scrollHeight;
+      seenCount.current = session.items.length;
+      if (unseen) setUnseen(0);
+    } else {
+      const n = Math.max(0, session.items.length - seenCount.current);
+      if (n !== unseen) setUnseen(n);
+    }
+  }, [session.items, session.status, recap, unseen]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    pinned.current = atBottom;
+    if (atBottom && unseen) {
+      seenCount.current = session.items.length;
+      setUnseen(0);
+    }
+  };
+  const jumpDown = () => {
+    pinned.current = true;
+    const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [session.items, session.status, recap]);
+    seenCount.current = session.items.length;
+    setUnseen(0);
+  };
 
   useEffect(() => {
     setRecap(null); // switching sessions — don't show the previous chat's recap
+    pinned.current = true;
+    seenCount.current = 0;
+    setUnseen(0);
   }, [sessionId]);
 
   // A resumed session's Roost-visible thread starts empty even though the agent
@@ -300,6 +337,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       <div
         className="messages"
         ref={scrollRef}
+        onScroll={onScroll}
         data-live-agent={session.meta?.agent}
         style={{ '--rot': rotFor(session.context?.percent) } as React.CSSProperties}
       >
@@ -365,6 +403,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
       </div>
+      {unseen > 0 && (
+        <button className="new-below" onClick={jumpDown}>
+          ↓ {unseen} new
+        </button>
+      )}
 
       {session.meta?.consultPending && (
         <div className="consult-bar">

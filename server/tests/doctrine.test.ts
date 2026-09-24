@@ -560,6 +560,20 @@ describe('the job tracker reports the thread and lights up, it does not perform'
   });
 })
 
+describe('the thread follows the work only while you are at the bottom', () => {
+  // Recovered 2026-09-24: "I can't scroll up and read anything because it
+  // jumps me down when there's something new."
+  const c = read('web/src/ChatView.tsx');
+  it('auto-scrolls only when pinned, and counts what arrives otherwise', () => {
+    expect(c).toMatch(/if \(pinned\.current\) \{\s*el\.scrollTop = el\.scrollHeight;/);
+    expect(c).toMatch(/const atBottom = el\.scrollHeight - el\.scrollTop - el\.clientHeight < 80;/);
+    expect(c).toMatch(/\{unseen > 0 && \(\s*<button className="new-below" onClick=\{jumpDown\}>/);
+  });
+  it('pinned is a ref, so a scroll tick never re-renders the thread', () => {
+    expect(c).toMatch(/const pinned = useRef\(true\);/);
+  });
+})
+
 describe('the crew bubble is a stable wink, not a loop', () => {
   // User asked for the home crew to feel more alive -- "Zzz" for asleep, "fun
   // little things" for idle. Implemented as a pure function of name and pose,
