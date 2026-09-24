@@ -14,7 +14,9 @@ export function SceneView({ awake, onOverflow }: { awake: Array<{ member: CrewIn
   const [taps, setTaps] = useState(0);
   const [missing, setMissing] = useState(false);
   if (!SCENES.length || missing) return null;
-  const scene = SCENES[sceneIndexFor(new Date(), taps)];
+  // ?scene=<id> pins a set, for review shots (scripts/shoot.mjs).
+  const pinned = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('scene') : null;
+  const scene = SCENES.find((s) => s.id === pinned) ?? SCENES[sceneIndexFor(new Date(), taps)];
   const { placed, overflow } = placeCrew(awake, scene);
   onOverflow?.(overflow);
   return (

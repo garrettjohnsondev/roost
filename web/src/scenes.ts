@@ -38,6 +38,60 @@ export const SCENES: Scene[] = [
       { x: 158, y: 200, size: 64, pose: 'sit' },
     ],
   },
+  { id: 'cards', name: 'Card table', seats: [
+    { x: 150, y: 128, size: 64, pose: 'hold', prop: 'cards' },
+    { x: 348, y: 128, size: 64, pose: 'hold', prop: 'cards' },
+    { x: 250, y: 150, size: 66, pose: 'sit' },
+    { x: 430, y: 200, size: 70, pose: 'side' },
+  ] },
+  { id: 'bucket', name: 'Ball and bucket', seats: [
+    { x: 150, y: 178, size: 74, pose: 'hold', prop: 'ball' },
+    { x: 280, y: 196, size: 70, pose: 'sit' },
+    { x: 400, y: 180, size: 72, pose: 'dance' },
+    { x: 60, y: 205, size: 64, pose: 'side', flip: true },
+  ] },
+  { id: 'picnic', name: 'Picnic', seats: [
+    { x: 112, y: 192, size: 66, pose: 'sit' },
+    { x: 196, y: 206, size: 66, pose: 'hold', prop: 'sandwich' },
+    { x: 330, y: 192, size: 70, pose: 'side' },
+    { x: 440, y: 204, size: 68, pose: 'sit' },
+  ] },
+  { id: 'stargazing', name: 'Stargazing', seats: [
+    { x: 380, y: 202, size: 70, pose: 'side', flip: true },
+    { x: 140, y: 206, size: 70, pose: 'sit' },
+    { x: 250, y: 212, size: 68, pose: 'side' },
+    { x: 60, y: 200, size: 62, pose: 'hold', prop: 'telescope' },
+  ] },
+  { id: 'kitchen', name: 'Kitchen', seats: [
+    { x: 392, y: 200, size: 72, pose: 'hold', prop: 'ladle' },
+    { x: 150, y: 212, size: 68, pose: 'sit' },
+    { x: 258, y: 216, size: 66, pose: 'hold', prop: 'bowl' },
+    { x: 60, y: 202, size: 64, pose: 'side', flip: true },
+  ] },
+  { id: 'library', name: 'Library', seats: [
+    { x: 250, y: 192, size: 70, pose: 'hold', prop: 'book' },
+    { x: 140, y: 202, size: 68, pose: 'side', flip: true },
+    { x: 360, y: 206, size: 66, pose: 'sit' },
+    { x: 452, y: 188, size: 62, pose: 'hold', prop: 'book' },
+  ] },
+  { id: 'workshop', name: 'Workshop', seats: [
+    { x: 220, y: 202, size: 72, pose: 'hold', prop: 'wrench' },
+    { x: 110, y: 206, size: 68, pose: 'side', flip: true },
+    { x: 330, y: 212, size: 66, pose: 'sit' },
+    { x: 432, y: 200, size: 66, pose: 'hold', prop: 'gear' },
+  ] },
+  { id: 'rooftop', name: 'Rooftop', seats: [
+    { x: 130, y: 206, size: 70, pose: 'side', flip: true },
+    { x: 390, y: 206, size: 70, pose: 'side' },
+    { x: 262, y: 200, size: 74, pose: 'dance' },
+    { x: 50, y: 216, size: 60, pose: 'sit' },
+  ] },
+  { id: 'snow', name: 'Snow day', seats: [
+    { x: 200, y: 192, size: 72, pose: 'hold', prop: 'snowball' },
+    { x: 300, y: 190, size: 74, pose: 'dance' },
+    { x: 380, y: 206, size: 66, pose: 'sit' },
+    { x: 112, y: 202, size: 66, pose: 'side', flip: true },
+  ] },
 ];
 
 /** Which scene is on: it changes on the hour, on its own -- a set change,

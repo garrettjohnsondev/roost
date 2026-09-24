@@ -2767,9 +2767,11 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .scene-name {
   position: absolute; left: 8px; bottom: 6px;
   font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text-dim); opacity: 0.8;
+  color: var(--text); padding: 2px 6px; border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
 }
 [data-theme='dark'] .scene { border-radius: 2px; border-color: var(--seam); }
+[data-theme='dark'] .scene-name { border-radius: 2px; }
 
 /* The bunks: the sleepers only, stacked and overlapping, one Zzz visiting. */
 .crew-strip-faces.bunks { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 0; }
