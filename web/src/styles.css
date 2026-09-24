@@ -2834,20 +2834,54 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
   color: #2f3a72;
   text-shadow: 2px 2px 0 #f0c75e;
   padding-right: 2px;
+  margin-top: 14px;
 }
 [data-theme='dark'] .page-header h1.wordmark {
   color: #f6dc8c;
   text-shadow: 2px 2px 0 #2f3a72, 3px 3px 0 #141c38;
 }
-/* Pip, asleep on the top of the T. */
-.wordmark-perch {
+/* The OO are eyes: a pupil and a highlight pixel in each counter. */
+.wm-eyes { position: relative; display: inline-block; }
+.wm-eye { position: relative; display: inline-block; }
+.wm-eye::after {
+  content: '';
   position: absolute;
-  right: -2px;
-  top: -12px;
-  width: 22px;
-  height: 22px;
-  image-rendering: pixelated;
+  width: 0.2em;
+  height: 0.2em;
+  left: calc(50% - 0.03em - 0.1em);
+  top: calc(50% - 0.1em);
+  background: #141c38;
+  box-shadow: inset 0.067em 0.067em 0 #ffffff00;
+}
+.wm-eye::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  width: 0.067em;
+  height: 0.067em;
+  left: calc(50% - 0.03em - 0.1em);
+  top: calc(50% - 0.1em);
+  background: #fff;
+}
+/* Ear tufts on the eyes' outer top corners, in the letters' own pixel. */
+.wm-ear {
+  position: absolute;
+  width: 0.4375em;   /* 3.5 cells: 3 of tuft + half a cell of shadow */
+  height: 0.4375em;
+  /* Measured in the rendered font: the cap starts 0.696em above the eye box's
+     bottom once the half-cell of shadow is allowed for, so the tuft's base
+     row rests exactly on the top of the O. */
+  bottom: 0.696em;
+  overflow: visible;
   pointer-events: none;
 }
+/* Each O is drawn one cell (0.125em) in from its box; the second O's box
+   also carries the letter-spacing after it. */
+.wm-ear.left { left: 0.125em; }
+.wm-ear.right { right: 0.119em; }
+.wm-ears-fill { fill: #2f3a72; }
+.wm-ears-shadow { fill: #f0c75e; }
+[data-theme='dark'] .wm-ears-fill { fill: #f6dc8c; }
+[data-theme='dark'] .wm-ears-shadow { fill: #2f3a72; }
 .center-note.splash { flex-direction: column; gap: 14px; }
 .splash-row { width: min(72vw, 300px); height: auto; image-rendering: pixelated; }

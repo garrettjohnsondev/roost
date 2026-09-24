@@ -223,6 +223,21 @@ function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => v
   );
 }
 
+/** One ear tuft, drawn in the lettering's own pixel (1 cell = 0.125em, the
+ *  Silkscreen pixel at any size), sitting on an eye's outer top corner. */
+const EAR_CELLS = ['#..', '##.', '###'];
+const EAR_PATH = EAR_CELLS.flatMap((r, y) => [...r].map((c, x) => (c === '#' ? `M${x} ${y}h1v1h-1z` : ''))).join('');
+function Ear({ side }: { side: 'left' | 'right' }) {
+  return (
+    <svg className={`wm-ear ${side}`} viewBox="0 0 3.5 3.5" shapeRendering="crispEdges" aria-hidden="true">
+      <g transform={side === 'right' ? 'translate(3 0) scale(-1 1)' : undefined}>
+        <path className="wm-ears-shadow" d={EAR_PATH} transform={side === 'right' ? 'translate(-0.5 0.5)' : 'translate(0.5 0.5)'} />
+        <path className="wm-ears-fill" d={EAR_PATH} />
+      </g>
+    </svg>
+  );
+}
+
 export function SessionList(props: {
   config: RoostConfigResponse;
   onOpen: (id: string) => void;
@@ -342,11 +357,20 @@ export function SessionList(props: {
           <div className="page-header-brand">
             <img className="brand-icon" src="/icon-192.png" alt="" />
             <div>
-              {/* The wordmark borrows the icon's night: moonlight letters, an
-                  indigo pixel shadow, and Pip asleep on the T (2026-09-24). */}
-              <h1 className="wordmark">
-                Roost
-                <img className="wordmark-perch" src="/crew/pip-sleep.webp" alt="" draggable={false} />
+              {/* The wordmark is a face peeking up (2026-09-24): the OO are
+                  eyes, and two ear tufts rise over them. Drawn from the real
+                  letters, so it stays crisp and follows the theme. */}
+              <h1 className="wordmark" aria-label="Roost">
+                <span aria-hidden="true">R</span>
+                <span className="wm-eyes" aria-hidden="true">
+                  <span className="wm-eye">
+                    O<Ear side="left" />
+                  </span>
+                  <span className="wm-eye">
+                    O<Ear side="right" />
+                  </span>
+                </span>
+                <span aria-hidden="true">ST</span>
               </h1>
               <span className="subtitle">your crew, mid-conversation</span>
             </div>
