@@ -66,3 +66,37 @@ export function typeDurationMs(text: string | null | undefined): number {
   const n = String(text ?? '').length;
   return Math.max(120, Math.min(TYPE_MAX_MS, n * TYPE_MS_PER_CHAR));
 }
+
+/** Effort, visible (§12a "beyond the eight"): the think pose held longer and
+ *  heavier at `xhigh` than at `low`. The chooser's reason is in the transcript;
+ *  this is the body language. One number -- the frame beat in ms -- so a low
+ *  effort turn fidgets and a max effort turn sits with it. Unknown or default
+ *  effort keeps the house beat. */
+export const THINK_BEAT_DEFAULT_MS = 620;
+export function thinkBeatMs(effort: string | null | undefined): number {
+  switch (effort) {
+    case 'low': return 420;
+    case 'high': return 900;
+    case 'xhigh': return 1200;
+    case 'max': return 1500;
+    default: return THINK_BEAT_DEFAULT_MS;
+  }
+}
+export function effortWord(effort: string | null | undefined): string | null {
+  switch (effort) {
+    case 'low': return 'quick';
+    case 'xhigh': case 'max': return 'thinking hard';
+    default: return null;
+  }
+}
+
+/** Sleeping on idle: the crew drift back to the sleep pose after a long quiet
+ *  spell, so waking them means something. This is the ONE place a clock is a
+ *  legitimate input, because "nobody has done anything here for twenty
+ *  minutes" is itself the state being reported -- and it is still gated on
+ *  the engine being idle, never on time alone. */
+export const QUIET_SLEEP_MS = 20 * 60_000;
+export function asleepOnIdle(lastTs: number | null | undefined, now: number, status: string | undefined): boolean {
+  if (status !== 'idle' || lastTs == null) return false;
+  return now - lastTs >= QUIET_SLEEP_MS;
+}

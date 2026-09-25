@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { rotFor, expiringBlocks, typeSteps, typeDurationMs } from './motion';
+import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
 import { trackerOf } from './tracker';
@@ -870,6 +870,11 @@ function SpendIt({ surplus, onBoost }: { surplus: NonNullable<SessionMeta['surpl
  *  is enough. Fixed above the thread, so scrolling back through the work does
  *  not lose where the work is. */
 function JobTracker({ session }: { session: SessionState }) {
+  // Sleeping on idle (§12a): a minute tick, only while idle -- the one clock
+  // the motion doctrine allows, because the quiet IS the state.
+  const now = useMinute(session.status === 'idle');
+  const lastTs = Math.max(session.openedAt, session.items.length ? session.items[session.items.length - 1].ts : 0);
+  const asleep = asleepOnIdle(lastTs, now, session.status);
   const t = trackerOf({
     items: session.items,
     mode: session.meta?.mode,
@@ -893,11 +898,11 @@ function JobTracker({ session }: { session: SessionState }) {
           justFinished ? (
             <SpriteAvatar key={t.endIndex} crew={t.who} pose="cheer" size={22} className="tracker-cheer" />
           ) : (
-            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : 'idle'} size={22} />
+            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : asleep ? 'sleep' : 'idle'} size={22} />
           )
         )}
         <span className="tracker-name">{t.name}</span>
-        {t.who && <span className="tracker-who">{t.who.name}</span>}
+        {t.who && <span className="tracker-who">{asleep ? `${t.who.name} · asleep` : t.who.name}</span>}
       </div>
       <ol className="tracker-steps">
         {t.steps.map((s) => (
@@ -937,10 +942,15 @@ function WorkingIndicator({ session }: { session: SessionState }) {
   const pose: Pose = !session.triaging && producing ? 'type' : 'think';
   // Local copy, so it shows without waiting on the server's matching status.
   const text = session.triaging ? 'Pip is picking who takes this…' : session.statusMessage;
+  // Effort, visible (§12a): the think beat slows with the effort the session
+  // is set to -- `xhigh` sits with it, `low` fidgets. Pip's triage is always
+  // quick and is not the session's effort, so it keeps the house beat.
+  const effort = session.triaging || pose !== 'think' ? '' : session.meta?.effort ?? '';
+  const word = effortWord(effort);
   return (
-    <div className="working-indicator" data-crew={crew.name}>
+    <div className="working-indicator" data-crew={crew.name} data-effort={effort || undefined} style={{ '--beat': `${thinkBeatMs(effort)}ms` } as React.CSSProperties}>
       <SpriteAvatar crew={crew} pose={pose} size={32} />
-      {text && <span className="working-text">{text}</span>}
+      {text && <span className="working-text">{text}{word ? <span className="working-effort"> · {word}</span> : null}</span>}
     </div>
   );
 }
@@ -1006,6 +1016,29 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
           <span className="crew-wake-name" style={{ color: nameColor(c.color) }}>{c.name}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+/** A handoff between vendors (§12a): the one stepping back and the one
+ *  stepping in, on one line, so the pass is seen rather than inferred from a
+ *  new face appearing. Live, the outgoing member steps back and dims while the
+ *  incoming one steps forward -- one move each, then both hold, because the
+ *  handoff has happened and stays happened. Replayed, the line is static: the
+ *  pass was yesterday's news. */
+function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh: boolean }) {
+  return (
+    <div className={`handoff-pass${fresh ? ' live' : ''}`} aria-label={`${from.name} handed off to ${to.name}`}>
+      <span className="handoff-from">
+        <SpriteAvatar crew={from} pose="idle" size={28} />
+        <span style={{ color: nameColor(from.color) }}>{from.name}</span>
+      </span>
+      <span className="handoff-arrow" aria-hidden="true">→</span>
+      <span className="handoff-to">
+        <SpriteAvatar crew={to} pose="idle" size={28} />
+        <span style={{ color: nameColor(to.color) }}>{to.name}</span>
+      </span>
+      <span className="handoff-why">picks it up with a fresh window</span>
     </div>
   );
 }
@@ -1137,7 +1170,10 @@ function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatIte
               Older transcripts have no worker and keep the bare id. */}
           {item.worker ? (
             <>
-              <SpriteAvatar crew={item.worker} pose="idle" size={22} />
+              {/* Someone being sent out (§12a): live, the worker steps off
+                  toward the work -- one short move that settles. Replayed
+                  history just stands there; nobody was sent anywhere today. */}
+              <SpriteAvatar crew={item.worker} pose="idle" size={22} className={fresh ? 'sent-out' : undefined} />
               <strong style={{ color: nameColor(item.worker.color) }}>{item.worker.name}</strong>
               <span className="routed-model"> ({item.model})</span>
             </>
@@ -1210,11 +1246,14 @@ function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatIte
       );
       if (item.crew) {
         return (
-          <CrewRow crew={item.crew} pose="idle" head={badges}>
-            <div className={`consult-msg ${item.phase}`}>
-              <Markdown text={item.text} />
-            </div>
-          </CrewRow>
+          <>
+            {item.phase === 'handoff' && item.from && <HandoffPass from={item.from} to={item.crew} fresh={fresh} />}
+            <CrewRow crew={item.crew} pose="idle" head={badges}>
+              <div className={`consult-msg ${item.phase}`}>
+                <Markdown text={item.text} />
+              </div>
+            </CrewRow>
+          </>
         );
       }
       return (

@@ -1208,3 +1208,59 @@ describe('the gate refusing looks refused (§12a beyond the eight)', () => {
     expect(read('web/src/fixtures.ts')).toContain("'quota-refused':");
   });
 });
+
+describe('§12a beyond the eight — motion that reports what Roost already knows', () => {
+  const css = () => read('web/src/styles.css');
+  const chat = () => read('web/src/ChatView.tsx');
+  const motion = () => read('web/src/motion.ts');
+
+  it('a handoff names who stepped back, end to end, and plays the pass only live', () => {
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) expect(read(f)).toMatch(/type: 'consult';[^\n]*from\?: CrewInfo/);
+    expect(read('server/src/sessions.ts')).toMatch(/from: how === 'handoff' \? fromMember : undefined/);
+    expect(read('web/src/useSession.ts')).toContain('from: event.from');
+    expect(chat()).toMatch(/<HandoffPass from=\{item\.from\} to=\{item\.crew\} fresh=\{fresh\}/);
+    const block = css().slice(css().indexOf('.handoff-pass {'), css().indexOf('/* ---------- closed session banner'));
+    expect(block).toMatch(/\.handoff-pass\.live \.handoff-from \{ animation: handoff-step-back \d+ms [^;]*both; \}/);
+    expect(block).toMatch(/\.handoff-pass\.live \.handoff-to \{ animation: handoff-step-in \d+ms [^;]*both; \}/);
+    expect(block).not.toMatch(/infinite/);
+  });
+
+  it('effort is visible as the think beat, from one pure table, and Pip never inherits it', () => {
+    expect(motion()).toMatch(/export function thinkBeatMs/);
+    expect(motion()).toMatch(/case 'low': return 420;[\s\S]*case 'xhigh': return 1200;/);
+    expect(chat()).toMatch(/'--beat': `\$\{thinkBeatMs\(effort\)\}ms`/);
+    expect(chat()).toMatch(/const effort = session\.triaging \|\| pose !== 'think' \? '' : session\.meta\?\.effort/);
+    expect(css()).toMatch(/\.working-indicator \.crew-sprite\.pose-think \.frame-b \{ animation-duration: var\(--beat, 0\.62s\); \}/);
+  });
+
+  it('someone being sent out moves once, live only, and never loops', () => {
+    expect(chat()).toMatch(/className=\{fresh \? 'sent-out' : undefined\}/);
+    expect(css()).toMatch(/\.crew-sprite\.sent-out \{ animation: sent-out \d+ms [^;]*both; \}/);
+    expect(css()).not.toMatch(/sent-out \d+ms[^;]*infinite/);
+  });
+
+  it('sleeping on idle is gated on the engine being idle and on quiet you were present for', () => {
+    expect(motion()).toMatch(/if \(status !== 'idle' \|\| lastTs == null\) return false;/);
+    expect(motion()).toMatch(/QUIET_SLEEP_MS = 20 \* 60_000/);
+    // Quiet counts from opening the session or the last item, whichever is later.
+    expect(chat()).toMatch(/Math\.max\(session\.openedAt, /);
+    // Only the tracker face sleeps; nothing here adds a new keyframe loop.
+    expect(chat()).toMatch(/asleep \? 'sleep' : 'idle'/);
+  });
+
+  it('each moment has a design-review fixture', () => {
+    const fx = read('web/src/fixtures.ts');
+    for (const name of ["handoff:", "'handoff-replayed':", "'effort-low':", "'effort-xhigh':", "asleep:"]) expect(fx).toContain(name);
+  });
+});
+
+describe('triage that cannot run is not "unparseable"', () => {
+  it('an auth failure in the classifier reaches the sign-in card and its own decisions row', () => {
+    // 2026-09-24: the only triage-fallback row ever logged had raw
+    // "Failed to authenticate: OAuth session expired" — a failed call filed as
+    // a model that answered badly, with nobody told.
+    expect(read('server/src/router.ts')).toMatch(/if \(isAuthFailure\(out\)\) return \{[^}]*auth: true \}/);
+    const s = read('server/src/sessions.ts');
+    expect(s).toMatch(/if \(triaged\.auth\) \{[\s\S]*?noteAuthFailure\([\s\S]*?reportError\([^)]*'auth'\)[\s\S]*?stage: 'triage-auth'/);
+  });
+});

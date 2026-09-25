@@ -378,7 +378,13 @@ export class Session {
     }
     const triaged = await triage(text, t.agent, t.model, (d) => this.ledgerCall(d, 'triage'));
     const { tier, reason } = triaged;
-    if (triaged.raw !== undefined) {
+    if (triaged.auth) {
+      // Not a routing failure: Claude is signed out. Say so where the sign-in
+      // card is, and file it apart from genuine parse failures.
+      noteAuthFailure(triaged.raw ?? reason);
+      this.reportError(`Pip could not size this — ${triaged.raw ?? 'Claude is not signed in'}`, 'auth');
+      logDecision({ kind: 'route', sessionId: this.id, stage: 'triage-auth', agent: t.agent, model: t.model, reason, raw: triaged.raw });
+    } else if (triaged.raw !== undefined) {
       // The classifier's answer could not be used. Record exactly what it said,
       // so the next "unparseable" can be diagnosed instead of guessed at.
       logDecision({ kind: 'route', sessionId: this.id, stage: 'triage-fallback', agent: t.agent, model: t.model, reason, raw: triaged.raw });
@@ -1150,7 +1156,8 @@ export class Session {
       .map((e: any) => `${e.type === 'user_message' ? 'User' : (e.crew?.name ?? 'Agent')}: ${truncate(e.text, how === 'handoff' ? 500 : 300)}`)
       .join('\n');
     if (text) this.pushEvent({ type: 'user_message', text, imageCount: 0, ts: now() });
-    const from = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
+    const fromMember = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole);
+    const from = fromMember.name;
     const prompt = promptOverride ?? (how === 'handoff'
       ? composeHandoffPrompt(name, from, context, this.pendingConsult?.planPath ?? this.lastPlanPath)
       : composeMentionPrompt(name, text, context));
@@ -1162,7 +1169,9 @@ export class Session {
     this.activeMention = run;
     try {
       const r = await run.promise;
-      this.pushEvent({ type: 'consult', phase: how === 'build' ? 'handoff' : how, agent: suite, crew: member, text: sanitizeAgentOutput(r.text).text, ts: now() });
+      // A handoff names who stepped back as well as who stepped in, so the
+      // thread can show the pass itself (§12a) rather than a lone new face.
+      this.pushEvent({ type: 'consult', phase: how === 'build' ? 'handoff' : how, agent: suite, crew: member, from: how === 'handoff' ? fromMember : undefined, text: sanitizeAgentOutput(r.text).text, ts: now() });
       logDecision({ kind: 'dispatch', sessionId: this.id, stage: how, agent: suite, model, persona: name, ms: r.ms });
     } catch (err: any) {
       // A quota refusal is not a crash — it should look refused, not read like

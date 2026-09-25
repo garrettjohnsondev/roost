@@ -213,7 +213,7 @@ export type ServerEvent =
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
-  | { type: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; reviewStrength?: string; ts: number }
+  | { type: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; from?: CrewInfo; reviewStrength?: string; ts: number }
   | { type: 'verify'; report: VerifyReport; ts: number }
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }

@@ -6,6 +6,10 @@ export interface SessionState {
   items: ChatItem[];
   /** Items before this index are replayed history; see SessionCore. */
   replayedCount: number;
+  /** When this phone opened the session. Sleeping on idle counts its quiet
+   *  from here or the last item, whichever is later: the crew wake when you
+   *  arrive, and drift off only after a quiet spell you were present for. */
+  openedAt: number;
   meta: SessionMeta | null;
   status: 'idle' | 'working' | 'connecting' | 'error';
   connected: boolean;
@@ -88,7 +92,7 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       next.push({ kind: 'routed', model: event.model, tier: event.tier, reason: event.reason, crew: event.crew, worker: event.worker, ts: event.ts });
       break;
     case 'consult':
-      next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });
+      next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, from: event.from, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });
       break;
     case 'verify':
       next.push({ kind: 'verify', report: event.report, ts: event.ts });
@@ -142,10 +146,11 @@ export interface SessionCore {
    *  motion reporting yesterday, and the phone's clock and the Mac's need not
    *  agree closely enough for a time window to tell the two apart. */
   replayedCount: number;
+  openedAt: number;
 }
 
 export function initialCore(): SessionCore {
-  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [], context: null, replayedCount: 0 };
+  return { items: [], meta: null, status: 'connecting', statusMessage: null, usage: null, approvals: [], context: null, replayedCount: 0, openedAt: Date.now() };
 }
 
 /** Everything the phone shows for a session, as a pure function of the events
@@ -174,7 +179,7 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
           statusMessage = e.message ?? null;
         }
       }
-      return { items, meta: event.meta, status, statusMessage, usage, approvals, context, replayedCount: items.length };
+      return { items, meta: event.meta, status, statusMessage, usage, approvals, context, replayedCount: items.length, openedAt: prev.openedAt };
     }
     case 'session_meta':
       return { ...prev, meta: event.meta };
@@ -240,6 +245,7 @@ export function useSession(sessionId: string | null): SessionState {
     triaging,
     context: core.context,
     replayedCount: core.replayedCount,
+    openedAt: core.openedAt,
     send: (msg) => {
       const sent = socketRef.current?.send(msg) ?? false;
       // Only a message that actually went out starts a triage; a send while

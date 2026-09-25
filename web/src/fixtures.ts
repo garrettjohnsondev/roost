@@ -41,7 +41,7 @@ const meta = (over: Partial<SessionMeta> = {}): SessionMeta => ({
 
 const base = (items: ChatItem[], m: SessionMeta, replayedCount: number, over: Partial<SessionState> = {}): SessionState => ({
   items, meta: m, status: 'working', connected: true, usage: null, pendingApproval: null, pendingApprovalCount: 0,
-  closedReason: null, statusMessage: null, triaging: false, context: null, replayedCount, send: () => false, ...over,
+  closedReason: null, statusMessage: null, triaging: false, context: null, replayedCount, openedAt: Date.now(), send: () => false, ...over,
 } as SessionState);
 
 /** A Haiku-routed turn: Pip names Moss, and Moss is mid-reply. */
@@ -60,6 +60,14 @@ const SIGNED_OUT: ChatItem[] = [
 const QUOTA_REFUSED: ChatItem[] = [
   { kind: 'user', text: '@Nell review the auth changes', imageCount: 0, ts: at(0) },
   { kind: 'error', code: 'gate', text: 'Nell: claude five_hour at 99% — refused by provider', ts: at(1) },
+];
+
+/** A handoff (§12a): Ollie steps back, Juno steps in -- the last item is
+ *  live so the pass plays; `?fixture=handoff-replayed` shows it static. */
+const HANDOFF: ChatItem[] = [
+  { kind: 'user', text: 'Keep going on the avatar generator', imageCount: 0, ts: at(0) },
+  { kind: 'assistant', text: 'The generator is drafted; the context window is filling.', complete: true, crew: OLLIE, ts: at(1) },
+  { kind: 'consult', phase: 'handoff', agent: 'codex', crew: { ...JUNO, roleLabel: 'Builder' }, from: OLLIE, text: 'Picking up from Ollie. Checked git first: the generator is in place, tests green. Continuing with the flag.', ts: at(2) },
 ];
 
 /** A job with TWO crew members speaking before it passes, live -- so both
@@ -110,6 +118,14 @@ export const FIXTURES: Record<string, () => SessionState> = {
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
   'quota-refused': () => base(QUOTA_REFUSED, meta({ state: 'idle' }), QUOTA_REFUSED.length),
+  /** The pass, live: Ollie steps back, Juno steps in. */
+  handoff: () => base(HANDOFF, meta({ state: 'idle', crew: JUNO }), HANDOFF.length - 1),
+  'handoff-replayed': () => base(HANDOFF, meta({ state: 'idle', crew: JUNO }), HANDOFF.length),
+  /** Effort, visible: the same working indicator at low and at xhigh. */
+  'effort-low': () => base(TWO_JOBS.slice(5, 8), meta({ effort: 'low', state: 'working' }), 3, { status: 'working', statusMessage: 'Ollie is thinking…' }),
+  'effort-xhigh': () => base(TWO_JOBS.slice(5, 8), meta({ effort: 'xhigh', state: 'working' }), 3, { status: 'working', statusMessage: 'Ollie is thinking…' }),
+  /** Sleeping on idle: the last thing here happened an hour ago. */
+  asleep: () => base(TWO_JOBS.slice(0, 5), meta({ state: 'idle' }), 5, { status: 'idle', openedAt: Date.now() - 3_600_000 }),
   /** Two jobs; the first verified and already folded (history). */
   chapters: () => base(TWO_JOBS, meta(), TWO_JOBS.length),
   /** The same, but the first job closes LIVE — so it stamps, cheers, then folds. */

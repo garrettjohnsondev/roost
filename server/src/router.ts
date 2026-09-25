@@ -1,7 +1,7 @@
 import type { CallDelta } from './agents/types.js';
 import { runAgentTask } from './agents/dispatch.js';
 import type { AgentKind } from './protocol.js';
-import { authedQuery } from './claudeAuth.js';
+import { authedQuery, isAuthFailure } from './claudeAuth.js';
 import { repoRoot } from './config.js';
 
 export type Tier = 'light' | 'standard' | 'heavy';
@@ -19,6 +19,10 @@ export interface TriageResult {
    *  tell whether the model misbehaved or the call returned nothing — the reply
    *  had been thrown away. */
   raw?: string;
+  /** The classifier could not run because Claude is not signed in. Not a
+   *  routing question at all: the person needs the sign-in card, and the
+   *  decisions log must not file it under "unparseable". */
+  auth?: boolean;
 }
 
 const TRIAGE_PROMPT = `You are a dispatcher deciding how capable a coding agent needs to be for a task. Classify into exactly one tier:
@@ -125,6 +129,10 @@ export async function triage(text: string, agent: AgentKind = 'claude', lightMod
       collect,
       new Promise<string>((_, reject) => setTimeout(() => reject(new Error('triage timeout')), TRIAGE_TIMEOUT_MS)),
     ]);
+    // 2026-09-24: the one real "triage-fallback" row in the decisions log was
+    // raw: "Failed to authenticate: OAuth session expired". The result text
+    // of a failed call had been parsed as if a model wrote it.
+    if (isAuthFailure(out)) return { tier: 'standard', reason: 'triage could not run — not signed in', raw: out.slice(0, 300), auth: true };
     return parseTriage(out);
   } catch {
     return { tier: 'standard', reason: 'triage failed — defaulted' };

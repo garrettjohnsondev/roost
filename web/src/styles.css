@@ -1840,6 +1840,51 @@ button {
   padding: 4px 8px;
 }
 .working-text { min-width: 0; }
+.working-effort { opacity: 0.75; }
+/* Effort, visible: the think beat is the session's effort. `--beat` is set on
+   the indicator from thinkBeatMs(); the frames keep their loop -- the pose is
+   already sanctioned as motion that reports a live engine -- only its pace
+   changes. */
+.working-indicator .crew-sprite.pose-think .frame-a,
+.working-indicator .crew-sprite.pose-think .frame-b { animation-duration: var(--beat, 0.62s); }
+
+/* Someone being sent out (§12a): one step toward the work, then holds there.
+   Translate only, integer-ish and short, so the pixels do not smear. */
+.crew-sprite.sent-out { animation: sent-out 520ms cubic-bezier(0.2, 1, 0.4, 1) both; }
+@keyframes sent-out {
+  0% { transform: translateX(-6px); opacity: 0.4; }
+  70% { transform: translateX(2px); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* A handoff between vendors (§12a). Static by default; `.live` plays the pass
+   once -- outgoing steps back and dims, incoming steps in -- and holds. */
+.handoff-pass {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text-dim);
+  padding: 4px 10px;
+}
+.handoff-from, .handoff-to { display: inline-flex; align-items: center; gap: 5px; }
+.handoff-from { opacity: 0.55; }
+.handoff-arrow { color: var(--accent); font-size: 14px; }
+.handoff-why { font-weight: 400; width: 100%; text-align: center; }
+.handoff-pass.live .handoff-from { animation: handoff-step-back 700ms cubic-bezier(0.2, 1, 0.4, 1) both; }
+.handoff-pass.live .handoff-to { animation: handoff-step-in 700ms 250ms cubic-bezier(0.22, 1.3, 0.36, 1) both; }
+@keyframes handoff-step-back {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-4px); opacity: 0.55; }
+}
+@keyframes handoff-step-in {
+  0% { transform: translateX(10px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
 
 @keyframes pulse {
   50% {
@@ -2120,6 +2165,8 @@ button {
 /* Respect the system setting: hold the pose instead of cutting between frames. */
 @media (prefers-reduced-motion: reduce) {
   .crew-sprite .frame-b { animation: none; opacity: 1; }
+  /* The pass, the send-off: simply already there. */
+  .crew-sprite.sent-out, .handoff-pass.live .handoff-from, .handoff-pass.live .handoff-to { animation: none; }
   .crew-sprite .frame-a { animation: none; opacity: 0; }
 }
 
