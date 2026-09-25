@@ -23,8 +23,9 @@ export function segmentsOf(items: ChatItem[], start: number, end: number): Segme
     }
     let j = i;
     while (j < end && items[j].kind === 'tool') j++;
-    if (j - i >= 2) out.push({ kind: 'run', start: i, end: j });
-    else out.push({ kind: 'item', index: i });
+    // A lone call folds too (item 36): it used to render as a raw chip with
+    // its whole command, the one line in the thread that looked like a log.
+    out.push({ kind: 'run', start: i, end: j });
     i = j;
   }
   return out;

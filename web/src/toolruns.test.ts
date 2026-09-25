@@ -8,9 +8,10 @@ const user: ChatItem = { kind: 'user', text: 'hi', imageCount: 0, ts };
 const reply: ChatItem = { kind: 'assistant', text: 'ok', complete: true, ts };
 
 describe('tool runs fold consecutive calls, and only those', () => {
-  it('leaves a lone tool as a plain item', () => {
+  // toolruns.ts
+  it('folds a lone tool too — no raw chip in the thread (item 36)', () => {
     const items = [user, tool('Read'), reply];
-    expect(segmentsOf(items, 0, 3)).toEqual([{ kind: 'item', index: 0 }, { kind: 'item', index: 1 }, { kind: 'item', index: 2 }]);
+    expect(segmentsOf(items, 0, 3)).toEqual([{ kind: 'item', index: 0 }, { kind: 'run', start: 1, end: 2 }, { kind: 'item', index: 2 }]);
   });
 
   it('folds two or more in a row into one run', () => {

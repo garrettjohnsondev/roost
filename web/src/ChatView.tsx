@@ -265,8 +265,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               {session.meta?.title ?? '…'} <span className="chat-title-chevron">▾</span>
             </div>
             <div className="chat-title-sub">
-              {session.meta?.mode ? <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span> : null} {agent} ·{' '}
-              {currentModelLabel} {session.meta?.effort ? `· ${session.meta.effort}` : ''}
+              {/* The badge says what the NEXT message does (item 36). A name you
+                  asked for sticks and goes straight to them, around plan and
+                  build -- so "PLAN" while Ollie edits files was a lie. */}
+              {session.meta?.sticky ? (
+                <span className="mode-tag direct" title={`Messages go straight to ${session.meta.sticky}; the ${session.meta.mode ?? 'session'} mode is not applied until you clear them.`}>direct</span>
+              ) : session.meta?.mode ? (
+                <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span>
+              ) : null}{' '}
+              {/* Who and on what, in words: "Ollie · Opus 5.5", not "claude ·
+                  Default (recomme…" -- the list label of an alias. */}
+              {session.meta?.crew ? `${session.meta.crew.name} · ${modelWords(session.meta.crew.model)}` : `${agent} · ${currentModelLabel}`}
+              {session.meta?.effort ? ` · ${session.meta.effort}` : ''}
               {!session.connected && ' · reconnecting…'}
             </div>
           </div>
@@ -473,7 +483,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
               seg.kind === 'item' ? (
                 <Contained key={seg.index} what="This message" retryOn={session.items[seg.index]}>
-                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} />
+                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} />
                 </Contained>
               ) : (
                 <Contained key={`run-${seg.start}`} what="These tool calls">
@@ -960,13 +970,40 @@ export const PIP: CrewInfo = {
  *    `think` in between, when nothing visible is being produced yet.
  *  Text appears only when there is something specific to say. No generic
  *  "working…": the moving sprite already says that. */
+/** True for a crew line followed by more tool work before you speak again:
+ *  said on the way, not the answer. Pure of the items. */
+export function isNarration(items: ChatItem[], i: number, end: number): boolean {
+  if (items[i]?.kind !== 'assistant') return false;
+  for (let j = i + 1; j < end; j++) {
+    const k = items[j].kind;
+    if (k === 'user' || k === 'verify' || k === 'consult') return false;
+    if (k === 'tool') return true;
+  }
+  return false;
+}
+
+/** "Ollie is running a command…" -- from the last item alone, no guessing. */
+function doingNow(name: string, last: ChatItem | undefined): string {
+  if (last?.kind === 'tool' && !last.done) {
+    const n = last.name.toLowerCase();
+    if (/edit|write|patch|create|delete|rename|notebook/.test(n)) return `${name} is editing a file…`;
+    if (/bash|exec|command|shell|run|terminal/.test(n)) return `${name} is running a command…`;
+    if (/read|grep|glob|search|list|find|cat|view|fetch/.test(n)) return `${name} is reading…`;
+    return `${name} is using ${last.name}…`;
+  }
+  if (last?.kind === 'assistant' && !last.complete) return `${name} is writing…`;
+  return `${name} is thinking…`;
+}
+
 function WorkingIndicator({ session }: { session: SessionState }) {
   const last = session.items[session.items.length - 1];
   const producing = (last?.kind === 'assistant' && !last.complete) || (last?.kind === 'tool' && !last.done);
   const crew = session.triaging ? PIP : session.meta?.crew ?? PIP;
   const pose: Pose = !session.triaging && producing ? 'type' : 'think';
   // Local copy, so it shows without waiting on the server's matching status.
-  const text = session.triaging ? 'Pip is picking who takes this…' : session.statusMessage;
+  // Never a face with no words (item 36): when the server has not said what
+  // is happening, the thread's last item does.
+  const text = session.triaging ? 'Pip is picking who takes this…' : session.statusMessage ?? doingNow(crew.name, last);
   // Effort, visible (§12a): the think beat slows with the effort the session
   // is set to -- `xhigh` sits with it, `low` fidgets. Pip's triage is always
   // quick and is not the session's effort, so it keeps the house beat.
@@ -1066,6 +1103,18 @@ function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh:
       <span className="handoff-why">picks it up with a fresh window</span>
     </div>
   );
+}
+
+/** "claude-opus-5-5[1m]" -> "Opus 5.5 1M", "gpt-5.6-sol" -> "GPT-5.6 Sol". */
+export function modelWords(id: string): string {
+  if (!id) return 'model not reported';
+  const long = /\[1m\]$/i.test(id) ? ' 1M' : '';
+  const base = id.replace(/\[1m\]$/i, '').replace(/-\d{8}$/, '');
+  const c = base.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?$/i);
+  if (c) return `${c[1][0].toUpperCase()}${c[1].slice(1)} ${c[2]}${c[3] ? '.' + c[3] : ''}${long}`;
+  const g = base.match(/^gpt-([\d.]+)(?:-([a-z]+))?$/i);
+  if (g) return `GPT-${g[1]}${g[2] ? ' ' + g[2][0].toUpperCase() + g[2].slice(1) : ''}${long}`;
+  return base.charAt(0).toUpperCase() + base.slice(1) + long;
 }
 
 /** The status line (item 35): each thing that used to be a bar is a small
@@ -1254,7 +1303,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean }) {
+function Message({ item, crew, chapterCrew, me, fresh = false, aside = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean }) {
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1279,6 +1328,16 @@ function Message({ item, crew, chapterCrew, me, fresh = false }: { item: ChatIte
         </div>
       );
     case 'assistant':
+      // Narration, not the reply (item 36): a line said on the way to more
+      // work -- "Endpoint and tests pass. Next, the map screen." -- sits as a
+      // quiet aside; the turn's last word stays a full bubble.
+      if (aside && item.complete) {
+        return (
+          <div className="msg-aside">
+            {item.crew && <strong style={{ color: nameColor(item.crew.color) }}>{item.crew.name}</strong>} <Markdown text={item.text} />
+          </div>
+        );
+      }
       return (
         item.crew ? (
           <CrewRow crew={item.crew} pose={item.complete ? 'idle' : 'type'}>

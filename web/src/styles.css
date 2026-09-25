@@ -2388,6 +2388,7 @@ button {
 .mode-tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.10); }
 .mode-tag.build { background: rgba(109,40,217,0.25); }
 .mode-tag.plan { background: rgba(217,164,65,0.25); }
+.mode-tag.direct { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent-ink); }
 
 /* Your own turn: bubble then face, mirroring the crew's face-then-bubble, so the
    thread reads as two sides of a conversation rather than one list. */
@@ -2859,6 +2860,13 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .crew-row-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .crew-row-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; min-width: 0; }
 .crew-row-head { align-self: stretch; }
+/* Narration (item 36): what the crew say on the way, one quiet line, not a
+   speech bubble -- the thread stops reading like a log. */
+.msg-aside { font-size: 13.5px; line-height: 1.45; color: var(--text-dim); padding: 2px 0 2px 62px; margin: 0; min-width: 0; }
+.msg-aside strong { font-family: var(--font-display, inherit); font-weight: 400; font-size: 11px; margin-right: 4px; }
+.msg-aside p { display: inline; margin: 0; }
+.msg-aside p + p { display: block; margin-top: 4px; }
+
 /* The status line (item 35): one row under the header instead of six bars. */
 .status-strip {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px;
@@ -3138,6 +3146,14 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 
 .spend-it-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .spend-it-weekly { font-size: 11.5px; color: var(--text-dim); }
+/* The button keeps to one line (item 36): it wrapped to three at phone width
+   and outgrew the sentence it belongs to. On a narrow screen it drops under
+   the text, full width, instead. */
+.surplus-bar.spend-it { flex-wrap: wrap; }
+.surplus-bar.spend-it > .chip { white-space: nowrap; flex: 0 0 auto; }
+@media (max-width: 480px) {
+  .surplus-bar.spend-it > .chip { flex: 1 1 100%; min-height: 44px; }
+}
 
 /* ---------- the set moves (Scene.tsx AmbientLayer, 2026-09-24) ----------
    The crew still only move for real state; this is the set. CSS only, each

@@ -1448,3 +1448,27 @@ describe('one status line, not six bars (item 35)', () => {
     expect(read('web/src/fixtures.ts')).toContain("'busy-top':");
   });
 });
+
+describe('the rest of the screenshot (item 36)', () => {
+  const chat = read('web/src/ChatView.tsx');
+  it('the mode badge says what the next message does: a sticky name is "direct", not the mode', () => {
+    expect(chat).toMatch(/\{session\.meta\?\.sticky \? \(\s*<span className="mode-tag direct"/);
+  });
+  it('the header names who and on what in words, not a list label', () => {
+    expect(chat).toMatch(/`\$\{session\.meta\.crew\.name\} · \$\{modelWords\(session\.meta\.crew\.model\)\}`/);
+  });
+  it('no raw window key reaches the phone', () => {
+    const q = read('server/src/quota.ts');
+    expect(q).toMatch(/const label = CLAUDE_WINDOW_LABELS\[k\] \?\? `7-day \(\$\{m\[1\]\.replace\(\/_\/g, ' '\)\}\)`;/);
+  });
+  it('a lone tool call folds like the rest', () => {
+    expect(read('web/src/toolruns.ts')).not.toMatch(/if \(j - i >= 2\)/);
+  });
+  it('the working face always has words', () => {
+    expect(chat).toMatch(/session\.statusMessage \?\? doingNow\(crew\.name, last\)/);
+  });
+  it('narration renders as an aside; the reply keeps its bubble', () => {
+    expect(chat).toMatch(/aside=\{isNarration\(session\.items, seg\.index, ch\.end\)\}/);
+    expect(chat).toMatch(/if \(aside && item\.complete\) \{/);
+  });
+});

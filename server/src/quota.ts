@@ -62,7 +62,7 @@ const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   seven_day_opus: '7-day (Opus)',
   seven_day_sonnet: '7-day (Sonnet)',
   seven_day_oauth_apps: '7-day (apps)',
-  seven_day_overage_included: '7-day (overage)',
+  seven_day_overage_included: '7-day (with extra usage)',
   overage: 'Overage',
 };
 
@@ -89,8 +89,12 @@ export function canonicalClaudeKey(
   }
   const m = /^seven_day_(.+)$/.exec(k);
   if (m) {
+    // The label map first, then words: "Overage_included" leaked onto the
+    // phone as a raw key (item 36). The KEY keeps its old spelling so stored
+    // readings still line up.
     const name = m[1].replace(/^./, (c) => c.toUpperCase());
-    return { key: `claude:weekly_scoped:${name}`, label: `7-day (${name})`, durationMins: 10080 };
+    const label = CLAUDE_WINDOW_LABELS[k] ?? `7-day (${m[1].replace(/_/g, ' ')})`;
+    return { key: `claude:weekly_scoped:${name}`, label, durationMins: 10080 };
   }
   // An unrecognized kind carrying a real percentage is still a real limit, and
   // dropping it would over-report headroom. Keep it, but namespaced and
