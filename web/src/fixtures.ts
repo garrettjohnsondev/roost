@@ -198,6 +198,11 @@ export const FIXTURES: Record<string, () => SessionState> = {
     ],
     meta({ state: 'working' }), 0, { status: 'working' },
   ),
+  /** A reply being written: a typing bubble, never text in pieces. */
+  typing: () => base(
+    [{ kind: 'user', text: 'How does the tracker decide the phase?', imageCount: 0, ts: at(0) }, { kind: 'assistant', text: 'It reads the tool calls in ord', complete: false, crew: OLLIE, ts: at(1) }],
+    meta({ state: 'working' }), 0, { status: 'working' },
+  ),
   /** Deploy: a crew member worked out what deploy means in a new project. */
   'deploy-proposal': () => base(
     [

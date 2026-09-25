@@ -585,7 +585,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}
-        {(session.triaging || session.status === 'working') && !session.closedReason && !pendingQ && !session.pendingApproval && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
+        {(session.triaging || session.status === 'working') && !session.closedReason && !pendingQ && !session.pendingApproval && !typingNow(session.items) && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
           <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
@@ -1427,6 +1427,19 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
           </div>
         );
       }
+      // No reply prints in pieces (2026-09-25): "I don't need to see the
+      // responses get generated in glitchy chunks. Just give me the output
+      // already in place." While it is being written, they are typing; the
+      // finished text lands whole.
+      if (!item.complete) {
+        return (
+          <CrewRow crew={item.crew ?? crew ?? PIP} pose="type">
+            <div className="msg assistant typing-bubble" aria-label="typing">
+              <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>
+            </div>
+          </CrewRow>
+        );
+      }
       return (
         item.crew ? (
           <CrewRow crew={item.crew} pose={item.complete ? (asking ? 'peek' : 'idle') : 'type'}>
@@ -1718,6 +1731,12 @@ function ToolRun({ items, start, end, crew, replayedCount }: { items: ChatItem[]
   );
 }
 
+/** The thread ends in a reply being written: its typing bubble already says so. */
+function typingNow(items: ChatItem[]): boolean {
+  const last = items[items.length - 1];
+  return last?.kind === 'assistant' && !last.complete;
+}
+
 /** True when the thread ends in a live work card, which already shows who is
  *  working and on what -- the separate "is thinking…" row would say it twice. */
 function liveWorkCard(items: ChatItem[], status: string): boolean {
@@ -1741,8 +1760,11 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
   const lines = slice.filter((x): x is Extract<ChatItem, { kind: 'assistant' }> => x.kind === 'assistant' && !!x.text.trim());
   const s = summarizeRun(tools);
   const who = lines[lines.length - 1]?.crew ?? crew;
-  const latest = lines[lines.length - 1];
-  const thinking = live && !s.running && !(latest && !latest.complete);
+  const writing = !!lines.length && !lines[lines.length - 1].complete;
+  // Only whole lines are shown; one still being written reads as typing.
+  const done = lines.filter((l) => l.complete);
+  const latest = done[done.length - 1];
+  const thinking = live && !s.running && !writing;
   const pose: Pose = live ? (s.running || (latest && !latest.complete) ? 'type' : 'think') : 'idle';
   const mins = Math.round((slice[slice.length - 1].ts - slice[0].ts) / 60_000);
   const tally = [lines.length ? `${lines.length} update${lines.length === 1 ? '' : 's'}` : '', s.text, !live && mins >= 1 ? `${mins}m` : ''].filter(Boolean).join(' · ');
@@ -1768,6 +1790,8 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
               <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
               <span className="tool-caret" aria-hidden="true" />
             </>
+          ) : writing ? (
+            <span className="work-thinking">{who?.name ?? 'They'} is typing <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span></span>
           ) : thinking ? (
             <span className="work-thinking">thinking…</span>
           ) : null}
@@ -1778,7 +1802,7 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
           {segmentsOf(items, start, end).map((seg) => {
             if (seg.kind === 'run') return <ToolRun key={`r${seg.start}`} items={items} start={seg.start} end={seg.end} replayedCount={replayedCount} />;
             const it = items[seg.index];
-            if (it.kind === 'assistant') return it.text.trim() ? <div key={seg.index} className="work-line"><Markdown text={it.text} /></div> : null;
+            if (it.kind === 'assistant') return it.text.trim() && it.complete ? <div key={seg.index} className="work-line"><Markdown text={it.text} /></div> : null;
             if (it.kind === 'thinking') return <ThinkingBlock key={seg.index} text={it.text} open={it.open} />;
             return null;
           })}

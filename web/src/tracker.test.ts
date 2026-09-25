@@ -28,6 +28,9 @@ describe('which phase a tool call is evidence of', () => {
     expect(phaseOfTool({ name: 'Bash', detail: 'npx tsc --noEmit -p web' })).toBe('test');
     expect(phaseOfTool({ name: 'Bash', detail: 'npm run typecheck' })).toBe('test');
     expect(phaseOfTool({ name: 'Bash', detail: 'git add -A && git commit -m x' })).toBeNull();
+    // Shipping after the tests passed is not building again.
+    expect(phaseOfTool({ name: 'Bash', detail: 'cd /r && node scripts/service.mjs install 2>&1 | tail' })).toBeNull();
+    expect(phaseOfTool({ name: 'Bash', detail: 'npx vercel --prod --yes' })).toBeNull();
   });
 });
 

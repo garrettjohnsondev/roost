@@ -66,7 +66,11 @@ type Tool = Extract<ChatItem, { kind: 'tool' }>;
 const TEST_CMD = /\b(vitest|jest|mocha|pytest|playwright|cypress|tsc\b|typecheck|type-check|lint|eslint|smoke|cargo (test|check|clippy)|go (test|vet)|(npm|pnpm|yarn|bun)( run)? (test|build|check|verify)\b|make (test|check))/i;
 const LOOK_CMD = /^\s*(cd [^&;]+(&&|;)\s*)?(grep|rg|ag|cat|ls|head|tail|sed -n|find|wc|tree|git (log|diff|status|show|blame)|awk|jq|less)\b/i;
 
-const NEUTRAL_CMD = /^\s*(cd [^&;]+(&&|;)\s*)?(git (add|commit|push|stash|tag|checkout|switch|branch)|echo|sleep|true|open|pwd|which)\b/i;
+// Housekeeping and shipping say nothing about the work itself: committing,
+// pushing and deploying after the tests passed must not count as building
+// again (2026-09-25: the bar read "not tested" after a tested job, because
+// the deploy was the last command).
+const NEUTRAL_CMD = /^\s*(cd [^&;]+(&&|;)\s*)?(git (add|commit|push|stash|tag|checkout|switch|branch)|echo|sleep|true|open|pwd|which|node scripts\/service\.mjs|npm run (deploy|release|service)|(npx )?vercel|(npx )?(netlify|wrangler|firebase) deploy|fly deploy|gh (pr|release))\b/i;
 
 /** Which phase a tool call is evidence of; null for housekeeping (a commit,
  *  an echo) that says nothing about where the job is. */
