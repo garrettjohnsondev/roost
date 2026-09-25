@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roost — when a context fills</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body { margin:0; background:#0f1729; font-family:'Atkinson Hyperlegible', system-ui, sans-serif; }
+.sil { font-family:'Silkscreen', monospace; }
+.px { image-rendering: pixelated; }
+.seam { border:0; border-top:1px solid #38477a; margin:0; }
+@keyframes drain { 0%,10% { filter:none } 60%,88% { filter:grayscale(.85) brightness(.6) } 100% { filter:none } }
+.drain { animation: drain 7s ease-in-out infinite; }
+@keyframes creep { 0%,10% { width:22% } 60%,88% { width:64% } 100% { width:22% } }
+.creep { animation: creep 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .drain,.creep { animation:none !important } }
+</style>
+</helmet>
+
+<div style="width:1160px;height:1305px;box-sizing:border-box;background:#0f1729;color:#e9edf6;padding:50.4px 55.2px;display:flex;flex-direction:column;gap:24px;overflow:hidden;">
+  <div>
+    <div class="sil" style="font-size:15px;color:#f4b63f;">Context</div>
+    <h1 class="sil" style="margin:9px 0 0;font-size:33px;color:#ffffff;">Ask once, then remember the answer</h1>
+    <p style="margin:11px 0 0;font-size:18px;line-height:1.6;color:#c8d4ea;max-width:98ch;">The ladder already exists in the code &mdash; dispatch at 40%, compact at 60%, hand off at 80% &mdash; and it renders as a line of grey text nobody acts on. Compacting <em>loses detail</em>, so it is never done behind your back. It is offered by the agent whose context it is, at the moment the colour starts leaving them, with a box that stops it asking again.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:40.8px;">
+    <div>
+      <h2 class="sil" style="margin:0 0 12px;font-size:17px;color:#ffffff;">The moment it asks</h2>
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;">
+          <img src="assets/cc6e04c74ff9e603b7d3e298849102f3.png" alt="" class="px drain" style="width:52px;height:52px;flex-shrink:0;">
+          <div style="flex-grow:1;min-width:0;">
+            <div style="display:flex;align-items:baseline;gap:8.4px;">
+              <span class="sil" style="font-size:18.5px;color:#c9764a;">OLLIE</span>
+              <span style="font-size:14px;color:#93a3c6;">opus 5.5</span>
+              <span style="margin-left:auto;display:flex;align-items:center;gap:7.2px;">
+                <span style="width:74px;height:7px;background:#151f38;border:1px solid #38477a;display:block;"><span class="creep" style="display:block;height:100%;background:#f4b63f;"></span></span>
+                <span class="sil" style="font-size:13px;color:#f4b63f;">64%</span>
+              </span>
+            </div>
+            <div style="margin-top:7px;background:#1c2740;border:1px solid #f4b63f;padding:13.2px 14.4px;">
+              <div style="font-size:17px;line-height:1.5;color:#e9edf6;">I'm 64% full and I can feel it &mdash; answers get worse before the window actually runs out. Want me to compact? I'll keep the plan and the criteria.</div>
+              <label style="display:flex;gap:9.6px;align-items:center;margin-top:11px;font-size:15.5px;color:#c8d4ea;cursor:pointer;">
+                <input type="checkbox" checked style="width:15px;height:15px;accent-color:#f4b63f;margin:0;">
+                Do this automatically from now on
+              </label>
+              <div style="display:flex;gap:9.6px;margin-top:11px;">
+                <button type="button" class="sil" style="flex-grow:2;background:#f4b63f;border:0;color:#0f1729;padding:10.8px;font-size:14px;cursor:pointer;">COMPACT NOW</button>
+                <button type="button" class="sil" style="flex-grow:1;background:transparent;border:1px solid #38477a;color:#93a3c6;padding:10.8px;font-size:14px;cursor:pointer;">NOT YET</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="sil" style="margin:20px 0 12px;font-size:17px;color:#ffffff;">And afterwards, every time</h2>
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;">
+          <img src="assets/cc6e04c74ff9e603b7d3e298849102f3.png" alt="" class="px" style="width:34px;height:34px;flex-shrink:0;">
+          <div style="flex-grow:1;font-size:16px;line-height:1.55;color:#93a3c6;">
+            <span style="color:#c8d4ea;">Compacted at 64%.</span> Kept the plan, the criteria and the last eight turns. Dropped 31 tool results you can still open in the job.
+          </div>
+        </div>
+        <p style="margin:12px 0 0;font-size:15.5px;line-height:1.55;color:#93a3c6;"><strong style="color:#f4b63f;">Automatic never means silent.</strong> It still says what it did and what went, because a compaction you did not see is indistinguishable from an agent quietly forgetting.</p>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="sil" style="margin:0 0 12px;font-size:17px;color:#ffffff;">Cheapest fix first</h2>
+      <div style="display:flex;flex-direction:column;gap:10.8px;">
+        
+    <div style="display:flex;gap:15.6px;align-items:flex-start;padding:15.6px;background:#131c33;border:1px solid #2b3a63;">
+      <span class="sil" style="font-size:19.5px;color:#3d9c78;flex-shrink:0;width:38px;">40%</span>
+      <span style="flex-grow:1;">
+        <span class="sil" style="display:block;font-size:15px;color:#ffffff;">DISPATCH</span>
+        <span style="display:block;font-size:15.5px;color:#93a3c6;line-height:1.5;margin-top:5px;">Send the reading to a subagent. Their context fills; this one stays clean. Nothing is lost, so it never asks.</span>
+      </span>
+      <span class="sil" style="font-size:12.5px;color:#3d9c78;white-space:nowrap;">FREE</span>
+    </div>
+        
+    <div style="display:flex;gap:15.6px;align-items:flex-start;padding:15.6px;background:#1c2740;border:1px solid #f4b63f;">
+      <span class="sil" style="font-size:19.5px;color:#f4b63f;flex-shrink:0;width:38px;">60%</span>
+      <span style="flex-grow:1;">
+        <span class="sil" style="display:block;font-size:15px;color:#ffffff;">COMPACT</span>
+        <span style="display:block;font-size:15.5px;color:#93a3c6;line-height:1.5;margin-top:5px;">Summarise the middle of the conversation. Detail goes, so this is the first rung that needs your say-so.</span>
+      </span>
+      <span class="sil" style="font-size:12.5px;color:#f4b63f;white-space:nowrap;">ASKS ONCE</span>
+    </div>
+        
+    <div style="display:flex;gap:15.6px;align-items:flex-start;padding:15.6px;background:#131c33;border:1px solid #2b3a63;">
+      <span class="sil" style="font-size:19.5px;color:#cf5b4a;flex-shrink:0;width:38px;">80%</span>
+      <span style="flex-grow:1;">
+        <span class="sil" style="display:block;font-size:15px;color:#ffffff;">HAND OFF</span>
+        <span style="display:block;font-size:15.5px;color:#93a3c6;line-height:1.5;margin-top:5px;">Start a fresh agent seeded from the plan file. A different decision from compacting, so the checkbox above does not cover it.</span>
+      </span>
+      <span class="sil" style="font-size:12.5px;color:#cf5b4a;white-space:nowrap;">ASKS AGAIN</span>
+    </div>
+      </div>
+      <div style="margin-top:16px;background:#131c33;border-left:2px solid #f4b63f;padding:16.8px 18px;">
+        <div class="sil" style="font-size:14px;color:#f4b63f;margin-bottom:8px;">WHY 60 AND NOT 95</div>
+        <p style="margin:0;font-size:15.5px;line-height:1.6;color:#c8d4ea;">Every frontier model tested degrades with length, well before its window is full. Waiting for the engine's own auto-compact means acting after the quality has already gone. These thresholds are deliberately tighter than any engine's.</p>
+      </div>
+      <div style="margin-top:14px;background:#131c33;border-left:2px solid #3d9c78;padding:16.8px 18px;">
+        <div class="sil" style="font-size:14px;color:#3d9c78;margin-bottom:8px;">THIS IS NOT THE CHAPTER FOLD</div>
+        <p style="margin:0;font-size:15.5px;line-height:1.6;color:#c8d4ea;">Folding a finished job tidies <em>your</em> view and touches nothing the agents hold. This compacts what an <em>agent</em> remembers. Same word in most tools; two different things here, and only one of them costs you anything.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1160,"height":900}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

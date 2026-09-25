@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roost — effort and who decides</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body { margin:0; background:#0f1729; font-family:'Atkinson Hyperlegible', system-ui, sans-serif; }
+.sil { font-family:'Silkscreen', monospace; }
+.seam { border:0; border-top:1px solid #38477a; margin:0; }
+.px { image-rendering: pixelated; }
+@keyframes think { 0%,68% { opacity:.45 } 78%,100% { opacity:1 } }
+.slow span { animation: think 2.6s ease-in-out infinite; }
+.slow span:nth-child(2) { animation-delay:.3s } .slow span:nth-child(3) { animation-delay:.6s }
+.slow span:nth-child(4) { animation-delay:.9s } .slow span:nth-child(5) { animation-delay:1.2s }
+@keyframes quick { 0%,40% { opacity:.45 } 55%,100% { opacity:1 } }
+.fast span { animation: quick .8s ease-in-out infinite; }
+.fast span:nth-child(2) { animation-delay:.12s }
+
+@media (prefers-reduced-motion: reduce) { .slow span, .fast span { animation:none !important } }
+</style>
+</helmet>
+
+<div style="width:1160px;height:1305px;box-sizing:border-box;background:#0f1729;color:#e9edf6;padding:50.4px 55.2px;display:flex;flex-direction:column;gap:24px;overflow:hidden;">
+  <div>
+    <div class="sil" style="font-size:15px;color:#f4b63f;">Control</div>
+    <h1 class="sil" style="margin:9px 0 0;font-size:33px;color:#ffffff;">Effort you can see, decisions you can take back</h1>
+    <p style="margin:11px 0 0;font-size:18px;line-height:1.6;color:#c8d4ea;max-width:98ch;">Effort is the lever almost no other harness routes on, and right now it is a single word in the header. The router already explains itself every turn &mdash; <em>&ldquo;quota tight, trimming thinking before downgrading the model&rdquo;</em> &mdash; and that sentence is computed and discarded. These screens spend it.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:40.8px;">
+    <div style="display:flex;flex-direction:column;gap:16.8px;">
+      <h2 class="sil" style="margin:0;font-size:18.5px;color:#ffffff;">Effort, in the thread</h2>
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;display:flex;flex-direction:column;gap:19.2px;">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;"><img src="assets/394d7254b26f222871f19d470054d5b7.png" alt="" class="px" style="width:46px;height:46px;flex-shrink:0;"><div style="flex-grow:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8.4px;flex-wrap:wrap;"><span class="sil" style="font-size:18.5px;color:#3d9c78;">MOSS</span><span style="font-size:14px;color:#93a3c6;">haiku 4.5</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:7.2px;"><span style="display:inline-flex;gap:2.4px;vertical-align:middle;"><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span></span><span class="sil" style="font-size:13px;color:#f4b63f;">LOW</span></span></div><div style="margin-top:6px;font-size:15px;line-height:1.5;color:#93a3c6;">Mechanical work is capped low whatever the tier &mdash; a rename never needs a thinking budget.</div></div></div>
+        <hr class="seam">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;"><img src="assets/cc6e04c74ff9e603b7d3e298849102f3.png" alt="" class="px" style="width:46px;height:46px;flex-shrink:0;"><div style="flex-grow:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8.4px;flex-wrap:wrap;"><span class="sil" style="font-size:18.5px;color:#c9764a;">OLLIE</span><span style="font-size:14px;color:#93a3c6;">opus 5.5</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:7.2px;"><span style="display:inline-flex;gap:2.4px;vertical-align:middle;"><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span></span><span class="sil" style="font-size:13px;color:#f4b63f;">HIGH</span></span></div><div style="margin-top:6px;font-size:15px;line-height:1.5;color:#93a3c6;"><span style="color:#f4b63f;">Stepped down from xhigh.</span> Claude weekly is tight, and thinking is trimmed before the model is downgraded.</div></div></div>
+        <hr class="seam">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;"><img src="assets/033396752e61888c3eb2be40088544e4.png" alt="" class="px" style="width:46px;height:46px;flex-shrink:0;"><div style="flex-grow:1;min-width:0;"><div style="display:flex;align-items:baseline;gap:8.4px;flex-wrap:wrap;"><span class="sil" style="font-size:18.5px;color:#3fa585;">JUNO</span><span style="font-size:14px;color:#93a3c6;">gpt-5.6-sol</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:7.2px;"><span style="display:inline-flex;gap:2.4px;vertical-align:middle;"><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#f4b63f;border:1px solid #f4b63f;"></span><span style="width:7px;height:13px;background:#1c2740;border:1px solid #38477a;"></span></span><span class="sil" style="font-size:13px;color:#f4b63f;">MAX</span></span></div><div style="margin-top:6px;font-size:15px;line-height:1.5;color:#93a3c6;">Reviewing a diff is reasoning work, and Codex has room. Juno supports ultra; max is deliberate &mdash; topping out causes overthinking on structured work.</div></div></div>
+      </div>
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;">
+        <div class="sil" style="font-size:15px;color:#f4b63f;margin-bottom:11px;">EFFORT IS ALSO HOW LONG THEY THINK</div>
+        <div style="display:flex;gap:31.2px;align-items:center;">
+          <div style="display:flex;gap:12px;align-items:center;">
+            <img src="assets/394d7254b26f222871f19d470054d5b7.png" alt="" class="px" style="width:38px;height:38px;">
+            <span class="fast" style="display:inline-flex;gap:4.8px;background:#1c2740;border:1px solid #38477a;padding:12px 14.4px;">
+              <span style="width:5px;height:5px;background:#93a3c6;display:block;"></span><span style="width:5px;height:5px;background:#93a3c6;display:block;"></span></span>
+            <span class="sil" style="font-size:13px;color:#93a3c6;">LOW</span>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <img src="assets/1469394b0d6a706536c41f5e9d391a1a.png" alt="" class="px" style="width:38px;height:38px;">
+            <span class="slow" style="display:inline-flex;gap:4.8px;background:#1c2740;border:1px solid #38477a;padding:12px 14.4px;">
+              <span style="width:5px;height:5px;background:#f4b63f;display:block;"></span><span style="width:5px;height:5px;background:#f4b63f;display:block;"></span>
+              <span style="width:5px;height:5px;background:#f4b63f;display:block;"></span><span style="width:5px;height:5px;background:#f4b63f;display:block;"></span>
+              <span style="width:5px;height:5px;background:#f4b63f;display:block;"></span></span>
+            <span class="sil" style="font-size:13px;color:#f4b63f;">MAX</span>
+          </div>
+        </div>
+        <p style="margin:12px 0 0;font-size:15.5px;line-height:1.5;color:#93a3c6;">A low-effort agent answers with two quick beats. A max-effort one thinks &mdash; the thinking sprite, five slow beats. The wait stops being dead air and becomes the thing you are paying for.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16.8px;">
+      <h2 class="sil" style="margin:0;font-size:18.5px;color:#ffffff;">Who decides to plan</h2>
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;display:flex;flex-direction:column;gap:15.6px;">
+        <div style="display:flex;gap:13.2px;align-items:flex-start;">
+          <img src="assets/6c52cbe9a3e7c96cc3f582a1393d92b5.webp" alt="" class="px" style="width:46px;height:46px;flex-shrink:0;">
+          <div style="flex-grow:1;">
+            <div style="display:flex;align-items:baseline;gap:8.4px;">
+              <span class="sil" style="font-size:18.5px;color:#c9803a;">PIP</span>
+              <span style="font-size:14px;color:#93a3c6;">haiku 4.5</span>
+            </div>
+            <div style="margin-top:6px;background:#1c2740;border:1px solid #f4b63f;padding:13.2px 14.4px;">
+              <div style="font-size:17px;line-height:1.5;color:#e9edf6;">This looks large &mdash; three files and a test. I'll get Ollie to plan it and have Juno review before anything runs.</div>
+              <div style="display:flex;gap:9.6px;margin-top:10px;">
+                <button type="button" class="sil" style="flex-grow:1;background:#f4b63f;border:0;color:#0f1729;padding:9.6px;font-size:13px;cursor:pointer;">GO AHEAD</button>
+                <button type="button" class="sil" style="flex-grow:1;background:transparent;border:1px solid #38477a;color:#93a3c6;padding:9.6px;font-size:13px;cursor:pointer;">JUST CHAT</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p style="margin:0;font-size:15.5px;line-height:1.55;color:#93a3c6;"><strong style="color:#f4b63f;">Pip proposes, you dispose.</strong> The cheapest agent sizes the job and says so out loud, in the thread, before the expensive ones start. He never silently flips the session &mdash; the escalation is one message with one way to decline.</p>
+      </div>
+
+      <div style="background:#131c33;border:1px solid #2b3a63;box-shadow:3px 3px 0 #0a1020;padding:19.2px;">
+        <div class="sil" style="font-size:15px;color:#f4b63f;margin-bottom:12px;">AND YOU CAN JUST SAY</div>
+        <div style="display:flex;gap:8.4px;flex-wrap:wrap;">
+          <span class="sil" style="background:#1c2740;border:1px solid #38477a;color:#93a3c6;font-size:14px;padding:9.6px 13.2px;">CHAT</span>
+          <span class="sil" style="background:#1c2740;border:1px solid #f4b63f;color:#f4b63f;font-size:14px;padding:9.6px 13.2px;">AUTO</span>
+          <span class="sil" style="background:#1c2740;border:1px solid #38477a;color:#93a3c6;font-size:14px;padding:9.6px 13.2px;">PLAN</span>
+          <span class="sil" style="background:#1c2740;border:1px solid #38477a;color:#93a3c6;font-size:14px;padding:9.6px 13.2px;">BUILD</span>
+        </div>
+        <ul style="margin:13px 0 0;padding-left:17px;font-size:15.5px;line-height:1.7;color:#c8d4ea;">
+          <li><strong style="color:#e9edf6;">Auto</strong> is the default and lets Pip size every message.</li>
+          <li><strong style="color:#e9edf6;">Plan</strong> pins the whole session read-only: every message becomes a plan file, nothing executes, ever.</li>
+          <li><strong style="color:#e9edf6;">Build</strong> runs the full conference on everything, however small.</li>
+          <li>A mode you pick <strong style="color:#f4b63f;">sticks</strong>. One you never picked is only a default, and reverts.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:auto;background:#131c33;border-left:2px solid #f4b63f;padding:16.8px 19.2px;">
+    <span class="sil" style="font-size:14px;color:#f4b63f;">FOUND WHILE DRAWING THIS</span>
+    <p style="margin:8px 0 0;font-size:16px;line-height:1.55;color:#c8d4ea;"><code style="font-family:ui-monospace,monospace;font-size:15.5px;color:#8fe3c0;">chooseEffort()</code> returns a reason every single turn &mdash; <em>&ldquo;mechanical work needs little thinking&rdquo;</em>, <em>&ldquo;clamped to max, this model does not support ultra&rdquo;</em>, <em>&ldquo;window resets soon with headroom &mdash; spending it on thinking&rdquo;</em> &mdash; and <code style="font-family:ui-monospace,monospace;font-size:15.5px;color:#8fe3c0;">sessions.ts</code> emits the triage and route reasons without it. The explanation is computed and dropped. One line to fix, and every screen here depends on it.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1160,"height":900}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

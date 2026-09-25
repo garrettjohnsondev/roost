@@ -1,0 +1,127 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Chapters.dc.html": {
+      "h": 1026,
+      "is_interactive": true,
+      "title": "The work, folded",
+      "w": 390,
+      "x": 1060,
+      "y": 1503
+    },
+    "Chat.dc.html": {
+      "h": 1140,
+      "is_interactive": true,
+      "title": "The thread — watch it play",
+      "w": 390,
+      "x": 530,
+      "y": 1503
+    },
+    "Context.dc.html": {
+      "h": 1305,
+      "title": "When a context fills",
+      "w": 1160,
+      "x": 2600,
+      "y": 2783
+    },
+    "Control.dc.html": {
+      "h": 1305,
+      "title": "Effort and who decides",
+      "w": 1160,
+      "x": 0,
+      "y": 2783
+    },
+    "Crew.dc.html": {
+      "h": 962,
+      "is_interactive": true,
+      "title": "Who's in the thread",
+      "w": 390,
+      "x": 1590,
+      "y": 1503
+    },
+    "Effects.dc.html": {
+      "h": 1305,
+      "title": "Motion that carries information",
+      "w": 1160,
+      "x": 1300,
+      "y": 0
+    },
+    "Home.dc.html": {
+      "h": 962,
+      "is_interactive": true,
+      "title": "Home",
+      "w": 390,
+      "x": 0,
+      "y": 1503
+    },
+    "Logo.dc.html": {
+      "h": 880,
+      "title": "The logo, four ways",
+      "w": 1160,
+      "x": 2600,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 1363,
+      "title": "Direction",
+      "w": 1160,
+      "x": 0,
+      "y": 0
+    },
+    "Roadmap.dc.html": {
+      "h": 1305,
+      "title": "The map, as it stands",
+      "w": 1160,
+      "x": 1300,
+      "y": 2783
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-22T20:20:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "fold": {
+      "fill": "blue",
+      "text": "Chapters answer the long-thread problem visually only. A job folds to one named row when its gates pass; a handful of folded jobs become a week row. The agents' own context is a separate meter and is never touched by this.",
+      "w": 300,
+      "x": 1880,
+      "y": 1070
+    },
+    "row": {
+      "kind": "title1",
+      "maxW": 1800,
+      "text": "Four screens, one conversation",
+      "w": 240,
+      "x": 0,
+      "y": 960
+    },
+    "second": {
+      "kind": "title1",
+      "maxW": 2450,
+      "text": "Control, and the map",
+      "w": 240,
+      "x": 0,
+      "y": 2090
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Effects.dc.html",
+    "Logo.dc.html",
+    "Home.dc.html",
+    "Chat.dc.html",
+    "Chapters.dc.html",
+    "Crew.dc.html",
+    "Control.dc.html",
+    "Roadmap.dc.html",
+    "Context.dc.html"
+  ],
+  "pages": [],
+  "title": "Roost UI rework — a group chat with your crew"
+}

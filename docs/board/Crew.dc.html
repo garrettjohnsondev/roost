@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roost — who's in the thread</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #0f1729; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; }
+a { color: #f4b63f; } a:hover { color: #ffd27a; }
+.sil { font-family: 'Silkscreen', monospace; }
+.seam { border: 0; border-top: 1px solid #38477a; margin: 0; }
+.sp { position: relative; display: block; flex-shrink: 0; }
+.sp img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.fA { animation: swap 1500ms steps(1, end) infinite; }
+.fB { animation: swap 1500ms steps(1, end) infinite; animation-delay: 750ms; }
+.busy .fA, .busy .fB { animation-duration: 420ms; }
+.busy .fB { animation-delay: 210ms; }
+@keyframes swap { 0%, 49.99% { opacity: 1 } 50%, 100% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { .fA, .fB { animation: none !important; } .fB { opacity: 0 !important; } }
+</style>
+</helmet>
+
+<div style="width:390px;height:962px;box-sizing:border-box;background:#0f1729;color:#e9edf6;display:flex;flex-direction:column;overflow:hidden;">
+
+  <div style="display:flex;align-items:center;gap:12px;padding:16.8px;border-bottom:1px solid #38477a;background:#131c33;">
+    <a href="Chat.dc.html" aria-label="Back" style="color:#93a3c6;text-decoration:none;font-size:22px;line-height:1;">&#8249;</a>
+    <span class="sil" style="flex-grow:1;font-size:13.5px;color:#ffffff;">WHO'S IN THE THREAD</span>
+  </div>
+
+  <div style="padding:24px 21.6px 0;">
+    <div class="sil" style="font-size:12px;color:#f4b63f;margin-bottom:12px;">YOU</div>
+    <div style="display:flex;gap:15.6px;align-items:center;">
+      <button type="button" aria-label="Add your photo" style="width:62px;height:62px;flex-shrink:0;background:#1c2740;border:1px dashed #38477a;color:#93a3c6;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3.6px;padding:0;">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9a2 2 0 0 1 2-2h1.6a2 2 0 0 0 1.7-1l.4-.7a2 2 0 0 1 1.7-1h3.2a2 2 0 0 1 1.7 1l.4.7a2 2 0 0 0 1.7 1H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.2"></circle></svg>
+      </button>
+      <div style="flex-grow:1;min-width:0;">
+        <label for="nm" class="sil" style="display:block;font-size:11.5px;color:#93a3c6;margin-bottom:5px;">YOUR NAME</label>
+        <input id="nm" type="text" value="Garrett" style="width:100%;box-sizing:border-box;background:#1c2740;border:1px solid #38477a;color:#e9edf6;padding:12px 13.2px;font-family:inherit;font-size:15px;">
+      </div>
+    </div>
+    <p style="margin:11px 0 0;font-size:13.5px;line-height:1.5;color:#93a3c6;">Your photo and name show on your side of the thread, the way they would in any group chat.</p>
+  </div>
+
+  <div style="padding:24px 21.6px 0;">
+    <hr class="seam">
+    <div class="sil" style="font-size:12px;color:#f4b63f;margin:16px 0 4px;">THE CREW</div>
+    <p style="margin:0 0 6px;font-size:13.5px;line-height:1.5;color:#93a3c6;">Each one keeps its face when the vendor ships a new model underneath it. Swap any sprite for a photo of your own.</p>
+    
+    <div style="display:flex;gap:14.4px;align-items:center;padding:14.4px 0;">
+      <span class="sp busy" style="width:54px;height:54px;"><img class="fA" src="assets/cc6e04c74ff9e603b7d3e298849102f3.png" alt=""><img class="fB" src="assets/52942ff3b2f1190815ec487dd50cefc8.png" alt=""></span>
+      <div style="flex-grow:1;min-width:0;">
+        <div class="sil" style="font-size:13.5px;color:#e9edf6;">OLLIE</div>
+        <div style="font-size:13px;color:#93a3c6;margin-top:3px;">claude · opus · heavy</div>
+      </div>
+      <button type="button" class="sil" style="background:transparent;border:1px solid #38477a;color:#b85a30;font-size:11.5px;padding:7.2px 10.8px;cursor:pointer;">EDIT</button>
+    </div>
+    <hr class="seam">
+    
+    <div style="display:flex;gap:14.4px;align-items:center;padding:14.4px 0;">
+      <span class="sp" style="width:54px;height:54px;"><img class="fA" src="assets/033396752e61888c3eb2be40088544e4.png" alt=""><img class="fB" src="assets/969d6344f93f5d813296b9eec5db1541.png" alt=""></span>
+      <div style="flex-grow:1;min-width:0;">
+        <div class="sil" style="font-size:13.5px;color:#e9edf6;">JUNO</div>
+        <div style="font-size:13px;color:#93a3c6;margin-top:3px;">codex · gpt-5.6-sol · heavy</div>
+      </div>
+      <button type="button" class="sil" style="background:transparent;border:1px solid #38477a;color:#2f8f6b;font-size:11.5px;padding:7.2px 10.8px;cursor:pointer;">EDIT</button>
+    </div>
+    <hr class="seam">
+    
+    <div style="display:flex;gap:14.4px;align-items:center;padding:14.4px 0;">
+      <span class="sp" style="width:54px;height:54px;"><img class="fA" src="assets/394d7254b26f222871f19d470054d5b7.png" alt=""><img class="fB" src="assets/2f731b8cd59f5cb866433eca7a2e5d06.png" alt=""></span>
+      <div style="flex-grow:1;min-width:0;">
+        <div class="sil" style="font-size:13.5px;color:#e9edf6;">MOSS</div>
+        <div style="font-size:13px;color:#93a3c6;margin-top:3px;">claude · haiku · light</div>
+      </div>
+      <button type="button" class="sil" style="background:transparent;border:1px solid #38477a;color:#3d9c78;font-size:11.5px;padding:7.2px 10.8px;cursor:pointer;">EDIT</button>
+    </div>
+    <hr class="seam">
+  </div>
+
+  <div style="margin-top:auto;padding:19.2px 21.6px 26.4px;">
+    <button type="button" class="sil" style="width:100%;background:#1c2740;border:1px solid #38477a;color:#c8d4ea;padding:15.6px;font-size:13px;cursor:pointer;">BROWSE 30 FACES</button>
+    <p style="margin:10px 0 0;font-size:13px;line-height:1.5;color:#93a3c6;text-align:center;">Or describe one and Codex draws it, on your own subscription.</p>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

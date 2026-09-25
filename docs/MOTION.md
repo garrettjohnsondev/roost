@@ -1,6 +1,6 @@
 # Motion and design — implementing the board
 
-*How to build the design canvas's look and motion in Roost, with the "Motion that carries information" board in detail. Written 2026-09-24 against the code at `87eb3f2`. The canvas: https://claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn (boards **Direction**, **Motion that carries information**, **The work, folded**, **The thread**).*
+*How to build the design canvas's look and motion in Roost, with the "Motion that carries information" board in detail. Written 2026-09-24 against the code at `87eb3f2`. The canvas: https://claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn; a local copy, readable from inside Roost, is in [board/](board/README.md) (boards **Direction**, **Motion that carries information**, **The work, folded**, **The thread**).*
 
 This is a working guide for anyone adding to or changing Roost's interface: what the rules are, where each piece lives, how to build the next one, and how to prove it works. Most of the board is already built; §4 says exactly what is and is not, and §7 lists the gaps.
 

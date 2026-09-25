@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roost — design direction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #0f1729; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; }
+a { color: #f4b63f; } a:hover { color: #ffd27a; }
+.sil { font-family: 'Silkscreen', monospace; }
+.seam { border: 0; border-top: 1px solid #38477a; margin: 0; }
+.sp { position: relative; display: block; flex-shrink: 0; }
+.sp img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.fA { animation: swap 1500ms steps(1, end) infinite; }
+.fB { animation: swap 1500ms steps(1, end) infinite; animation-delay: 750ms; }
+.busy .fA, .busy .fB { animation-duration: 420ms; }
+.busy .fB { animation-delay: 210ms; }
+@keyframes swap { 0%, 49.99% { opacity: 1 } 50%, 100% { opacity: 0 } }
+@media (prefers-reduced-motion: reduce) { .fA, .fB { animation: none !important; } .fB { opacity: 0 !important; } }
+</style>
+</helmet>
+
+<div style="width:1160px;height:1363px;box-sizing:border-box;background:#0f1729;color:#e9edf6;padding:60px 67.2px;display:flex;flex-direction:column;gap:26.4px;overflow:hidden;">
+
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:43.2px;">
+    <div style="max-width:690px;">
+      <div class="sil" style="font-size:15px;color:#f4b63f;">Roost</div>
+      <h1 class="sil" style="margin:11px 0 0;font-size:46px;line-height:1.16;color:#ffffff;font-weight:700;">A group chat<br>with your crew</h1>
+      <p style="margin:15px 0 0;font-size:19px;line-height:1.6;color:#c8d4ea;max-width:60ch;">The conference already produces a plan, a critique and a reconciliation. Three turns, three agents, each answering the last — that <em>is</em> a conversation. The build renders it as a formal ceremony in identical cards. Render it as a thread and the product explains itself: you watch Pip size the job, Ollie draft, Juno push back, Ollie concede.</p>
+    </div>
+    <div style="display:flex;gap:16.8px;align-items:flex-end;padding-bottom:4px;">
+      <span class="sp busy" style="width:88px;height:88px;"><img class="fA" src="assets/cc6e04c74ff9e603b7d3e298849102f3.png" alt=""><img class="fB" src="assets/52942ff3b2f1190815ec487dd50cefc8.png" alt=""></span><span class="sp" style="width:88px;height:88px;"><img class="fA" src="assets/1469394b0d6a706536c41f5e9d391a1a.png" alt=""><img class="fB" src="assets/969d6344f93f5d813296b9eec5db1541.png" alt=""></span><span class="sp busy" style="width:88px;height:88px;"><img class="fA" src="assets/394d7254b26f222871f19d470054d5b7.png" alt=""><img class="fB" src="assets/2f731b8cd59f5cb866433eca7a2e5d06.png" alt=""></span>
+    </div>
+  </div>
+
+  <hr class="seam">
+
+  <div style="display:grid;grid-template-columns:1.06fr 1fr;gap:48px;">
+    <div>
+      <h2 class="sil" style="margin:0 0 10px;font-size:18.5px;color:#ffffff;">What the current build gives away</h2>
+      <p style="margin:0 0 9px;font-size:16.5px;line-height:1.5;color:#93a3c6;">Counted in the shipped CSS and TSX, against the tells the frontend-design skill names.</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:7.2px 13.2px 7.2px 0;color:#f4b63f;font-family:Silkscreen,monospace;font-size:14px;vertical-align:top;">01</td><td style="padding:7.2px 15.6px 7.2px 0;color:#e9edf6;font-size:16.5px;vertical-align:top;">Meta strings joined with middle dots</td><td style="padding:7.2px 0;color:#93a3c6;font-size:16.5px;vertical-align:top;">30 of them</td></tr>
+        <tr><td style="padding:7.2px 13.2px 7.2px 0;color:#f4b63f;font-family:Silkscreen,monospace;font-size:14px;vertical-align:top;">02</td><td style="padding:7.2px 15.6px 7.2px 0;color:#e9edf6;font-size:16.5px;vertical-align:top;">One radius on everything, whatever the hierarchy</td><td style="padding:7.2px 0;color:#93a3c6;font-size:16.5px;vertical-align:top;"><span style="font-family:ui-monospace,monospace;font-size:15.5px;">border-radius: 10px</span> × 18</td></tr>
+        <tr><td style="padding:7.2px 13.2px 7.2px 0;color:#f4b63f;font-family:Silkscreen,monospace;font-size:14px;vertical-align:top;">03</td><td style="padding:7.2px 15.6px 7.2px 0;color:#e9edf6;font-size:16.5px;vertical-align:top;">The SaaS-card kit</td><td style="padding:7.2px 0;color:#93a3c6;font-size:16.5px;vertical-align:top;">6 identical <span style="font-family:ui-monospace,monospace;font-size:15.5px;">.card</span> containers</td></tr>
+        <tr><td style="padding:7.2px 13.2px 7.2px 0;color:#f4b63f;font-family:Silkscreen,monospace;font-size:14px;vertical-align:top;">04</td><td style="padding:7.2px 15.6px 7.2px 0;color:#e9edf6;font-size:16.5px;vertical-align:top;">A banned typeface in the stack</td><td style="padding:7.2px 0;color:#93a3c6;font-size:16.5px;vertical-align:top;"><span style="font-family:ui-monospace,monospace;font-size:15.5px;">Roboto</span>, and no display face</td></tr>
+      </table>
+      <h2 class="sil" style="margin:22px 0 10px;font-size:18.5px;color:#ffffff;">Type</h2>
+      <div style="display:flex;gap:28.8px;">
+        <div style="flex-grow:1;">
+          <div class="sil" style="font-size:27px;color:#ffffff;line-height:1.2;">Juno is typing</div>
+          <div style="margin-top:6px;font-size:15.5px;color:#93a3c6;line-height:1.45;"><strong style="color:#c8d4ea;">Silkscreen</strong> — names, quota, headings. A bitmap face because the crew are bitmap characters.</div>
+        </div>
+        <div style="flex-grow:1;">
+          <div style="font-size:22px;color:#ffffff;line-height:1.35;">Needs changes — line 74.</div>
+          <div style="margin-top:6px;font-size:15.5px;color:#93a3c6;line-height:1.45;"><strong style="color:#c8d4ea;">Atkinson Hyperlegible</strong> — everything you read. Built for legibility at a glance, which is the job on a phone.</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="sil" style="margin:0 0 10px;font-size:18.5px;color:#ffffff;">Ground</h2>
+      <p style="margin:0 0 13px;font-size:16.5px;line-height:1.5;color:#93a3c6;">Indigo, from the product's own name — the colour of a roost after dark. Sprites carry every saturated pixel; the surface stays quiet so they can be loud.</p>
+      <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:12px;">
+        <div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#0f1729;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#0f1729</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">roost</strong><br>ground</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#1c2740;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#1c2740</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">bubble</strong><br>their side</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#38477a;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#38477a</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">seam</strong><br>hairline</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#f4b63f;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#f4b63f</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">lamp</strong><br>you, and attention</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:12px;margin-top:11px;">
+        <div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#b85a30;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#b85a30</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">claude</strong><br>vendor</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#2f8f6b;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#2f8f6b</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">codex</strong><br>vendor</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#e9edf6;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#e9edf6</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">chalk</strong><br>text</div></div><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:64.8px;background:#93a3c6;border:1px solid #38477a;"></div><div class="sil" style="font-size:14px;color:#e9edf6;">#93a3c6</div><div style="font-size:15px;color:#93a3c6;line-height:1.3;"><strong style="color:#c8d4ea;">chalk dim</strong><br>secondary</div></div>
+      </div>
+
+      <h2 class="sil" style="margin:22px 0 10px;font-size:18.5px;color:#ffffff;">How the thread behaves</h2>
+      <ul style="margin:0;padding-left:17px;font-size:16.5px;line-height:1.65;color:#c8d4ea;">
+        <li>Three poses per agent — idle, typing, thinking — swapped on a hard cut. Pixel art never cross-fades.</li>
+        <li>Idle breathes at 1.5&nbsp;s; working drops to 420&nbsp;ms. <strong style="color:#f4b63f;">Speed is the status.</strong></li>
+        <li>A typing bubble belongs to whoever is actually mid-turn, so the wait is legible instead of a spinner.</li>
+        <li>You are a participant: your photo, your name, your side of the thread.</li>
+        <li>Reduced motion freezes every sprite to frame one.</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="seam">
+
+  <div>
+    <h2 class="sil" style="margin:0 0 10px;font-size:18.5px;color:#ffffff;">Second pass — what I threw out</h2>
+    <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:26.4px;font-size:16.5px;line-height:1.55;color:#c8d4ea;">
+      <div><strong style="color:#f4b63f;">Near-black and one acid accent.</strong> The second-commonest generated look. Indigo comes from the product's name instead, so the ground is a material rather than an absence.</div>
+      <div><strong style="color:#f4b63f;">Smooth gradient fuel bars.</strong> Replaced with counted blocks: faster to read at arm's length, and they can't imply precision the quota API doesn't have.</div>
+      <div><strong style="color:#f4b63f;">Keeping the cards.</strong> Sections are divided by a seam now. A card around everything is how four unrelated things came to look identical.</div>
+      <div><strong style="color:#f4b63f;">Round iMessage bubbles.</strong> Borrowed the grammar, not the styling: square bubbles with a stepped pixel tail, so the thread belongs to the same world as the sprites.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1160,"height":940}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
