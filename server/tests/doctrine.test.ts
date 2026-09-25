@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 
@@ -1516,5 +1516,15 @@ describe('moments in the thread (item 40)', () => {
   it('the moment is a real event on both sides of the wire, with a fixture', () => {
     for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) expect(read(f)).toMatch(/type: 'milestone'; crew: CrewInfo; label: string; detail: string/);
     expect(read('web/src/fixtures.ts')).toContain('moments: () =>');
+  });
+});
+
+describe('forty scenes, one a day (item 39)', () => {
+  it('every listed scene has its backdrop, and there are forty', () => {
+    const src = read('web/src/scenes.ts');
+    const ids = [...src.matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]);
+    expect(ids.length).toBe(40);
+    expect(new Set(ids).size).toBe(40);
+    for (const id of ids) expect(existsSync(join(root, 'web/public/scenes', `${id}.webp`)), id).toBe(true);
   });
 });

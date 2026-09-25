@@ -221,6 +221,93 @@ export const SCENES: Scene[] = [
     { x: 330, y: 212, size: 66, pose: 'hold', prop: 'flute' },
     { x: 440, y: 218, size: 62, pose: 'sit' },
   ], ambient: { bulbs: [[40, 4], [100, 6], [160, 8], [220, 8], [280, 8], [340, 8], [400, 6], [460, 4]] } },
+  { id: 'cafe', name: 'Rainy café', seats: [
+    { x: 110, y: 200, size: 66, pose: 'hold', prop: 'book' },
+    { x: 216, y: 206, size: 66, pose: 'sit' },
+    { x: 320, y: 202, size: 66, pose: 'side' },
+    { x: 426, y: 210, size: 64, pose: 'hold', prop: 'bowl' },
+  ], ambient: { glows: [{ x: 52, y: 6, r: 18, color: '#ffc46b', kind: 'breathe' }, { x: 247, y: 6, r: 16, color: '#ffc46b', kind: 'breathe' }] } },
+  { id: 'studio', name: 'Studio', seats: [
+    { x: 110, y: 204, size: 66, pose: 'hold', prop: 'guitar' },
+    { x: 216, y: 210, size: 66, pose: 'dance' },
+    { x: 320, y: 204, size: 66, pose: 'hold', prop: 'flute' },
+    { x: 426, y: 212, size: 64, pose: 'sit' },
+  ], ambient: { blink: { x: 250, y: 62, color: '#7dff9a' }, glows: [{ x: 320, y: 58, r: 14, color: '#58c8ff', kind: 'breathe' }] } },
+  { id: 'pottery', name: 'Pottery', seats: [
+    { x: 180, y: 206, size: 64, pose: 'hold', prop: 'bowl' },
+    { x: 280, y: 210, size: 66, pose: 'sit' },
+    { x: 380, y: 206, size: 64, pose: 'side', flip: true },
+    { x: 460, y: 214, size: 60, pose: 'sit' },
+  ], ambient: { glows: [{ x: 30, y: 30, r: 18, color: '#ffd98a', kind: 'breathe' }] } },
+  { id: 'bowling', name: 'Bowling', seats: [
+    { x: 80, y: 214, size: 64, pose: 'hold', prop: 'ball' },
+    { x: 190, y: 220, size: 66, pose: 'dance' },
+    { x: 320, y: 220, size: 66, pose: 'sit' },
+    { x: 420, y: 206, size: 60, pose: 'side' },
+  ], ambient: { glows: [{ x: 256, y: 16, r: 30, color: '#ff5fd2', kind: 'breathe' }, { x: 440, y: 28, r: 14, color: '#58c8ff', kind: 'breathe' }] } },
+  { id: 'aquarium', name: 'Aquarium', seats: [
+    { x: 120, y: 208, size: 66, pose: 'side', flip: true },
+    { x: 226, y: 214, size: 66, pose: 'sit' },
+    { x: 330, y: 208, size: 66, pose: 'side' },
+    { x: 430, y: 216, size: 62, pose: 'sit' },
+  ], ambient: { glows: [{ x: 256, y: 30, r: 60, color: '#3aa0ff', kind: 'breathe' }] } },
+  { id: 'orchard', name: 'Orchard', seats: [
+    { x: 150, y: 210, size: 66, pose: 'hold', prop: 'ball' },
+    { x: 250, y: 216, size: 66, pose: 'sit' },
+    { x: 350, y: 210, size: 66, pose: 'dance' },
+    { x: 440, y: 218, size: 62, pose: 'sit' },
+  ], ambient: { stars: { x0: 120, y0: 0, x1: 390, y1: 30, n: 10 }, glows: [{ x: 256, y: 70, r: 34, color: '#ff8a3a', kind: 'breathe' }] } },
+  { id: 'observatory', name: 'Observatory', seats: [
+    { x: 200, y: 210, size: 66, pose: 'hold', prop: 'telescope' },
+    { x: 300, y: 214, size: 66, pose: 'sit' },
+    { x: 400, y: 210, size: 64, pose: 'hold', prop: 'book' },
+    { x: 120, y: 222, size: 60, pose: 'side' },
+  ], ambient: { stars: { x0: 160, y0: 0, x1: 512, y1: 40, n: 22 }, shooting: { x0: 220, y0: 4, x1: 480, y1: 34, every: 53 } } },
+  { id: 'laundromat', name: 'Laundromat', seats: [
+    { x: 120, y: 208, size: 64, pose: 'sit' },
+    { x: 226, y: 214, size: 66, pose: 'side' },
+    { x: 330, y: 208, size: 66, pose: 'hold', prop: 'book' },
+    { x: 430, y: 216, size: 62, pose: 'dance' },
+  ], ambient: { glows: [
+    { x: 106, y: 46, r: 14, color: '#58e8ff', kind: 'breathe' }, { x: 200, y: 46, r: 14, color: '#58e8ff', kind: 'breathe' },
+    { x: 293, y: 46, r: 14, color: '#58e8ff', kind: 'breathe' }, { x: 385, y: 46, r: 14, color: '#58e8ff', kind: 'breathe' },
+  ] } },
+  { id: 'busstop', name: 'Bus stop', seats: [
+    { x: 253, y: 136, size: 56, pose: 'sit' }, // on the bench
+    { x: 130, y: 214, size: 66, pose: 'side', flip: true },
+    { x: 340, y: 214, size: 66, pose: 'hold', prop: 'book' },
+    { x: 440, y: 220, size: 62, pose: 'sit' },
+  ], ambient: { glows: [{ x: 60, y: 6, r: 26, color: '#ffd98a', kind: 'breathe' }, { x: 250, y: 90, r: 18, color: '#ffe8a6', kind: 'breathe' }] } },
+  { id: 'lake', name: 'Moonlit lake', seats: [
+    { x: 120, y: 224, size: 62, pose: 'side' },
+    { x: 226, y: 228, size: 62, pose: 'hold', prop: 'flute' },
+    { x: 330, y: 224, size: 62, pose: 'sit' },
+    { x: 430, y: 228, size: 60, pose: 'sit' },
+  ], ambient: { stars: { x0: 0, y0: 0, x1: 512, y1: 50, n: 20 }, glows: [{ x: 322, y: 6, r: 22, color: '#fff2b0', kind: 'breathe' }] } },
+  { id: 'blossom', name: 'Cherry blossoms', seats: [
+    { x: 120, y: 212, size: 66, pose: 'sit' },
+    { x: 226, y: 216, size: 66, pose: 'dance' },
+    { x: 330, y: 212, size: 66, pose: 'hold', prop: 'sandwich' },
+    { x: 440, y: 218, size: 62, pose: 'side' },
+  ], ambient: { glows: [{ x: 452, y: 30, r: 18, color: '#ffe0a0', kind: 'breathe' }, { x: 190, y: 88, r: 22, color: '#ff8aa0', kind: 'breathe' }] } },
+  { id: 'mushrooms', name: 'Mushroom forest', seats: [
+    { x: 150, y: 214, size: 64, pose: 'sit' },
+    { x: 256, y: 218, size: 66, pose: 'dance' },
+    { x: 360, y: 214, size: 64, pose: 'side', flip: true },
+    { x: 60, y: 222, size: 58, pose: 'sit' },
+  ], ambient: { stars: { x0: 60, y0: 60, x1: 460, y1: 190, n: 18 }, glows: [{ x: 480, y: 22, r: 26, color: '#c06cff', kind: 'breathe' }, { x: 104, y: 6, r: 22, color: '#4ae0d0', kind: 'breathe' }] } },
+  { id: 'hotspring', name: 'Hot spring', seats: [
+    { x: 120, y: 214, size: 64, pose: 'sit' },
+    { x: 226, y: 218, size: 66, pose: 'hold', prop: 'snowball' },
+    { x: 330, y: 214, size: 66, pose: 'side' },
+    { x: 430, y: 222, size: 60, pose: 'sit' },
+  ], ambient: { steam: [256, 118], stars: { x0: 60, y0: 0, x1: 460, y1: 30, n: 12 }, glows: [{ x: 26, y: 50, r: 16, color: '#ffb44a', kind: 'flicker' }] } },
+  { id: 'carnival', name: 'Carnival', seats: [
+    { x: 120, y: 214, size: 66, pose: 'dance' },
+    { x: 230, y: 218, size: 66, pose: 'hold', prop: 'sandwich' },
+    { x: 340, y: 214, size: 66, pose: 'hold', prop: 'ball' },
+    { x: 440, y: 220, size: 62, pose: 'sit' },
+  ], ambient: { glows: [{ x: 180, y: 40, r: 30, color: '#ffb44a', kind: 'breathe' }], bulbs: [[24, 12], [64, 16], [260, 14], [300, 10], [340, 14], [380, 10], [420, 14], [460, 10], [500, 14]] } },
 ];
 
 /** Which scene is on: one a day (item 39, 2026-09-25 -- "I only want the
