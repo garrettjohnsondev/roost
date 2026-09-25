@@ -307,11 +307,9 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               ) : session.meta?.mode ? (
                 <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span>
               ) : null}{' '}
-              {/* Who and on what, in words: "Ollie · Opus 5.5", not "claude ·
-                  Default (recomme…" -- the list label of an alias. */}
-              {session.meta?.crew ? `${session.meta.crew.name} · ${modelName(session.meta.crew.model)}` : `${agent} · ${currentModelLabel}`}
-              {session.meta?.effort ? ` · ${session.meta.effort}` : ''}
-              {!session.connected && ' · reconnecting…'}
+              {/* Who, on what, at what effort is on every reply now; the line
+                  keeps only what the next message does (2026-09-25). */}
+              {!session.connected && <span className="chat-title-warn">reconnecting…</span>}
             </div>
           </div>
         </button>

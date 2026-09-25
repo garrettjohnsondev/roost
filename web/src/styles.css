@@ -1506,20 +1506,25 @@ button {
 
 /* ---------- session switcher ---------- */
 
-.switcher-backdrop {
-  align-items: flex-start;
+/* A panel at the bottom, where the thumb is (2026-09-25: it was meant to drop
+   from the top, a later .sheet-backdrop rule pinned it to the bottom instead,
+   and nothing kept it clear of the home bar -- the last rows were cut off). */
+.sheet-backdrop.switcher-backdrop {
+  align-items: flex-end;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .switcher-panel {
   width: calc(100% - 24px);
-  margin: 8px 12px 0;
+  margin: 0 12px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 2px;
   padding: 6px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
-  max-height: 70dvh;
+  max-height: calc(70dvh - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .switcher-row {
@@ -3508,3 +3513,4 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .msg.assistant.typing-bubble { display: inline-flex; align-items: center; padding: 12px 16px; color: var(--crew, var(--text-dim)); align-self: flex-start; }
 .msg.assistant.typing-bubble .typing-dots i { width: 6px; height: 6px; }
 .work-thinking .typing-dots { margin-left: 4px; vertical-align: middle; }
+.chat-title-warn { color: var(--danger); font-size: 12px; margin-left: 4px; }

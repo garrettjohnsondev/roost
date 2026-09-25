@@ -1548,8 +1548,12 @@ describe('the rest of the screenshot (item 36)', () => {
   it('the mode badge says what the next message does: a sticky name is "direct", not the mode', () => {
     expect(chat).toMatch(/\{session\.meta\?\.sticky \? \(\s*<span className="mode-tag direct"/);
   });
-  it('the header names who and on what in words, not a list label', () => {
-    expect(chat).toMatch(/`\$\{session\.meta\.crew\.name\} · \$\{modelName\(session\.meta\.crew\.model\)\}`/);
+  it('the header line keeps only what the next message does, and a dropped connection', () => {
+    // 2026-09-25: who, on what model, at what effort is on every reply, so
+    // repeating it under the title was noise. Never a raw list label either.
+    const sub = chat.slice(chat.indexOf('<div className="chat-title-sub">'), chat.indexOf('</button>', chat.indexOf('<div className="chat-title-sub">')));
+    expect(sub).not.toMatch(/modelName|modelWords|currentModelLabel/);
+    expect(sub).toMatch(/!session\.connected && <span className="chat-title-warn">reconnecting…<\/span>/);
   });
   it('no raw window key reaches the phone', () => {
     const q = read('server/src/quota.ts');
