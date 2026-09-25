@@ -65,3 +65,63 @@ export function summarizeRun(tools: Array<Extract<ChatItem, { kind: 'tool' }>>):
   const running = tools.find((t) => !t.done) ?? null;
   return { text: parts.join(', '), running, failed, count: tools.length };
 }
+
+/** The work stream (2026-09-25): "this is too much noise... make this cool
+ *  without stripping context of what's being done and what the agent is
+ *  replying."
+ *
+ *  Everything a crew member does on the way to their answer -- each line they
+ *  say between tool calls, the calls, the thinking -- is ONE card, not a row
+ *  per piece. Live, it shows their latest line in their own voice and what is
+ *  running now; each new line replaces the last inside the card, so nothing
+ *  grows big and then shrinks. Finished, it folds to one line; a tap opens the
+ *  whole timeline, so no context is lost. The reply stays a full message.
+ *
+ *  A stretch is work when it holds at least one tool call and is made only of
+ *  tool calls, thinking, and lines followed by more tool calls (narration).
+ *  While the turn is live (`liveTail`), trailing lines after a call stay in
+ *  the card too: nobody knows yet whether they are narration or the answer,
+ *  and moving them out and back in is the jump that was reported. */
+export type StreamSegment = Segment | { kind: 'work'; start: number; end: number };
+
+function narrationAt(items: ChatItem[], i: number, end: number): boolean {
+  if (items[i]?.kind !== 'assistant') return false;
+  for (let j = i + 1; j < end; j++) {
+    const k = items[j].kind;
+    if (k === 'user' || k === 'verify' || k === 'consult') return false;
+    if (k === 'tool') return true;
+  }
+  return false;
+}
+
+export function workSegments(items: ChatItem[], start: number, end: number, liveTail = false): StreamSegment[] {
+  // Everything from here to the end is only assistant/thinking: the live tail.
+  const tailFrom = (() => {
+    let t = end;
+    while (t > start && (items[t - 1].kind === 'assistant' || items[t - 1].kind === 'thinking')) t--;
+    return t;
+  })();
+  const inWork = (i: number) => {
+    const k = items[i].kind;
+    if (k === 'tool' || k === 'thinking') return true;
+    if (k !== 'assistant') return false;
+    return narrationAt(items, i, end) || (liveTail && i >= tailFrom);
+  };
+  const out: StreamSegment[] = [];
+  let i = start;
+  while (i < end) {
+    if (!inWork(i)) {
+      out.push({ kind: 'item', index: i });
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < end && inWork(j)) j++;
+    const hasTool = items.slice(i, j).some((x) => x.kind === 'tool');
+    if (hasTool) out.push({ kind: 'work', start: i, end: j });
+    // No tool call in it: a line and some thinking are a plain conversation.
+    else for (const s of segmentsOf(items, i, j)) out.push(s);
+    i = j;
+  }
+  return out;
+}

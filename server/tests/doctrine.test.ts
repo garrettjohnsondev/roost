@@ -600,7 +600,19 @@ describe('tool calls fold into words, and folding hides no state', () => {
   it('groups on the client, from the items alone', () => {
     const t = read('web/src/toolruns.ts');
     expect(t).not.toMatch(/fetch\(|send\(|WebSocket|setTimeout/);
-    expect(read('web/src/ChatView.tsx')).toMatch(/segmentsOf\(session\.items, ch\.start, ch\.end\)\.map/);
+    // The work stream (2026-09-25) supersedes one row per piece: a stretch of
+    // work is ONE card, grouped by the same pure module.
+    expect(read('web/src/ChatView.tsx')).toMatch(/workSegments\(session\.items, ch\.start, ch\.end, liveTail\)\.map/);
+    expect(t).not.toMatch(/Date\.now/);
+  });
+  it('the work card hides nothing: the latest line, the call running now, and the whole timeline on a tap', () => {
+    const c = read('web/src/ChatView.tsx');
+    const w = c.slice(c.indexOf('function WorkStream('), c.indexOf('function ThinkingBlock('));
+    expect(w).toMatch(/<Markdown text=\{latest\.text\} \/>/);
+    expect(w).toMatch(/\{s\.running\.name\}/);
+    expect(w).toMatch(/segmentsOf\(items, start, end\)\.map/);
+    // Its sprite moves only for real state, like every other face.
+    expect(w).toMatch(/const pose: Pose = live \?/);
   });
   it('names the call in progress on the folded line', () => {
     const c = read('web/src/ChatView.tsx');

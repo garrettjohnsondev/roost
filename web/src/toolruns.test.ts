@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { segmentsOf, summarizeRun } from './toolruns';
+import { segmentsOf, summarizeRun, workSegments } from './toolruns';
 import type { ChatItem } from './types';
 
 const ts = 1;
@@ -50,5 +50,39 @@ describe('a run says what it did, in plain words', () => {
 
   it('counts failures', () => {
     expect(summarizeRun([t('Bash'), t('Bash', true, false)]).failed).toBe(1);
+  });
+});
+
+describe('the work stream', () => {
+  const u = { kind: 'user', text: 'go', imageCount: 0, ts: 0 } as const;
+  const a = (text: string, complete = true) => ({ kind: 'assistant', text, complete, ts: 0 }) as const;
+  const t = (done = true) => ({ kind: 'tool', toolId: 'x', name: 'Bash', detail: 'ls', done, ts: 0 }) as const;
+
+  it('folds narration and the calls between into one card; the reply stays a message', () => {
+    const items = [u, a('looking'), t(), a('now the endpoints'), t(), t(), a('Done — here is what changed.')];
+    expect(workSegments(items as any, 0, items.length)).toEqual([
+      { kind: 'item', index: 0 },
+      { kind: 'work', start: 1, end: 6 },
+      { kind: 'item', index: 6 },
+    ]);
+  });
+
+  it('keeps the live tail in the card, so a line never jumps out and back', () => {
+    const items = [u, a('looking'), t(), a('next I will…', false)];
+    expect(workSegments(items as any, 0, items.length, true)).toEqual([{ kind: 'item', index: 0 }, { kind: 'work', start: 1, end: 4 }]);
+    // Finished: the last line is the reply.
+    expect(workSegments(items as any, 0, items.length, false)).toEqual([{ kind: 'item', index: 0 }, { kind: 'work', start: 1, end: 3 }, { kind: 'item', index: 3 }]);
+  });
+
+  it('a conversation with no tool calls is just messages', () => {
+    const items = [u, a('hi'), u, a('sure')];
+    expect(workSegments(items as any, 0, items.length, true)).toEqual(items.map((_, index) => ({ kind: 'item', index })));
+  });
+
+  it('a question from you ends the card', () => {
+    const items = [u, t(), a('Want me to deploy?'), u, t()];
+    expect(workSegments(items as any, 0, items.length)).toEqual([
+      { kind: 'item', index: 0 }, { kind: 'work', start: 1, end: 2 }, { kind: 'item', index: 2 }, { kind: 'item', index: 3 }, { kind: 'work', start: 4, end: 5 },
+    ]);
   });
 });

@@ -5,7 +5,7 @@ import { nameColor } from './color';
 import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
 import { trackerOf } from './tracker';
 import { Icon } from './icons';
-import { segmentsOf, summarizeRun } from './toolruns';
+import { segmentsOf, summarizeRun, workSegments } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { Contained } from './ErrorBoundary';
 import { openCompanion } from './CompanionSheet';
@@ -498,8 +498,16 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           function renderChapter(ch: Chapter, ci: number) {
             // Consecutive tool calls fold into one line (toolruns.ts); every
             // other item is its own row, as before.
-            const rows = segmentsOf(session.items, ch.start, ch.end).map((seg) =>
-              seg.kind === 'item' ? (
+            // Work folds into one card per stretch (the work stream): what the
+            // crew said on the way and the calls between them, behind their
+            // latest line. The live tail stays in the card until the turn ends.
+            const liveTail = ci === chapters.length - 1 && session.status === 'working';
+            const rows = workSegments(session.items, ch.start, ch.end, liveTail).map((seg) =>
+              seg.kind === 'work' ? (
+                <Contained key={`work-${seg.start}`} what="This work">
+                  <WorkStream items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} live={liveTail && seg.end === ch.end} replayedCount={session.replayedCount} />
+                </Contained>
+              ) : seg.kind === 'item' ? (
                 <Contained key={seg.index} what="This message" retryOn={session.items[seg.index]}>
                   <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} />
                 </Contained>
@@ -547,7 +555,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}
-        {(session.triaging || session.status === 'working') && !session.closedReason && (
+        {(session.triaging || session.status === 'working') && !session.closedReason && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
           <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
@@ -1666,6 +1674,76 @@ function ToolRun({ items, start, end, crew, replayedCount }: { items: ChatItem[]
           {tools.map((t, k) => (
             <ToolChip key={start + k} item={t} fresh={start + k >= replayedCount} />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** True when the thread ends in a live work card, which already shows who is
+ *  working and on what -- the separate "is thinking…" row would say it twice. */
+function liveWorkCard(items: ChatItem[], status: string): boolean {
+  if (status !== 'working' || !items.length) return false;
+  const chapters = chaptersOf(items);
+  const ch = chapters[chapters.length - 1];
+  if (!ch) return false;
+  const segs = workSegments(items, ch.start, ch.end, true);
+  const last = segs[segs.length - 1];
+  return last?.kind === 'work' && last.end === ch.end;
+}
+
+/** One card for a stretch of work (the work stream, toolruns.ts). Live: the
+ *  crew member's latest line, in their voice and at full size, and what is
+ *  running now. Done: one line -- how much they did and the last thing they
+ *  said. A tap opens the whole timeline: every line, every call, in order. */
+function WorkStream({ items, start, end, crew, live, replayedCount }: { items: ChatItem[]; start: number; end: number; crew?: CrewInfo; live: boolean; replayedCount: number }) {
+  const [open, setOpen] = useState(false);
+  const slice = items.slice(start, end);
+  const tools = slice.filter((x): x is Extract<ChatItem, { kind: 'tool' }> => x.kind === 'tool');
+  const lines = slice.filter((x): x is Extract<ChatItem, { kind: 'assistant' }> => x.kind === 'assistant' && !!x.text.trim());
+  const s = summarizeRun(tools);
+  const who = lines[lines.length - 1]?.crew ?? crew;
+  const latest = lines[lines.length - 1];
+  const thinking = live && !s.running && !(latest && !latest.complete);
+  const pose: Pose = live ? (s.running || (latest && !latest.complete) ? 'type' : 'think') : 'idle';
+  const mins = Math.round((slice[slice.length - 1].ts - slice[0].ts) / 60_000);
+  const tally = [lines.length ? `${lines.length} update${lines.length === 1 ? '' : 's'}` : '', s.text, !live && mins >= 1 ? `${mins}m` : ''].filter(Boolean).join(' · ');
+  return (
+    <div className={`work-stream${live ? ' live' : ''}${open ? ' open' : ''}${s.failed ? ' failed' : ''}`}>
+      <button className="work-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        {who && <SpriteAvatar crew={who} pose={pose} size={live ? 40 : 28} />}
+        <span className="work-head-text">
+          {who && <span className="work-who" style={{ color: nameColor(who.color) }}>{who.name}</span>}
+          <span className="work-tally">{tally}{s.failed ? <span className="tool-run-failed"> · {s.failed} failed</span> : null}</span>
+        </span>
+        <span className="tool-expand-hint">{open ? '▴' : '▾'}</span>
+      </button>
+      {!open && latest && (
+        <div className={`work-latest${live ? '' : ' folded'}`}>
+          <Markdown text={latest.text} />
+        </div>
+      )}
+      {!open && live && (
+        <div className="work-now">
+          {s.running ? (
+            <>
+              <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
+              <span className="tool-caret" aria-hidden="true" />
+            </>
+          ) : thinking ? (
+            <span className="work-thinking">thinking…</span>
+          ) : null}
+        </div>
+      )}
+      {open && (
+        <div className="work-timeline">
+          {segmentsOf(items, start, end).map((seg) => {
+            if (seg.kind === 'run') return <ToolRun key={`r${seg.start}`} items={items} start={seg.start} end={seg.end} replayedCount={replayedCount} />;
+            const it = items[seg.index];
+            if (it.kind === 'assistant') return it.text.trim() ? <div key={seg.index} className="work-line"><Markdown text={it.text} /></div> : null;
+            if (it.kind === 'thinking') return <ThinkingBlock key={seg.index} text={it.text} open={it.open} />;
+            return null;
+          })}
         </div>
       )}
     </div>

@@ -117,6 +117,20 @@ const TOO_LONG: ChatItem[] = [
   { kind: 'error', code: 'context', text: 'Claude turn failed: Prompt is too long', ts: at(1) },
 ];
 
+const tool = (name: string, detail: string, n: number, done = true): ChatItem => ({ kind: 'tool', toolId: `w${n}`, name, detail, done, ok: true, ts: at(n) });
+const WORK_STREAM: ChatItem[] = [
+  { kind: 'user', text: 'Ollie proceed to build', imageCount: 0, ts: at(0) },
+  { kind: 'assistant', text: "I've looked at how the chat, the changes sheet and the image viewer are wired. Next I'm writing the server side: detection, saved recipes and the runner.", complete: true, crew: OLLIE, ts: at(1) },
+  tool('Bash', 'grep -n "guardProject" server/src/index.ts', 2), tool('Write', 'server/src/deploy.ts', 3),
+  { kind: 'assistant', text: 'Now the endpoints.', complete: true, crew: OLLIE, ts: at(4) },
+  tool('Bash', 'python3 - <<EOF …', 5),
+  { kind: 'assistant', text: "Server side typechecks. Now the web side: the sheet, the header button, and the crew's proposal card.", complete: true, crew: OLLIE, ts: at(6) },
+  tool('Edit', 'web/src/ChatView.tsx', 7), tool('Bash', 'npm run typecheck', 8, false),
+  { kind: 'assistant', text: 'Typecheck is clean. Adding tests for detection, the saved recipe, and the rule that a failed check never deploys.', complete: true, crew: OLLIE, ts: at(9) },
+  tool('Bash', 'npx vitest run tests/deploy.test.ts', 10),
+  { kind: 'assistant', text: 'The Deploy button is built and saved as `05cdcfd`, but it isn\'t live yet. That needs one more deploy.', complete: true, crew: OLLIE, ts: at(11) },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
   /** A conversation that outgrew Claude's window, as 725ffb4e did. */
   'too-long': () => base(TOO_LONG, meta({ state: 'idle' }), TOO_LONG.length),
@@ -137,6 +151,9 @@ export const FIXTURES: Record<string, () => SessionState> = {
     3,
     { status: 'working', usage: { inputTokens: 340_100_000, outputTokens: 822_400 } as any, context: { agent: 'claude', usedTokens: 228_400, maxTokens: 1_000_000, percent: 23, pressure: 'clear' } as any },
   ),
+  /** The work stream: narration and calls in one card, live and folded. */
+  'work-live': () => base(WORK_STREAM.slice(0, 9), meta({ state: 'working' }), 0, { status: 'working' }),
+  'work-done': () => base(WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), meta({ state: 'idle' }), WORK_STREAM.length, { status: 'idle' }),
   /** Deploy: a crew member worked out what deploy means in a new project. */
   'deploy-proposal': () => base(
     [
