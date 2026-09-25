@@ -174,6 +174,17 @@ async function fetchCodexUsage(cwd: string): Promise<{ ok: boolean; error?: stri
   }
 }
 
+/** After a turn (item 33): the fuel line moved because work happened, so
+ *  read it then -- a zero-token probe, at most once every two minutes across
+ *  every session. Resolves true when a read actually ran. */
+let lastSoon = 0;
+export async function refreshUsageSoon(cwd: string): Promise<boolean> {
+  if (Date.now() - lastSoon < 120_000) return false;
+  lastSoon = Date.now();
+  await refreshUsage(cwd).catch(() => {});
+  return true;
+}
+
 export async function refreshUsage(cwd: string): Promise<UsageSnapshot> {
   await Promise.allSettled([fetchClaudeUsage(cwd), fetchCodexUsage(cwd)]);
   return getCachedUsage();

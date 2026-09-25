@@ -4,6 +4,7 @@ import type { Builder, SessionMode, UserImage } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
+import { refreshUsageSoon } from './usage.js';
 import { isGateRefusal } from './gate.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
@@ -120,6 +121,9 @@ export class Session {
   private jobTurns = 0;
   private jobWork?: string;
   private lastEventTs = 0;
+  /** Set by the manager: a fresh usage reading landed, so every open session
+   *  re-sends its fuel and surplus instead of waiting for the minute timer. */
+  onUsageRead?: () => void;
   private consultCancelled = false;
   pendingConsult?: ConsultState;
   private standardModelFor: (agent: AgentKind) => string;
@@ -669,6 +673,11 @@ export class Session {
         sendNotification(`error:${this.id}`, `Error · ${this.title}`, truncate(event.message, 300), { minIntervalMs: 60_000 });
       }
     }
+    if (event.type === 'status' && this.lastStatus === 'working' && event.state === 'idle') {
+      void refreshUsageSoon(this.cwd).then((ran) => {
+        if (ran) this.onUsageRead?.();
+      });
+    }
     if (event.type === 'status') {
       if (this.lastStatus === 'working' && event.state === 'idle' && this.sockets.size === 0) {
         sendNotification(`done:${this.id}`, `Finished · ${this.title}`, 'The agent is done and waiting for you.', {
@@ -686,6 +695,11 @@ export class Session {
     for (const ws of this.sockets) {
       if (ws.readyState === ws.OPEN) ws.send(payload);
     }
+  }
+
+  /** Re-send meta (fuel, surplus) after a reading changed underneath it. */
+  refreshMeta(): void {
+    this.broadcastMeta();
   }
 
   private broadcastMeta() {
@@ -1698,6 +1712,7 @@ export class SessionManager {
           onChange: () => this.scheduleSave(),
         });
         this.sessions.set(session.id, session);
+        session.onUsageRead = () => this.fuelChanged();
         restored++;
       } catch (err: any) {
         console.warn(`[roost] failed to restore session ${entry.id}:`, String(err?.message ?? err));
@@ -1705,6 +1720,11 @@ export class SessionManager {
     }
     if (restored > 0) console.log(`[roost] restored ${restored} session(s) from before restart`);
     this.saveNow();
+  }
+
+  /** A usage reading landed: every open session re-sends its fuel now. */
+  private fuelChanged(): void {
+    for (const s of this.sessions.values()) s.refreshMeta();
   }
 
   create(agent: AgentKind, cwd: string, opts: { model?: string; resume?: string } = {}): Session {
@@ -1718,6 +1738,7 @@ export class SessionManager {
     }
     const session = new Session(agent, cwd, this.config, { ...opts, onChange: () => this.scheduleSave() });
     this.sessions.set(session.id, session);
+    session.onUsageRead = () => this.fuelChanged();
     if (others.length) {
       session.notice(`${others.length} other session${others.length > 1 ? 's are' : ' is'} open on this project — concurrent edits are not guarded; keep one session writing at a time.`);
       logDecision({ kind: 'gate', sessionId: session.id, rule: 'one-writer', cwd, others: others.map((s) => s.id) });

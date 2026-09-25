@@ -136,6 +136,9 @@ export class ClaudeAdapter implements AgentAdapter {
         break;
       }
       case 'assistant': {
+        // Mid-turn too (item 33): a 20-minute turn used to read one number
+        // and then jump. Throttled; summary detail is a local estimate.
+        if (Date.now() - this.contextAt > 20_000) void this.reportContext();
         for (const block of m.message?.content ?? []) {
           if (block.type === 'text' && block.text) {
             this.emit({ type: 'assistant_message', text: block.text, ts: now() });
@@ -205,7 +208,9 @@ export class ClaudeAdapter implements AgentAdapter {
    *  detail:'summary' answers from the last response plus local estimates --
    *  no per-category token-count requests -- so it is cheap enough to run after
    *  every turn. Failures are silent: a missing meter must never break a chat. */
+  private contextAt = 0;
   private async reportContext(): Promise<void> {
+    this.contextAt = Date.now();
     try {
       if (typeof this.q?.getContextUsage !== 'function') return;
       const resp = await this.q.getContextUsage({ detail: 'summary' });

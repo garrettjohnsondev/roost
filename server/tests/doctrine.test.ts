@@ -1398,3 +1398,15 @@ describe('one agent, one identity (item 32)', () => {
     expect(s).toMatch(/if \(!this\.autoMode\) this\.routedModel = undefined;/);
   });
 });
+
+describe('percentages that move (item 33)', () => {
+  it('context is measured during a turn, throttled, not only at its end', () => {
+    expect(read('server/src/agents/claude.ts')).toMatch(/case 'assistant': \{[\s\S]{0,300}if \(Date\.now\(\) - this\.contextAt > 20_000\) void this\.reportContext\(\);/);
+  });
+  it('the fuel line is read after a turn ends, at most every two minutes, and every session re-sends it', () => {
+    expect(read('server/src/usage.ts')).toMatch(/if \(Date\.now\(\) - lastSoon < 120_000\) return false;/);
+    const s = read('server/src/sessions.ts');
+    expect(s).toMatch(/this\.lastStatus === 'working' && event\.state === 'idle'\) \{\s*void refreshUsageSoon\(this\.cwd\)/);
+    expect(s).toMatch(/for \(const s of this\.sessions\.values\(\)\) s\.refreshMeta\(\);/);
+  });
+});
