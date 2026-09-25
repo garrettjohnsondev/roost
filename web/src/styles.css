@@ -2925,6 +2925,15 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .away-greeting strong { font-family: var(--font-display, inherit); font-weight: 400; font-size: 12px; margin-right: 4px; }
 .away-hop { animation: cheer-hop 620ms cubic-bezier(0.2, 1, 0.4, 1) both; }
 
+.milestone-row {
+  position: relative; align-self: center; display: flex; align-items: center; gap: 10px; margin: 8px 0; padding: 8px 14px;
+  font: inherit; text-align: left; color: var(--text); cursor: pointer; max-width: calc(100% - 24px);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border: 1px solid var(--accent); border-radius: 2px; box-shadow: var(--shadow-hard);
+}
+.milestone-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.milestone-label { font-family: var(--font-display, inherit); font-size: 12px; text-transform: uppercase; color: var(--accent-ink); }
+.milestone-detail { font-size: 13.5px; line-height: 1.35; }
+
 /* The status line (item 35): one row under the header instead of six bars. */
 .status-strip {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px;

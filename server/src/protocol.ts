@@ -232,6 +232,8 @@ export type ServerEvent =
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
+  /** A crew member levelled up or earned a milestone, on this turn (item 40). */
+  | { type: 'milestone'; crew: CrewInfo; label: string; detail: string; level?: number; ts: number }
   | { type: 'error'; message: string; code?: 'auth' | 'context' | 'gate'; ts: number };
 
 export const now = () => Date.now();

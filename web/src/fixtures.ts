@@ -137,6 +137,16 @@ export const FIXTURES: Record<string, () => SessionState> = {
     3,
     { status: 'working', usage: { inputTokens: 340_100_000, outputTokens: 822_400 } as any, context: { agent: 'claude', usedTokens: 228_400, maxTokens: 1_000_000, percent: 23, pressure: 'clear' } as any },
   ),
+  /** Item 40: moments -- a milestone and a level, the second live. */
+  moments: () => base(
+    [
+      { kind: 'user', text: 'Rework the whole avatar pipeline', imageCount: 0, ts: at(0) },
+      { kind: 'assistant', text: 'Done — the pipeline is rebuilt and the gates pass.', complete: true, crew: OLLIE, ts: at(1) },
+      { kind: 'milestone', crew: OLLIE, label: 'Marathon', detail: 'Ollie earned Marathon — 50k tokens written in one go.', ts: at(2) },
+      { kind: 'milestone', crew: OLLIE, label: 'Level 6', detail: 'Ollie reached level 6.', level: 6, ts: at(3) },
+    ],
+    meta({ state: 'idle' }), 3, { status: 'idle' },
+  ),
   /** Control board: effort meters and the "stepped down" note. */
   effort: () => base(EFFORT_TURNS, meta({ state: 'idle' }), EFFORT_TURNS.length, { status: 'idle' }),
   /** Control board: Pip asks before the expensive crew start. */

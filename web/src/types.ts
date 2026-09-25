@@ -173,6 +173,8 @@ export type ServerEvent =
   | { type: 'usage'; usage: UsageInfo; ts: number }
   | { type: 'context'; context: ContextInfo; ts: number }
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
+  /** A crew member levelled up or earned a milestone, on this turn (item 40). */
+  | { type: 'milestone'; crew: CrewInfo; label: string; detail: string; level?: number; ts: number }
   | { type: 'error'; message: string; code?: 'auth' | 'context' | 'gate'; ts: number };
 
 export interface ModelOption {
@@ -375,6 +377,7 @@ export type ChatItem =
   | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
   | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; from?: CrewInfo; ts: number; reviewStrength?: string }
+  | { kind: 'milestone'; crew: CrewInfo; label: string; detail: string; level?: number; ts: number }
   | { kind: 'error'; text: string; code?: 'auth' | 'context' | 'gate'; ts: number };
 
 /** You, in the thread. Mirrors server/src/me.ts. */

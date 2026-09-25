@@ -94,6 +94,9 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
     case 'consult':
       next.push({ kind: 'consult', phase: event.phase, agent: event.agent, crew: event.crew, from: event.from, reviewStrength: event.reviewStrength, text: event.text, ts: event.ts });
       break;
+    case 'milestone':
+      next.push({ kind: 'milestone', crew: event.crew, label: event.label, detail: event.detail, level: event.level, ts: event.ts });
+      break;
     case 'verify':
       next.push({ kind: 'verify', report: event.report, ts: event.ts });
       break;

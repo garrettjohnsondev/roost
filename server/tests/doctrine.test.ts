@@ -1505,3 +1505,16 @@ describe('the crew, alive (items 38–40)', () => {
     expect(read('server/src/sessions.ts')).toMatch(/noteLife\(\{ at: event\.ts, kind: 'verify', names: \[\.\.\.this\.jobCrew\]/);
   });
 });
+
+describe('moments in the thread (item 40)', () => {
+  const s = read('server/src/sessions.ts');
+  it('a level or milestone is said only when THIS event crossed it — never for history', () => {
+    expect(s).toMatch(/this\.celebrate\(\[crewMember\(d\.agent, d\.model/);
+    expect(s).toMatch(/if \(after\.level > before\.level\)/);
+    expect(s).toMatch(/if \(ms\.earnedAt && !before\.milestones\.find\(\(b\) => b\.id === ms\.id\)\?\.earnedAt\)/);
+  });
+  it('the moment is a real event on both sides of the wire, with a fixture', () => {
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) expect(read(f)).toMatch(/type: 'milestone'; crew: CrewInfo; label: string; detail: string/);
+    expect(read('web/src/fixtures.ts')).toContain('moments: () =>');
+  });
+});

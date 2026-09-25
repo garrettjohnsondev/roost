@@ -1372,6 +1372,19 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false }: 
           </div>
         )
       );
+    case 'milestone':
+      // A moment (item 40): a level or a milestone crossed on this turn. Said
+      // once, where it happened; replayed history shows it without the hop.
+      return (
+        <button className={`milestone-row${fresh ? ' fresh' : ''}`} onClick={() => openCompanion(item.crew)}>
+          <SpriteAvatar crew={item.crew} pose="cheer" size={36} className={fresh ? 'tracker-cheer' : undefined} />
+          <span className="milestone-text">
+            <span className="milestone-label">{item.label}</span>
+            <span className="milestone-detail">{item.detail}</span>
+          </span>
+          {fresh && <Confetti />}
+        </button>
+      );
     case 'thinking':
       return <ThinkingBlock text={item.text} open={item.open} crew={crew} />;
     case 'tool':

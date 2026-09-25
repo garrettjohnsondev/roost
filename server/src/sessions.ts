@@ -5,7 +5,7 @@ import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
 import { refreshUsageSoon } from './usage.js';
-import { noteLife } from './companions.js';
+import { companionFor, noteLife, readLedgerRows, readLife } from './companions.js';
 import { isGateRefusal } from './gate.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
@@ -652,6 +652,8 @@ export class Session {
     if (event.type === 'verify' && !event.report.unverified && this.jobCrew.size) {
       // The companions' diary: a gate passed or failed on THEIR job.
       noteLife({ at: event.ts, kind: 'verify', names: [...this.jobCrew], passed: event.report.passed, job: this.jobAsk ? this.jobLabel() : undefined, sessionId: this.id });
+      const who = [...this.jobCrew].map((n) => this.crewByName(n)).filter((c): c is CrewInfo => !!c);
+      setTimeout(() => this.celebrate(who, event.ts), 0);
       if (event.report.passed) this.jobCrew.clear();
     }
     if ((event.type === 'assistant_message' || event.type === 'consult') && event.text && this.jobAsk) {
@@ -1328,6 +1330,47 @@ export class Session {
     return card?.resolvedId || m;
   }
 
+  /** Moments (item 40): after a call or a gate result, compare each member's
+   *  record with and without the event that just landed. A level or a
+   *  milestone crossed by THIS event is said in the thread; history never is,
+   *  so replaying a session or restarting the server celebrates nothing. */
+  private celebrate(members: CrewInfo[], eventAt?: number): void {
+    try {
+      const ledger = readLedgerRows();
+      const life = readLife();
+      const now = Date.now();
+      const last = ledger[ledger.length - 1]?.at;
+      for (const m of members) {
+        const input = { names: [m.name], now, working: new Set<string>(), usedPercent: () => ({ percent: null, vendor: '' }) };
+        // "Before" drops the newest record: the gate that just landed, or the call just written.
+        const before = companionFor(m.name, {
+          ...input,
+          ledger: eventAt == null ? ledger.filter((r) => !(r.at === last && r.persona === m.name)) : ledger,
+          life: eventAt == null ? life : life.filter((e) => e.at !== eventAt),
+        });
+        const after = companionFor(m.name, { ...input, ledger, life });
+        if (after.level > before.level) {
+          this.pushEvent({ type: 'milestone', crew: m, label: `Level ${after.level}`, detail: `${m.name} reached level ${after.level}.`, level: after.level, ts: now });
+        }
+        for (const ms of after.milestones) {
+          if (ms.earnedAt && !before.milestones.find((b) => b.id === ms.id)?.earnedAt) {
+            this.pushEvent({ type: 'milestone', crew: m, label: ms.label, detail: `${m.name} earned ${ms.label} — ${ms.how}.`, ts: now });
+          }
+        }
+      }
+    } catch {
+      /* a celebration must never cost a turn */
+    }
+  }
+
+  private crewByName(name: string): CrewInfo | undefined {
+    for (let i = this.transcript.length - 1; i >= 0; i--) {
+      const c = (this.transcript[i] as any).crew as CrewInfo | undefined;
+      if (c?.name === name) return c;
+    }
+    return undefined;
+  }
+
   /** The open job's name: the ask, or -- when the ask names nothing -- the
    *  crew's first line about the work. The same rule the board uses. */
   private jobLabel(): string {
@@ -1429,6 +1472,7 @@ export class Session {
       costUsd: priced.usd ?? null,
       costBasis: priced.basis as any,
     });
+    this.celebrate([crewMember(d.agent, d.model, Session.LEDGER_ROLE[role] ?? 'executor')]);
   }
 
   /** Compacts the engine's context and says so. Never silent: the meter is about
