@@ -430,6 +430,15 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 
 
+**The thread screen, from a phone screenshot — raised 2026-09-25.** "There's a ton of things that can be improved." Diagnosed against the live session's own transcript before anything was changed; worked in this order.
+
+31. **Jobs end at the right place.** A job only closed on a *passing* verify. One verify failed early on 2026-09-24 and nothing passed after it, so ~1,300 events — a whole day of different tasks — were one job, named after the message that opened it ("Bram proceed with the remaining"). The tracker froze on it: Bram's name, a stale failed Verify, steps lit out of order. A job should end when the next task starts; a failed verify stays on its job without holding the rest hostage; the name comes from the work.
+32. **One agent, one identity.** Replies said Fig, the header and sprite said Ollie, the sticky chip said Ollie, the command said Bram. Cause: `routedModel` held the literal string `"default"` left over from auto-routing, and replies are labelled from it — `"default"` maps to Fig, and prints as "default · Chat". Clear it whenever the model is set by hand; never label from a non-model.
+33. **Percentages that move.** Context arrives only when a turn ends — a 20-minute turn reads frozen, then jumps (23% → 33%). Spend-it refreshes on its own schedule, not with the work. Update context during a turn; update the fuel line when a reading lands.
+34. **The light theme gets the design.** The boards are the navy lamp theme; the light theme never got them — blue accent, rounded pills, rounded bubbles, no display font. Amber, square edges, hard shadows, Silkscreen, in both themes.
+35. **Six bars before the first word.** Header, Spend-it (three lines plus a paragraph), Full auto, a raw token line, the context bar, the tracker — the conversation starts 40% down the screen. Fold to one status strip that opens on a tap.
+36. **The rest of the screenshot.** The raw `Overage_included` window key; a stray unfolded raw tool chip; a PLAN badge while the tracker shows Build and Verify; status notes mid-turn rendered as full speech bubbles; the working sprite alone with no words; "Use the good models" wrapping to three lines.
+
 Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
 
 ### 12a. Motion — the stream with the most pull behind it
