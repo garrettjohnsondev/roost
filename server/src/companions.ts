@@ -78,6 +78,13 @@ export interface Milestone {
 
 export interface Companion {
   name: string;
+  /** Which subscription they run on, and their weight class. */
+  suite: string | null;
+  tier: 'flagship' | 'worker' | null;
+  /** The model id on their most recent ledger row: what they actually ran as. */
+  model: string | null;
+  /** Every model id they have run as, most used first. */
+  models: { id: string; calls: number }[];
   joined: number | null;
   lastWorked: number | null;
   /** Model calls: every turn, triage, review and dispatch they took. */
@@ -112,6 +119,8 @@ export interface CompanionInput {
   working: Set<string>;
   /** Tightest known used-percent on each member's subscription, or null. */
   usedPercent: (name: string) => { percent: number | null; vendor: string };
+  /** Suite and tier from the roster, when known. */
+  profile?: (name: string) => { suite: string | null; tier: 'flagship' | 'worker' | null };
 }
 
 const DAY = 86_400_000;
@@ -230,8 +239,18 @@ export function companionFor(name: string, input: CompanionInput): Companion {
     { id: 'favourite', label: 'Asked for', how: 'asked for by name ten times', earnedAt: mine.filter((e) => e.kind === 'asked')[9]?.at ?? null },
   ];
 
+  const byModel = new Map<string, number>();
+  for (const r of rows) if (r.model) byModel.set(r.model, (byModel.get(r.model) ?? 0) + 1);
+  const models = [...byModel.entries()].sort((a, b) => b[1] - a[1]).map(([id, calls]) => ({ id, calls }));
+  const lastModel = [...rows].reverse().find((r) => r.model)?.model ?? null;
+  const prof = input.profile?.(name) ?? { suite: null, tier: null };
+
   return {
     name,
+    suite: prof.suite,
+    tier: prof.tier,
+    model: lastModel,
+    models,
     joined: rows[0]?.at ?? null,
     lastWorked,
     calls: rows.length,

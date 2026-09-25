@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import { SpriteAvatar } from './ChatView';
+import { SpriteAvatar, modelWords } from './ChatView';
 import { nameColor } from './color';
 import { fmtAgo } from './format';
 import type { Companion, CrewInfo } from './types';
@@ -12,6 +12,7 @@ import type { Companion, CrewInfo } from './types';
  *  number with no record behind it reads "no data". */
 
 const big = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
+const suiteWords = (s: string | null) => (s === 'claude' ? ' · Claude' : s === 'codex' ? ' · Codex' : '');
 const date = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () => void }) {
@@ -28,7 +29,11 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
           <SpriteAvatar crew={crew} pose={c?.pose ?? 'idle'} size={104} />
           <div className="companion-id">
             <div className="companion-name" style={{ color: nameColor(crew.color) }}>{crew.name}</div>
-            <div className="companion-sub">{c ? `Level ${c.level}` : ' '}{crew.model ? ` · ${crew.model}` : ''}</div>
+            <div className="companion-sub">{c ? `Level ${c.level}` : ' '}{suiteWords(c?.suite ?? crew.agent ?? null)}{c?.tier ? ` · ${c.tier}` : ''}</div>
+            <div className="companion-model">{(() => {
+              const id = c?.model ?? crew.model ?? null;
+              return id ? modelWords(id) : c ? 'model: no data yet' : ' ';
+            })()}</div>
             {c && <div className={`companion-mood ${c.mood.key}`}>{c.mood.line}</div>}
           </div>
         </div>
@@ -57,6 +62,15 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
               <Stat n={String(c.streak)} label={c.bestStreak > c.streak ? `day streak · best ${c.bestStreak}` : 'day streak'} />
               <Stat n={c.joined == null ? null : date(c.joined)} label={c.lastWorked ? `joined · last ${fmtAgo(c.lastWorked)}` : 'joined'} />
             </div>
+
+            {c.models.length > 1 && (
+              <div className="companion-models">
+                <span className="companion-label">Has run as</span>
+                {c.models.map((m) => (
+                  <span key={m.id} className="companion-model-chip">{modelWords(m.id)} · {big(m.calls)}</span>
+                ))}
+              </div>
+            )}
 
             <div className="companion-miles-head">Milestones · {c.milestones.filter((m) => m.earnedAt).length} of {c.milestones.length}</div>
             <ul className="companion-miles">

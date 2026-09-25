@@ -2894,6 +2894,9 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .companion-id { min-width: 0; flex: 1; }
 .companion-name { font-family: var(--font-display, inherit); font-size: 24px; line-height: 1.1; }
 .companion-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+.companion-model { font-size: 14px; color: var(--text); margin-top: 2px; }
+.companion-models { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; }
+.companion-model-chip { font-size: 12.5px; padding: 3px 7px; border: 1px solid var(--seam); background: var(--surface-2); color: var(--text-dim); }
 .companion-mood {
   position: relative; margin-top: 10px; padding: 9px 11px; font-size: 15px; line-height: 1.4;
   background: var(--surface-2); border: 1px solid var(--seam); color: var(--text);

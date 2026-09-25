@@ -394,6 +394,10 @@ app.get('/api/crew/life', (req, res) => {
   const life = readLife();
   const companions = companionsFrom({
     names, ledger, life, now, working,
+    profile: (name) => {
+      const p = personas.find((x) => x.name === name);
+      return { suite: p ? (p.suite ?? (p.name === DISPATCHER.name ? null : 'claude')) : null, tier: p?.tier ?? null };
+    },
     usedPercent: (name) => {
       const vendor = suiteOf.get(name) ?? 'claude';
       return { vendor, percent: quotaStore().headroom(vendor, config.budget).worstPercent };

@@ -415,6 +415,10 @@ export interface RoadmapView {
 /** The crew as companions (server/src/companions.ts, item 40). */
 export interface Companion {
   name: string;
+  suite: string | null;
+  tier: 'flagship' | 'worker' | null;
+  model: string | null;
+  models: { id: string; calls: number }[];
   joined: number | null;
   lastWorked: number | null;
   calls: number;
