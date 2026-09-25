@@ -466,6 +466,16 @@ Every built-in persona now has a drawn sprite set (idle/type/think/blink/sleep/c
 
 Version 16 says Roost throughout. Every "Larry" was renamed by what the row DOES rather than by find-and-replace: the one sizing the job is now **Pip** — with Pip's face and colour on the rows where the name is a label — and the one doing work is **Moss**. The Codex reviewer is **Juno** on `gpt-5.6-sol` rather than on Nell's model, and Ollie's model line reads `opus 5.5`. The first pass reported "no retired names left" and was wrong: it matched case-sensitively and the boards set names in Silkscreen capitals.
 
+### 12c′. Legacy ideas, reconciled — nothing older than a week is this app
+
+*2026-09-24. Owner's rule: anything captured more than a week ago is from an older version and vision of the app.* The one such document still pointed at from memory was `agent sync/docs/NEXT-BIG-IDEAS.md` (2026-08-01, "the next big three", written for the office that the Pocket plan deleted). Reconciled here so it stops being carried:
+
+- **Wayfinder** (a persistent decision map with a frontier) — the parts that mattered became Roost's plan files on disk, the reconcile step and the decisions log. The one idea not built is a standing *frontier* — what is still undecided, across sessions. Not scheduled; `ROADMAP.md §12` does that job by hand today and it is enough.
+- **The sticky wall** (the map as a draggable PM board) — this is the `Roadmap` board on the design canvas, i.e. §12d, under its current name. Nothing separate survives.
+- **Rooms / the Design Room** (your live app on a projector inside a fiction) — the real half shipped as **Live preview** (item 28): the app, on the phone, from anywhere. The fiction half (rooms, walking in, the office) is the old vision and is not coming back. The "Focus / just code" rung it insisted on is simply what Roost is.
+
+The old doc stays where it is as history. It is not a backlog.
+
 ### 12d. The reference boards' language is not in the app
 
 `Home`, `Thread` and `Chapters` shipped 2026-09-23 (working order items 2–3) — palette, type, crew strip, the fuel gauge, the folded chapter are now live, checked against real mobile-viewport screenshots. **Still not in the app: `Control` (the effort control) and `Context` (the context meter) and `Roadmap`** — the app has no per-task effort UI, no visible context-window meter, and nothing rendering the roadmap itself. Picking this back up needs a fresh read of those three boards from the design canvas (`https://claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn`) — not done yet in this pass because the Artifact tool was unavailable in-session when this was reached; do not guess at their specifics from memory. *Reached again 2026-09-24 evening: the tool was off again, so this stays open for exactly the same reason. What the app does have today, for the record: an effort chip row in session settings and a context bar under the header with a percentage, pressure word and the handoff offer — neither checked against its board.*
