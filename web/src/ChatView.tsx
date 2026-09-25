@@ -108,6 +108,14 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // was told about, and the common answer to "do this every time" here is yes.
   // It is still a checkbox they can clear before tapping.
   const [keepCompacting, setKeepCompacting] = useState(true);
+  // The status line's detail: remembered per phone, closed by default.
+  const [stripOpen, setStripOpenState] = useState(() => {
+    try { return localStorage.getItem('roost-strip-open') === '1'; } catch { return false; }
+  });
+  const setStripOpen = (v: boolean) => {
+    setStripOpenState(v);
+    try { localStorage.setItem('roost-strip-open', v ? '1' : '0'); } catch { /* per-phone nicety */ }
+  };
   const [signingIn, setSigningIn] = useState(false);
   useEffect(() => {
     const open = () => setSigningIn(true);
@@ -305,81 +313,90 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         />
       )}
 
-      {session.meta?.surplus && !session.meta.boost && <SpendIt surplus={session.meta.surplus} onBoost={() => session.send({ type: 'set_boost', on: true })} />}
-      {session.meta?.boost && (
-        <div className="surplus-bar on">
-          <span>Boost on — routing to the heavy tier{session.meta.surplus ? ` until ${session.meta.surplus.label} resets` : ''}.</span>
-          <button className="chip" onClick={() => session.send({ type: 'set_boost', on: false })}>
-            Turn off
-          </button>
-        </div>
-      )}
-      {session.meta?.approvals === 'full-auto' && (
-        <div className="surplus-bar on full-auto-bar">
-          {/* Full auto is a deliberate, session-wide widening of what runs
-              without asking -- it must stay visible for as long as it is on,
-              never a one-time toggle that fades from view. User-reported
-              2026-09-23: the original two-line copy plus a full chip button
-              took up too much real estate at the top of every turn. Shrunk to
-              one line, kept always visible either way. */}
-          <span className="full-auto-text"><Icon name="bolt" /> Full auto — no approvals this session</span>
-          <button className="chip full-auto-off" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
-            Turn off
-          </button>
-        </div>
-      )}
-      {session.usage && (
-        <div className="usage-bar">
-          {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
-          {session.usage.contextPct != null && <> · ctx {session.usage.contextPct}%</>}
-        </div>
-      )}
-      {session.context && (
-        <div
-          className={`context-bar ${session.context.pressure}`}
-          title={session.context.categories?.map((c) => `${c.name}: ${fmtTokens(c.tokens)}`).join('\n')}
-        >
-          {session.meta?.crew?.sprite && (
-            <span className="context-face" style={{ '--rot': rotFor(session.context.percent) } as React.CSSProperties}>
-              <SpriteAvatar crew={session.meta.crew} pose="idle" size={22} />
-            </span>
-          )}
-          <span>
-            Context {session.context.overLimit?.kind === 'hard_limit' ? 'over this model’s window' : session.context.percent != null ? `${session.context.percent}%` : 'no data'}
-            {session.context.usedTokens != null && session.context.maxTokens != null
-              ? ` · ${fmtTokens(session.context.usedTokens)} of ${fmtTokens(session.context.maxTokens)}`
-              : ''}
-            {` · ${session.context.pressure}`}
-            {session.context.overLimit ? ` · ${fmtTokens(session.context.overLimit.tokensOver)} over the ${session.context.overLimit.kind === 'hard_limit' ? 'hard limit' : 'compaction window'}` : ''}
-          </span>
-          {session.context.advice && (
-            <span className="context-advice">
-              {session.context.advice.action}: {session.context.advice.reason}
-            </span>
-          )}
-          {/* The third rung (Context board): hand off at 80%, a different
-              decision from compacting, so it asks on its own. */}
-          {session.context.pressure === 'critical' && (() => {
-            // The handoff, offered where the meter says it is time: the other
-            // vendor's flagship is briefed from the plan and the thread and
-            // continues with a fresh window (§4c).
-            const other = crewNames.find((c) => c.suite !== agent && c.tier === 'flagship') ?? crewNames.find((c) => c.suite !== agent);
-            if (!other) return null;
-            return (
-              <button className="context-handoff" onClick={() => session.send({ type: 'context_action', action: 'handoff', to: other.name })}>
-                Hand off to {other.name}
-              </button>
-            );
-          })()}
-          {session.meta?.autoCompact && (
-            <button
-              className="context-auto-off"
-              title="Stop compacting automatically — you will be asked again instead"
-              onClick={() => session.send({ type: 'set_auto_compact', on: false })}
-            >
-              auto-compact on · turn off
+      {/* One status line, not six bars (item 35, 2026-09-25): header, Spend-it,
+          full auto, a raw token line, the context bar and the tracker stacked
+          until the conversation started 40% down the screen. The line carries
+          what matters at a glance; a tap opens the detail that was always there. */}
+      <StatusStrip session={session} open={stripOpen} onToggle={() => setStripOpen(!stripOpen)} />
+      {stripOpen && (
+        <div className="status-detail">
+        {session.meta?.surplus && !session.meta.boost && <SpendIt surplus={session.meta.surplus} onBoost={() => session.send({ type: 'set_boost', on: true })} />}
+        {session.meta?.boost && (
+          <div className="surplus-bar on">
+            <span>Boost on — routing to the heavy tier{session.meta.surplus ? ` until ${session.meta.surplus.label} resets` : ''}.</span>
+            <button className="chip" onClick={() => session.send({ type: 'set_boost', on: false })}>
+              Turn off
             </button>
-          )}
+          </div>
+        )}
+        {session.meta?.approvals === 'full-auto' && (
+          <div className="surplus-bar on full-auto-bar">
+            {/* Full auto is a deliberate, session-wide widening of what runs
+                without asking -- it must stay visible for as long as it is on,
+                never a one-time toggle that fades from view. User-reported
+                2026-09-23: the original two-line copy plus a full chip button
+                took up too much real estate at the top of every turn. Shrunk to
+                one line, kept always visible either way. */}
+            <span className="full-auto-text"><Icon name="bolt" /> Full auto — no approvals this session</span>
+            <button className="chip full-auto-off" onClick={() => session.send({ type: 'set_approvals', approvals: 'ask' })}>
+              Turn off
+            </button>
+          </div>
+        )}
+        {session.usage && (
+          <div className="usage-bar">
+            {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
+            {session.usage.contextPct != null && <> · ctx {session.usage.contextPct}%</>}
+          </div>
+        )}
+        {session.context && (
+          <div
+            className={`context-bar ${session.context.pressure}`}
+            title={session.context.categories?.map((c) => `${c.name}: ${fmtTokens(c.tokens)}`).join('\n')}
+          >
+            {session.meta?.crew?.sprite && (
+              <span className="context-face" style={{ '--rot': rotFor(session.context.percent) } as React.CSSProperties}>
+                <SpriteAvatar crew={session.meta.crew} pose="idle" size={22} />
+              </span>
+            )}
+            <span>
+              Context {session.context.overLimit?.kind === 'hard_limit' ? 'over this model’s window' : session.context.percent != null ? `${session.context.percent}%` : 'no data'}
+              {session.context.usedTokens != null && session.context.maxTokens != null
+                ? ` · ${fmtTokens(session.context.usedTokens)} of ${fmtTokens(session.context.maxTokens)}`
+                : ''}
+              {` · ${session.context.pressure}`}
+              {session.context.overLimit ? ` · ${fmtTokens(session.context.overLimit.tokensOver)} over the ${session.context.overLimit.kind === 'hard_limit' ? 'hard limit' : 'compaction window'}` : ''}
+            </span>
+            {session.context.advice && (
+              <span className="context-advice">
+                {session.context.advice.action}: {session.context.advice.reason}
+              </span>
+            )}
+            {/* The third rung (Context board): hand off at 80%, a different
+                decision from compacting, so it asks on its own. */}
+            {session.context.pressure === 'critical' && (() => {
+              // The handoff, offered where the meter says it is time: the other
+              // vendor's flagship is briefed from the plan and the thread and
+              // continues with a fresh window (§4c).
+              const other = crewNames.find((c) => c.suite !== agent && c.tier === 'flagship') ?? crewNames.find((c) => c.suite !== agent);
+              if (!other) return null;
+              return (
+                <button className="context-handoff" onClick={() => session.send({ type: 'context_action', action: 'handoff', to: other.name })}>
+                  Hand off to {other.name}
+                </button>
+              );
+            })()}
+            {session.meta?.autoCompact && (
+              <button
+                className="context-auto-off"
+                title="Stop compacting automatically — you will be asked again instead"
+                onClick={() => session.send({ type: 'set_auto_compact', on: false })}
+              >
+                auto-compact on · turn off
+              </button>
+            )}
+          </div>
+        )}
         </div>
       )}
 
@@ -1048,6 +1065,45 @@ function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh:
       </span>
       <span className="handoff-why">picks it up with a fresh window</span>
     </div>
+  );
+}
+
+/** The status line (item 35): each thing that used to be a bar is a small
+ *  mark on one line -- context as a meter, Spend-it as its expiring blocks,
+ *  boost and full auto as lit words. Nothing is shown that is not live: no
+ *  surplus, no Spend-it mark; approvals asked for, no full-auto mark. */
+function StatusStrip({ session, open, onToggle }: { session: SessionState; open: boolean; onToggle: () => void }) {
+  const ctx = session.context;
+  const surplus = session.meta?.boost ? null : session.meta?.surplus;
+  const now = useMinute(!!surplus);
+  const minutes = surplus ? (surplus.resetsAt ? Math.max(0, Math.round((surplus.resetsAt - now) / 60_000)) : surplus.minutesLeft) : null;
+  const pct = ctx?.overLimit?.kind === 'hard_limit' ? 100 : ctx?.percent ?? null;
+  if (!ctx && !surplus && !session.meta?.boost && session.meta?.approvals !== 'full-auto') return null;
+  return (
+    <button className={`status-strip${open ? ' open' : ''}`} onClick={onToggle} aria-expanded={open}>
+      {ctx && (
+        <span className={`strip-ctx ${ctx.pressure}`} title="Context">
+          {/* No reading, no bar (decision 7) -- never an empty one that reads as 0%. */}
+          {pct != null && <span className="strip-ctx-bar"><span style={{ width: `${Math.min(100, pct)}%` }} /></span>}
+          <span className="strip-label">{pct != null ? `${pct}%` : 'no data'}</span>
+        </span>
+      )}
+      {surplus && (
+        <span className="strip-spend" title="Spend it before it resets">
+          <span className="expiry-blocks" aria-hidden="true">
+            {Array.from({ length: 5 }, (_, i) => (
+              <span key={i} className={`expiry-block${i >= 5 - Math.ceil(expiringBlocks(surplus.headroomPct) / 2) ? ' expiring' : ''}`} />
+            ))}
+          </span>
+          <span className="strip-label">{surplus.headroomPct}% · {minutes != null ? fmtMinutes(minutes) : 'soon'}</span>
+        </span>
+      )}
+      {session.meta?.boost && <span className="strip-word lamp">Boost</span>}
+      {session.meta?.approvals === 'full-auto' && (
+        <span className="strip-word lamp"><Icon name="bolt" /> Full auto</span>
+      )}
+      <span className="strip-more" aria-hidden="true">{open ? '▴' : '▾'}</span>
+    </button>
   );
 }
 

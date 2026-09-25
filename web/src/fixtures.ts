@@ -126,6 +126,17 @@ export const FIXTURES: Record<string, () => SessionState> = {
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
   'quota-refused': () => base(QUOTA_REFUSED, meta({ state: 'idle' }), QUOTA_REFUSED.length),
+  /** Item 35: the phone screenshot's top half -- Spend-it, full auto, the
+   *  token line, context and the tracker, all at once. */
+  'busy-top': () => base(
+    TWO_JOBS.slice(5, 8),
+    meta({
+      state: 'working', approvals: 'full-auto',
+      surplus: { label: '7-day (all models)', headroomPct: 38, minutesLeft: 8, resetsAt: Date.now() + 8 * 60_000, weekly: [{ label: '7-day (Fable)', usedPercent: 79 }, { label: '7-day (all models)', usedPercent: 62 }] } as any,
+    }),
+    3,
+    { status: 'working', usage: { inputTokens: 340_100_000, outputTokens: 822_400 } as any, context: { agent: 'claude', usedTokens: 228_400, maxTokens: 1_000_000, percent: 23, pressure: 'clear' } as any },
+  ),
   /** Control board: effort meters and the "stepped down" note. */
   effort: () => base(EFFORT_TURNS, meta({ state: 'idle' }), EFFORT_TURNS.length, { status: 'idle' }),
   /** Control board: Pip asks before the expensive crew start. */

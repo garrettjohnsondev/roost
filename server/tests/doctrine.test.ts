@@ -1434,3 +1434,17 @@ describe('the light theme gets the design (item 34)', () => {
     expect(read('web/src/color.ts')).toMatch(/return readableOn\(color, dark \? ROOST_GROUND : PAPER_GROUND\);/);
   });
 });
+
+describe('one status line, not six bars (item 35)', () => {
+  const chat = read('web/src/ChatView.tsx');
+  it('the bars live behind one tap; the line shows only what is live', () => {
+    expect(chat).toMatch(/<StatusStrip session=\{session\} open=\{stripOpen\}/);
+    expect(chat).toMatch(/\{stripOpen && \(\s*<div className="status-detail">/);
+    // Spend-it and full auto appear on the line only when they are real.
+    expect(chat).toMatch(/\{surplus && \(\s*<span className="strip-spend"/);
+    expect(chat).toMatch(/\{session\.meta\?\.approvals === 'full-auto' && \(\s*<span className="strip-word lamp">/);
+  });
+  it('has the screenshot as a fixture', () => {
+    expect(read('web/src/fixtures.ts')).toContain("'busy-top':");
+  });
+});

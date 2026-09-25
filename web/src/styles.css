@@ -2859,6 +2859,24 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .crew-row-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .crew-row-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; min-width: 0; }
 .crew-row-head { align-self: stretch; }
+/* The status line (item 35): one row under the header instead of six bars. */
+.status-strip {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 36px;
+  padding: 6px 14px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: var(--surface); color: var(--text-dim); font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+.status-strip > span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.strip-label { font-family: var(--font-display, inherit); font-size: 11px; letter-spacing: 0.03em; white-space: nowrap; }
+.strip-ctx-bar { width: 44px; height: 7px; background: var(--surface-2); border: 1px solid var(--seam); display: block; }
+.strip-ctx-bar span { display: block; height: 100%; background: var(--ok); }
+.strip-ctx.filling .strip-ctx-bar span { background: var(--accent); }
+.strip-ctx.degrading .strip-ctx-bar span, .strip-ctx.critical .strip-ctx-bar span { background: var(--danger); }
+.strip-ctx.degrading .strip-label, .strip-ctx.critical .strip-label { color: var(--danger); }
+.strip-spend .strip-label, .strip-word.lamp { color: var(--accent-ink); }
+.strip-word { font-family: var(--font-display, inherit); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.strip-more { margin-left: auto; font-size: 11px; }
+.status-detail { border-bottom: 1px solid var(--border); }
+
 /* Effort, in the thread (Control board): six blocks, lamp-lit, and the word. */
 .effort-meter { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; align-self: center; }
 .effort-blocks { display: inline-flex; gap: 2px; }
