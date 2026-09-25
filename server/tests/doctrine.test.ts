@@ -120,7 +120,7 @@ describe('the crew animates by cutting, not fading', () => {
     // actually reasoning -- there is no timer driving it.
     const c = read('web/src/ChatView.tsx');
     expect(c).toMatch(/const moving = pose === 'type' \|\| pose === 'think'/);
-    expect(c).toMatch(/pose=\{item\.complete \? 'idle' : 'type'\}/);
+    expect(c).toMatch(/pose=\{item\.complete \? \(asking \? 'peek' : 'idle'\) : 'type'\}/);
     expect(c).not.toMatch(/setInterval|setTimeout/);
   });
 
@@ -597,6 +597,31 @@ describe('the job tracker reports the thread and lights up, it does not perform'
     expect(motion).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tracker-stamp\.land[\s\S]*animation: none !important/);
     // The only loop is the phase in progress -- a persistent state, named so.
     expect(motion).toMatch(/\.seg\.active\.working::after/);
+  });
+})
+
+describe('a question is a text, never a permission', () => {
+  // 2026-09-25: Claude's AskUserQuestion reached the phone as "Claude wants to
+  // use AskUserQuestion" with raw JSON. Allowing it ran the tool with no
+  // answers; the question was never seen. It is asked in the thread now.
+  const claude = read('server/src/agents/claude.ts');
+  it('is intercepted before any approval logic, in every mode', () => {
+    const c = claude.slice(claude.indexOf('canUseTool:'));
+    expect(c.indexOf("if (toolName === 'AskUserQuestion')")).toBeLessThan(c.indexOf('this.sessionAllowedTools.has(toolName)'));
+    expect(c).toMatch(/return \{ behavior: 'allow', updatedInput: \{ \.\.\.toolInput, answers \} \};/);
+  });
+  it('whatever you text back while a question waits is the answer', () => {
+    const s = read('server/src/sessions.ts');
+    expect(s).toMatch(/if \(this\.pendingQuestion && msg\.text\?\.trim\(\)\) \{/);
+  });
+  it('the thread shows only what you typed; the level travels as a note behind it', () => {
+    const s = read('server/src/sessions.ts');
+    expect(s).toMatch(/await this\.adapter\.sendUserMessage\(note \? `\$\{text\}\\n\\n\$\{note\}` : text, images, note \? text : undefined\);/);
+  });
+  it('the question waiting on you pulses; it stops under reduced motion', () => {
+    const css = read('web/src/styles.css');
+    expect(css).toMatch(/\.msg\.assistant\.ask-pulse \{[^}]*animation: ask-pulse/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.msg\.assistant\.ask-pulse \{ animation: none; \} \}/);
   });
 })
 
@@ -1406,7 +1431,7 @@ describe('the Control, Context and Roadmap boards (docs/board/), built', () => {
 
   it('Control: Pip proposes, you dispose — a large message waits on Go ahead / Just chat, nothing runs first', () => {
     const s = sessions();
-    const block = s.slice(s.indexOf("triaged?.size === 'large'"), s.indexOf('await this.deliver(msg.text, msg.images);\n        break;\n      }\n      case \'approval_response\''));
+    const block = s.slice(s.indexOf("triaged?.size === 'large'"), s.indexOf("case 'question_answer'"));
     expect(block).toContain('this.escalationOffer = {');
     expect(block).not.toContain('runConsult(');
     expect(s).toMatch(/case 'escalation_response':\s*await this\.answerEscalation\(!!msg\.go/);

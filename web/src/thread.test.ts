@@ -30,3 +30,15 @@ describe('models in words (item 36)', () => {
     expect(modelWords('')).toBe('model not reported');
   });
 });
+
+import { apply } from './useSession';
+describe('a question arrives as a text and is answered in place', () => {
+  it('adds one question item, and marks it answered with what you said', () => {
+    let items = apply([], { type: 'question', requestId: 'q', questions: [{ question: 'Which?', options: [] }], ts: 1 } as any);
+    items = apply(items, { type: 'question', requestId: 'q', questions: [{ question: 'Which?', options: [] }], ts: 1 } as any);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ kind: 'question', answered: false });
+    items = apply(items, { type: 'question_answered', requestId: 'q', answers: { 'Which?': 'That one' }, ts: 2 } as any);
+    expect(items[0]).toMatchObject({ answered: true, answers: { 'Which?': 'That one' } });
+  });
+});

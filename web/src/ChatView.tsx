@@ -20,7 +20,7 @@ import { LiveView } from './LiveView';
 import { findImagePaths } from './imagePaths';
 import { PreviewContent } from './PreviewContent';
 import { useSession, type SessionState } from './useSession';
-import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder, DeploySuggestion } from './types';
+import type { ApprovalSetting, AskLevel, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder, DeploySuggestion } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -72,6 +72,30 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showGit, setShowGit] = useState(false);
   const [deploy, setDeploy] = useState<{ proposal?: DeploySuggestion } | null>(null);
+  // A question from the crew, answered one at a time like texts; the answers
+  // go back together once the last one is in.
+  const [askDraft, setAskDraft] = useState<{ id: string; answers: Record<string, string> } | null>(null);
+  const pendingQ = (() => {
+    for (let i = session.items.length - 1; i >= 0; i--) {
+      const it = session.items[i];
+      if (it.kind === 'question') return it.answered ? null : it;
+    }
+    return null;
+  })();
+  const answerQuestion = (text: string): boolean => {
+    const q = pendingQ;
+    if (!q) return false;
+    const draft = askDraft?.id === q.requestId ? askDraft.answers : {};
+    const next = q.questions.find((x) => draft[x.question] == null);
+    if (!next) return false;
+    const answers = { ...draft, [next.question]: text };
+    setAskDraft({ id: q.requestId, answers });
+    if (q.questions.every((x) => answers[x.question] != null)) return session.send({ type: 'question_answer', requestId: q.requestId, answers });
+    return true;
+  };
+  const skipQuestion = () => {
+    if (pendingQ) session.send({ type: 'question_answer', requestId: pendingQ.requestId, answers: null });
+  };
   const [showLive, setShowLive] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
@@ -231,6 +255,10 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   useEffect(() => {
     if (session.pendingApproval) buzz('approval');
   }, [session.pendingApproval?.requestId]);
+  // A question is someone needing you too: the same tap, once per question.
+  useEffect(() => {
+    if (pendingQ) buzz('approval');
+  }, [pendingQ?.requestId]);
 
   // A verdict you can feel: a LIVE verify buzzes pass or fail with its own
   // pattern (haptics.ts). Keyed on the verify's index past replay, so history
@@ -257,6 +285,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
 
   return (
     <DeployContext.Provider value={{ open: (proposal) => setDeploy({ proposal }) }}>
+    <AskContext.Provider value={{ draft: askDraft, answer: answerQuestion, skip: skipQuestion, crew: session.meta?.crew, me }}>
     <div className="chat-page">
       <header className="chat-header">
         <button className="ghost" onClick={onBack}>
@@ -509,7 +538,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 </Contained>
               ) : seg.kind === 'item' ? (
                 <Contained key={seg.index} what="This message" retryOn={session.items[seg.index]}>
-                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} />
+                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} asking={awaitingReply(session.items, seg.index, session.status)} />
                 </Contained>
               ) : (
                 <Contained key={`run-${seg.start}`} what="These tool calls">
@@ -555,7 +584,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}
-        {(session.triaging || session.status === 'working') && !session.closedReason && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
+        {(session.triaging || session.status === 'working') && !session.closedReason && !pendingQ && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
           <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
@@ -618,7 +647,12 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           disabled={!session.connected}
           working={session.status === 'working'}
           onInterrupt={() => session.send({ type: 'interrupt' })}
-          onSend={(text, images) => session.send({ type: 'user_message', text, images })}
+          onSend={(text, images) => {
+            // A question waiting on you: what you text back is the answer.
+            if (pendingQ && text.trim()) return answerQuestion(text.trim());
+            return session.send({ type: 'user_message', text, images });
+          }}
+          placeholder={pendingQ ? `Reply to ${pendingQ.crew?.name ?? session.meta?.crew?.name ?? 'the crew'}…` : undefined}
           onConsult={(text) => session.send({ type: 'consult', text })}
           crew={crewNames}
         />
@@ -712,6 +746,24 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="field">
+              {/* How much they talk it over with you first (2026-09-25). Every
+                  level is still just texting -- one question at a time. */}
+              <label>Before building</label>
+              <div className="chips">
+                {ASK_CHOICES.map(([value, label, title]) => (
+                  <button
+                    key={value}
+                    title={title}
+                    className={(session.meta!.ask ?? 'quick') === value ? 'chip active' : 'chip'}
+                    onClick={() => session.send({ type: 'set_ask', ask: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="field-hint">{ASK_CHOICES.find(([v]) => v === (session.meta!.ask ?? 'quick'))?.[2]}</div>
             </div>
             <div className="field">
               <label>Who builds</label>
@@ -824,6 +876,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       )}
     </div>
+    </AskContext.Provider>
     </DeployContext.Provider>
   );
 }
@@ -964,7 +1017,7 @@ function JobTracker({ session }: { session: SessionState }) {
     working: session.status === 'working' || session.triaging,
     statusMessage: session.statusMessage,
     consultPending: !!session.meta?.consultPending,
-    approvalPending: !!session.pendingApproval,
+    approvalPending: !!session.pendingApproval || session.items.some((it) => it.kind === 'question' && !it.answered),
   });
   if (!t) return null;
   // A finished beat for a plain chat turn (2026-09-24): "a plain-chat turn
@@ -1313,7 +1366,7 @@ function CompactAsk({ crew, percent, keep, onKeep, onCompact, onNotYet }: {
  *  card with a label rather than someone speaking. */
 function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; head?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="crew-row">
+    <div className="crew-row" style={{ '--crew': nameColor(crew.color) ?? crew.color } as React.CSSProperties}>
       <span className="crew-row-face" role="button" tabIndex={0} title={`${crew.name} — tap for their card`} onClick={() => openCompanion(crew)}>
         <SpriteAvatar crew={crew} pose={pose} size={52} />
       </span>
@@ -1371,7 +1424,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew, chapterCrew, me, fresh = false, aside = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean }) {
+function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean }) {
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1408,8 +1461,8 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false }: 
       }
       return (
         item.crew ? (
-          <CrewRow crew={item.crew} pose={item.complete ? 'idle' : 'type'}>
-            <div className="msg assistant">
+          <CrewRow crew={item.crew} pose={item.complete ? (asking ? 'peek' : 'idle') : 'type'}>
+            <div className={`msg assistant${asking ? ' ask-pulse' : ''}`}>
               <Markdown text={item.text} />
             </div>
           </CrewRow>
@@ -1419,6 +1472,8 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false }: 
           </div>
         )
       );
+    case 'question':
+      return <QuestionThread item={item} />;
     case 'milestone':
       // A moment (item 40): a level or a milestone crossed on this turn. Said
       // once, where it happened; replayed history shows it without the hop.
@@ -1770,6 +1825,100 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
   );
 }
 
+const ASK_CHOICES: Array<[AskLevel, string, string]> = [
+  ['off', 'Just build', 'No questions -- they make the calls and tell you what they assumed.'],
+  ['quick', 'Quick check', 'A question or two, only when something important is unclear.'],
+  ['talk', 'Talk it through', 'A short design chat first -- planning, but it feels like texting.'],
+  ['grill', 'Grill me', 'A relentless interview until nothing is left assumed.'],
+];
+
+/** The turn's last word, still waiting on you: a finished reply that ends in
+ *  a question, with nothing after it and nobody working. Codex asks this way
+ *  (it has no question tool); so does anyone who just asks. */
+function awaitingReply(items: ChatItem[], i: number, status: string): boolean {
+  const it = items[i];
+  return i === items.length - 1 && status === 'idle' && it?.kind === 'assistant' && it.complete && /\?\s*$/.test(it.text.trim());
+}
+
+const AskContext = React.createContext<{
+  draft: { id: string; answers: Record<string, string> } | null;
+  answer: (text: string) => boolean;
+  skip: () => void;
+  crew?: CrewInfo;
+  me?: Me | null;
+} | null>(null);
+
+/** A crew member's question, as texts (2026-09-25): "The agent should have
+ *  just asked me like a normal text... It also shouldn't be multiple questions
+ *  in a bullet point list." One question per bubble, in their colours, with
+ *  the replies they suggest as chips you can tap -- or just text back. The one
+ *  waiting on you pulses until you answer; the next appears once you have. */
+function QuestionThread({ item }: { item: Extract<ChatItem, { kind: 'question' }> }) {
+  const ctx = React.useContext(AskContext);
+  const [picked, setPicked] = useState<string[]>([]);
+  const crew = item.crew ?? ctx?.crew;
+  const answers = item.answered ? item.answers ?? {} : ctx?.draft?.id === item.requestId ? ctx.draft.answers : {};
+  const skipped = item.answered && !item.answers;
+  const shown = skipped ? 1 : item.answered ? item.questions.length : Math.min(item.questions.length, Object.keys(answers).length + 1);
+  return (
+    <>
+      {item.questions.slice(0, shown).map((q, i) => {
+        const a = answers[q.question];
+        const current = !item.answered && a == null;
+        const bubble = (
+          <div className={`msg assistant ask${current ? ' ask-pulse' : ''}`}>
+            <Markdown text={q.question} />
+            {current && q.options.length > 0 && (
+              <div className="ask-options">
+                {q.options.map((o) => {
+                  const pick = /\(recommended\)/i.test(o.label);
+                  const label = o.label.replace(/\s*\(recommended\)\s*/i, '').trim();
+                  const on = picked.includes(label);
+                  return (
+                    <button
+                      key={o.label}
+                      className={`ask-option${pick ? ' pick' : ''}${on ? ' on' : ''}`}
+                      onClick={() => {
+                        if (!q.multiSelect) { ctx?.answer(label); return; }
+                        setPicked((p) => (on ? p.filter((x) => x !== label) : [...p, label]));
+                      }}
+                    >
+                      <span className="ask-option-label">
+                        {label}
+                        {pick && <span className="ask-pick">{crew ? `${crew.name}'s pick` : 'suggested'}</span>}
+                      </span>
+                      {o.description && <span className="ask-option-desc">{o.description}</span>}
+                    </button>
+                  );
+                })}
+                {q.multiSelect && (
+                  <button className="ask-send" disabled={!picked.length} onClick={() => { ctx?.answer(picked.join(', ')); setPicked([]); }}>
+                    Send {picked.length ? `(${picked.length})` : ''}
+                  </button>
+                )}
+              </div>
+            )}
+            {current && (
+              <div className="ask-hint">
+                {q.options.length ? 'Tap one, or just text back.' : 'Just text back.'}
+                {item.questions.length > 1 && <span> · {i + 1} of {item.questions.length}</span>}
+                <button className="ask-skip" onClick={() => ctx?.skip()}>Skip</button>
+              </div>
+            )}
+          </div>
+        );
+        return (
+          <React.Fragment key={q.question}>
+            {crew ? <CrewRow crew={crew} pose={current ? 'peek' : 'idle'}>{bubble}</CrewRow> : bubble}
+            {a != null && <Message item={{ kind: 'user', text: a, imageCount: 0, ts: item.ts }} me={ctx?.me} />}
+          </React.Fragment>
+        );
+      })}
+      {skipped && <div className="ask-skipped">Skipped — {crew?.name ?? 'they'} carried on with their best judgement.</div>}
+    </>
+  );
+}
+
 function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew?: CrewInfo }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -1791,6 +1940,7 @@ function Composer(props: {
   onSend: (text: string, images?: UserImage[]) => boolean;
   onConsult: (text: string) => void;
   crew?: MentionTarget[];
+  placeholder?: string;
 }) {
   const [text, setText] = useState('');
   // "@" then letters at the end of the draft opens the crew; a tap completes
@@ -1896,7 +2046,7 @@ function Composer(props: {
             ref={taRef}
             value={text}
             rows={1}
-            placeholder="Message…"
+            placeholder={props.placeholder ?? 'Message…'}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {

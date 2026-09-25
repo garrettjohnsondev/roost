@@ -31,6 +31,9 @@ export type ConsultPhase = 'plan' | 'critique' | 'reconcile' | 'mention' | 'hand
 export type ClientMessage =
   | { type: 'user_message'; text: string; images?: UserImage[] }
   | { type: 'approval_response'; requestId: string; decision: 'allow' | 'allow-session' | 'deny' }
+  /** Your reply to a crew member's question: question text -> answer. null: you skipped it. */
+  | { type: 'question_answer'; requestId: string; answers: Record<string, string> | null }
+  | { type: 'set_ask'; ask: AskLevel }
   | { type: 'set_model'; model: string }
   | { type: 'set_effort'; effort: string }
   | { type: 'set_approvals'; approvals: ApprovalSetting }
@@ -113,9 +116,24 @@ export interface VerifyReport {
   ms: number;
 }
 
+/** How much the crew talks it over with you before building (2026-09-25):
+ *  off -- just build; quick -- a question or two when something is genuinely
+ *  unclear; talk -- a design chat first; grill -- a relentless interview. */
+export type AskLevel = 'off' | 'quick' | 'talk' | 'grill';
+
+/** One question from a crew member, with the replies they suggest. */
+export interface AskQuestion {
+  question: string;
+  header?: string;
+  options: { label: string; description?: string }[];
+  multiSelect?: boolean;
+}
+
 export interface SessionMeta {
   /** Who the live agent is right now, for the header and assistant bubbles. */
   crew?: CrewInfo;
+  /** How much they talk it over with you first. */
+  ask?: AskLevel;
   id: string;
   agent: AgentKind;
   cwd: string;
@@ -225,6 +243,9 @@ export type ServerEvent =
   | { type: 'tool_start'; toolId: string; name: string; detail: string; expand?: ToolExpand; ts: number }
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
   | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
+  /** A crew member asking you something, as a text in the thread -- never a permission box. */
+  | { type: 'question'; requestId: string; questions: AskQuestion[]; crew?: CrewInfo; ts: number }
+  | { type: 'question_answered'; requestId: string; answers: Record<string, string> | null; ts: number }
   | { type: 'approval_resolved'; requestId: string; decision: string; ts: number }
   | { type: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { type: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; from?: CrewInfo; reviewStrength?: string; ts: number }

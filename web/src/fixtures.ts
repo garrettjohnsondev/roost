@@ -131,6 +131,26 @@ const WORK_STREAM: ChatItem[] = [
   { kind: 'assistant', text: 'The Deploy button is built and saved as `05cdcfd`, but it isn\'t live yet. That needs one more deploy.', complete: true, crew: OLLIE, ts: at(11) },
 ];
 
+const ASK_ITEMS = (answered: boolean): ChatItem[] => [
+  { kind: 'user', text: 'Rethink the top section of every message', imageCount: 0, ts: at(0) },
+  { kind: 'assistant', text: "Here's the idea: phases from what actually happened, a chunky bar, and a stamp when checks pass.", complete: true, crew: OLLIE, ts: at(1) },
+  {
+    kind: 'question', requestId: 'q1', crew: OLLIE, ts: at(2), answered,
+    answers: answered ? { 'Should the checks run on their own when a job that edited files finishes?': 'Yes, run them', 'Do those phases feel right?': 'Yes, build it' } : null,
+    questions: [
+      { question: 'Should the checks run on their own when a job that edited files finishes?', header: 'Auto-check', options: [
+        { label: 'Yes, run them (Recommended)', description: 'Takes seconds and uses no model quota. A pass stamps VERIFIED.' },
+        { label: "Only if the crew didn't", description: 'Skip it when they already ran the tests themselves.' },
+        { label: 'No, keep it manual', description: 'Checks run only when you tap Verify.' },
+      ] },
+      { question: 'Do those phases feel right?', header: 'Phases', options: [
+        { label: 'Yes, build it (Recommended)', description: 'Phases appear only when they really happen.' },
+        { label: 'Fewer', description: 'Build → Test → Done.' },
+      ] },
+    ],
+  },
+];
+
 export const FIXTURES: Record<string, () => SessionState> = {
   /** A conversation that outgrew Claude's window, as 725ffb4e did. */
   'too-long': () => base(TOO_LONG, meta({ state: 'idle' }), TOO_LONG.length),
@@ -158,6 +178,17 @@ export const FIXTURES: Record<string, () => SessionState> = {
   'tracker-verified': () => base([...WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), { kind: 'verify', report: { passed: true, tampered: false, gates: [{ command: 'npm test', cwd: '/p', exitCode: 0, stdoutTail: 'Tests  667 passed (667)', stderrTail: '', ms: 4100, startedAt: 0, timedOut: false }], images: [], fingerprint: '', summary: '1/1 gates passed', startedAt: 0, ms: 4100 }, ts: at(12) }], meta({ state: 'idle' }), 0, { status: 'idle' }),
   'tracker-failed': () => base([...WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), { kind: 'verify', report: { passed: false, tampered: false, gates: [{ command: 'npm test', cwd: '/p', exitCode: 1, stdoutTail: 'Tests  2 failed | 665 passed (667)', stderrTail: '', ms: 4100, startedAt: 0, timedOut: false }], images: [], fingerprint: '', summary: '0/1 gates passed', startedAt: 0, ms: 4100 }, ts: at(12) }], meta({ state: 'idle' }), 0, { status: 'idle' }),
   'tracker-back': () => base([...WORK_STREAM.slice(0, 11).map((x) => (x.kind === 'tool' ? { ...x, done: true, ok: !/vitest/.test(x.detail) } : x)), { kind: 'tool', toolId: 'w99', name: 'Edit', detail: 'web/src/tracker.ts', done: false, ts: at(13) }], meta({ state: 'working' }), 0, { status: 'working' }),
+  /** Questions as texts (2026-09-25): one at a time, suggested replies as chips. */
+  'ask-question': () => base(ASK_ITEMS(false), meta({ state: 'working' }), 0, { status: 'working' }),
+  'ask-answered': () => base(ASK_ITEMS(true), meta({ state: 'idle' }), 2, { status: 'idle' }),
+  /** A plain question at the end of a reply (how Codex asks): it waits on you too. */
+  'ask-plain': () => base(
+    [
+      { kind: 'user', text: 'Can you tidy the settings sheet?', imageCount: 0, ts: at(0) },
+      { kind: 'assistant', text: 'Sure. Before I move things around — should the mode chips stay at the top, or would you rather see who builds first?', complete: true, crew: crew('Nell', 'nell', 'codex', 'gpt-5.5-astra', '#b3452f', 'Builder'), ts: at(1) },
+    ],
+    meta({ state: 'idle' }), 2, { status: 'idle' },
+  ),
   /** Deploy: a crew member worked out what deploy means in a new project. */
   'deploy-proposal': () => base(
     [

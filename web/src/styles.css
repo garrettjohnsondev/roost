@@ -34,6 +34,7 @@
    SaaS-kit tell. This is the default theme; the light one remains a choice. */
 [data-theme='dark'] {
   --bg: #0f1729;
+  --crew-tint: 15%;
   --surface: #131c33;
   --surface-2: #1c2740;
   --border: #2b3a63;
@@ -3414,3 +3415,47 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
   .seg.active.working::after, .tracker-word, .tracker-stamp.land, .tracker-bar, .stamp-confetti span { animation: none !important; }
   .seg.done.just::before, .seg.active.working::after, .stamp-confetti { display: none; }
 }
+
+/* ---------- the crew's own colour on their replies (2026-09-25) ---------- */
+/* "a light and dark theme aware subtle coloured background that matches the
+   agent's colour scheme." --crew is set per row from nameColor(), which is
+   already made readable for the current theme; the mix keeps it a tint, never
+   a fill, so text contrast is the theme's own. */
+.crew-row .msg.assistant {
+  background: color-mix(in srgb, var(--crew, transparent) var(--crew-tint, 11%), var(--surface));
+  border-color: color-mix(in srgb, var(--crew, var(--seam)) 32%, var(--seam));
+}
+
+/* ---------- a question waiting on you ---------- */
+/* One bubble per question, like a text. The one waiting on you carries a ring
+   in their colour that pulses outward until you answer -- a persistent state
+   (they are waiting), so it loops; it stops the moment you reply. */
+.msg.assistant.ask-pulse {
+  border: 2px solid var(--crew, var(--accent));
+  animation: ask-pulse 1.8s ease-out infinite;
+}
+@keyframes ask-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--crew, var(--accent)) 55%, transparent); }
+  70% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--crew, var(--accent)) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.ask-options { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ask-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  padding: 9px 11px; border-radius: 2px; min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--crew, var(--accent)) 45%, var(--seam));
+  background: var(--surface); color: var(--text);
+}
+.ask-option:active { transform: translateY(1px); }
+.ask-option.pick { border-width: 2px; }
+.ask-option.on { background: color-mix(in srgb, var(--crew, var(--accent)) 16%, var(--surface)); }
+.ask-option-label { font-weight: 700; font-size: 15px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.ask-pick { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--crew, var(--accent-ink)); font-weight: 400; }
+.ask-option-desc { font-size: 13.5px; line-height: 1.4; color: var(--text-dim); }
+.ask-send { align-self: flex-start; padding: 8px 14px; font-weight: 700; background: var(--accent); color: var(--bg); border: 0; border-radius: 2px; }
+.ask-send:disabled { opacity: .5; }
+.ask-hint { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 13px; color: var(--text-dim); }
+.ask-skip { margin-left: auto; background: none; border: 0; padding: 2px 0; font-size: 13px; color: var(--text-dim); text-decoration: underline; }
+.ask-skipped { align-self: center; font-size: 13px; color: var(--text-dim); padding: 2px 0; }
+.field-hint { margin-top: 6px; font-size: 13px; color: var(--text-dim); line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .msg.assistant.ask-pulse { animation: none; } }

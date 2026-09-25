@@ -44,6 +44,9 @@ export interface AgentAdapter {
   setEffort(effort: string): Promise<void>;
   setApprovals(approvals: ApprovalSetting): Promise<void>;
   resolveApproval(requestId: string, decision: 'allow' | 'allow-session' | 'deny'): void;
+  /** Your reply to a question the engine asked through its own tool (Claude's
+   *  AskUserQuestion). null: skipped. Engines without such a tool ask in text. */
+  answerQuestion?(requestId: string, answers: Record<string, string> | null): boolean;
   interrupt(): Promise<void>;
   /** Compact the ENGINE's own context -- window #2 in context.ts -- not Roost's
    *  transcript. `how` names the mechanism, because the two engines do not offer

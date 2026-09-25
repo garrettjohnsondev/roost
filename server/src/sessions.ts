@@ -1,6 +1,7 @@
 import { composeReconcilePrompt } from './consult.js';
 import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
-import type { Builder, SessionMode, UserImage } from './protocol.js';
+import type { AskLevel, AskQuestion, Builder, SessionMode, UserImage } from './protocol.js';
+import { askGuidance } from './ask.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { detectCheck } from './deploy.js';
@@ -64,6 +65,7 @@ interface SessionOpts {
     mode?: SessionMode;
     modeExplicit?: boolean;
     autoCompact?: boolean;
+    ask?: AskLevel;
       titleAuto?: boolean;
     jobAsk?: string;
     jobsDone?: string[];
@@ -140,6 +142,10 @@ export class Session {
   /** "Keep compacting automatically" — the person's standing answer. Public
    *  because SessionManager.saveNow persists it, as with mode/modeExplicit. */
   autoCompact = false;
+  /** How much the crew talks it over with you first (AskLevel). */
+  ask: AskLevel = 'quick';
+  /** A question from the crew waiting on your reply, if any. */
+  private pendingQuestion?: { requestId: string; questions: AskQuestion[] };
   /** Armed offer awaiting a tap, and the pressure level we last asked at, so the
    *  card appears once per escalation instead of after every turn. */
   private contextOffer?: { reason: string; percent: number | null };
@@ -208,6 +214,7 @@ export class Session {
     this.mode = (opts.restore?.modeExplicit ? opts.restore.mode : undefined) ?? config.consult?.defaultMode ?? 'auto';
     this.modeExplicit = opts.restore?.modeExplicit ?? false;
     this.autoCompact = opts.restore?.autoCompact ?? false;
+    this.ask = opts.restore?.ask ?? 'quick';
     this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
     this.builder = opts.restore?.builder ?? 'auto';
     this.sticky = opts.restore?.sticky;
@@ -367,6 +374,7 @@ export class Session {
       recentCrew: this.recentCrew(),
       lastLine: this.lastLine(),
       autoCompact: this.autoCompact || undefined,
+      ask: this.ask,
       surplus: toSurplusInfo(quotaStore().surplus(this.agent, this.budget)),
     };
   }
@@ -581,6 +589,12 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    if (event.type === 'question') {
+      if (!event.crew) event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };
+      this.pendingQuestion = { requestId: event.requestId, questions: event.questions };
+      if (this.sockets.size === 0) sendNotification(`question:${this.id}`, `${event.crew?.name ?? 'The crew'} has a question`, event.questions[0]?.question ?? '');
+    }
+    if (event.type === 'question_answered' && this.pendingQuestion?.requestId === event.requestId) this.pendingQuestion = undefined;
     if (event.type === 'tool_start' && /edit|write|patch|create|delete|rename|notebook/i.test(event.name)) this.editedThisTurn = true;
     const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
     if (turnEnded) this.proceeding = false;
@@ -744,6 +758,14 @@ export class Session {
   async handleClientMessage(msg: ClientMessage): Promise<void> {
     switch (msg.type) {
       case 'user_message': {
+        // A question waiting on you: whatever you text back is the answer, the
+        // way it would be in any group chat.
+        if (this.pendingQuestion && msg.text?.trim()) {
+          const q = this.pendingQuestion;
+          const answers = Object.fromEntries(q.questions.map((x, i) => [x.question, i === 0 ? msg.text.trim() : `(answered together with the first question: ${msg.text.trim()})`]));
+          if (this.adapter.answerQuestion?.(q.requestId, answers)) break;
+          this.pendingQuestion = undefined;
+        }
         this.turnSeq++;
         this.editedThisTurn = false;
         // Recovered 2026-09-24: a message sent while a plan was being built
@@ -823,6 +845,21 @@ export class Session {
           break;
         }
         await this.deliver(msg.text, msg.images);
+        break;
+      }
+      case 'question_answer': {
+        const q = this.pendingQuestion;
+        if (!q || q.requestId !== msg.requestId) break;
+        const answers = msg.answers && typeof msg.answers === 'object' ? Object.fromEntries(Object.entries(msg.answers).map(([k, v]) => [String(k), String(v)])) : null;
+        if (!this.adapter.answerQuestion?.(msg.requestId, answers)) this.pendingQuestion = undefined;
+        break;
+      }
+      case 'set_ask': {
+        const a = msg.ask;
+        if (a !== 'off' && a !== 'quick' && a !== 'talk' && a !== 'grill') break;
+        this.ask = a;
+        logDecision({ kind: 'gate', sessionId: this.id, rule: 'ask', action: a });
+        this.broadcastMeta();
         break;
       }
       case 'approval_response': {
@@ -1291,7 +1328,7 @@ export class Session {
     const from = fromMember.name;
     const prompt = promptOverride ?? (how === 'handoff'
       ? composeHandoffPrompt(name, from, context, this.pendingConsult?.planPath ?? this.lastPlanPath)
-      : composeMentionPrompt(name, text, context));
+      : composeMentionPrompt(name, text, context)) + (how === 'mention' && askGuidance(this.ask) ? `\n\n${askGuidance(this.ask)}` : '');
     this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : how === 'build' ? `${name} is building the plan…` : `${name} is on it…`, crew: member, ts: now() });
     const run = runAgentTask({
       agent: suite, model, prompt, images, cwd: this.cwd, capability: 'all', role: how, persona: name,
@@ -1419,7 +1456,8 @@ export class Session {
   }
 
   private async deliver(text: string, images?: UserImage[]): Promise<void> {
-    await this.adapter.sendUserMessage(text, images);
+    const note = askGuidance(this.ask);
+    await this.adapter.sendUserMessage(note ? `${text}\n\n${note}` : text, images, note ? text : undefined);
     this.broadcastMeta();
   }
 
@@ -1680,6 +1718,7 @@ interface PersistedSession {
   /** The person picked this mode; otherwise the configured default applies. */
   modeExplicit?: boolean;
   /** Survives restarts on purpose: "keep doing this" means keep doing it. */
+  ask?: AskLevel;
   autoCompact?: boolean;
   builder?: Builder;
   sticky?: string;
@@ -1741,6 +1780,7 @@ export class SessionManager {
       mode: s.mode,
       modeExplicit: s.modeExplicit,
       autoCompact: s.autoCompact,
+      ask: s.ask,
       titleAuto: s.titleAuto,
       builder: s.builder,
       sticky: s.sticky,
@@ -1801,6 +1841,7 @@ export class SessionManager {
             mode: entry.mode,
             modeExplicit: entry.modeExplicit,
             autoCompact: entry.autoCompact,
+            ask: entry.ask,
             titleAuto: entry.titleAuto,
             builder: entry.builder,
             sticky: entry.sticky,

@@ -85,6 +85,16 @@ export class ClaudeAdapter implements AgentAdapter {
       settingSources: ['user', 'project', 'local'],
       effort: this.opts.effort || undefined,
       canUseTool: async (toolName: string, toolInput: Record<string, unknown>, _extra: unknown) => {
+        // A question is not a permission (2026-09-25). Claude's AskUserQuestion
+        // reached the phone as "Claude wants to use AskUserQuestion" with raw
+        // JSON; allowing it ran the tool with no answers, and the question was
+        // never seen. It is asked in the thread as a text now, and whatever you
+        // reply is the answer -- in every approval mode, full auto included.
+        if (toolName === 'AskUserQuestion') {
+          const answers = await this.askInThread(toolInput);
+          if (!answers) return { behavior: 'deny', message: 'The user skipped these questions. Carry on with your best judgement and say what you assumed.' };
+          return { behavior: 'allow', updatedInput: { ...toolInput, answers } };
+        }
         if (this.sessionAllowedTools.has(toolName)) return { behavior: 'allow', updatedInput: toolInput };
         const decision = await this.requestApproval(toolName, toolInput);
         // Remember the TOOL. Switching the session to bypassPermissions here
@@ -257,6 +267,35 @@ export class ClaudeAdapter implements AgentAdapter {
     });
   }
 
+  private questions = new Map<string, (answers: Record<string, string> | null) => void>();
+
+  private askInThread(input: Record<string, unknown>): Promise<Record<string, string> | null> {
+    const raw = Array.isArray((input as any).questions) ? (input as any).questions : [];
+    const questions = raw
+      .filter((q: any) => q && typeof q.question === 'string')
+      .map((q: any) => ({
+        question: String(q.question),
+        header: typeof q.header === 'string' ? q.header : undefined,
+        options: Array.isArray(q.options) ? q.options.filter((o: any) => o && typeof o.label === 'string').map((o: any) => ({ label: String(o.label), description: typeof o.description === 'string' ? o.description : undefined })) : [],
+        multiSelect: !!q.multiSelect,
+      }));
+    if (!questions.length) return Promise.resolve(null);
+    const requestId = randomUUID();
+    return new Promise((resolve) => {
+      this.questions.set(requestId, resolve);
+      this.emit({ type: 'question', requestId, questions, ts: now() });
+    });
+  }
+
+  answerQuestion(requestId: string, answers: Record<string, string> | null): boolean {
+    const resolve = this.questions.get(requestId);
+    if (!resolve) return false;
+    this.questions.delete(requestId);
+    this.emit({ type: 'question_answered', requestId, answers, ts: now() });
+    resolve(answers);
+    return true;
+  }
+
   resolveApproval(requestId: string, decision: 'allow' | 'allow-session' | 'deny'): void {
     const pending = this.pending.get(requestId);
     if (!pending) return;
@@ -324,11 +363,15 @@ export class ClaudeAdapter implements AgentAdapter {
   }
 
   async interrupt(): Promise<void> {
+    // Stop also withdraws a question still waiting on you.
+    for (const id of [...this.questions.keys()]) this.answerQuestion(id, null);
     if (typeof this.q?.interrupt === 'function') await this.q.interrupt();
   }
 
   dispose(): void {
     this.disposed = true;
+    for (const [, resolve] of this.questions) resolve(null);
+    this.questions.clear();
     for (const [id, pending] of this.pending) {
       pending.resolve('deny');
       this.pending.delete(id);
