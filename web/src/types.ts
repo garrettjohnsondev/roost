@@ -438,3 +438,33 @@ export interface Companion {
   milestones: Array<{ id: string; label: string; how: string; earnedAt: number | null }>;
 }
 export interface AwaySummary { busiest: string | null; calls: number; shipped: number; failed: number }
+
+/** One Deploy button, any project (server/src/deploy.ts). */
+export interface DeployRecipe {
+  command: string;
+  check: string | null;
+  source: string;
+  confirmedAt: number;
+}
+export interface DeploySuggestion {
+  command: string;
+  check: string | null;
+  source: string;
+  evidence: string[];
+}
+export type DeployPhase = 'check' | 'deploy' | 'passed' | 'failed' | 'gate-failed';
+export interface DeployRun {
+  phase: DeployPhase;
+  command: string;
+  check: string | null;
+  startedAt: number;
+  endedAt: number | null;
+  exitCode: number | null;
+  output: string;
+}
+export interface DeployState {
+  recipe: DeployRecipe | null;
+  suggestion: DeploySuggestion | null;
+  run: DeployRun | null;
+  ask: string;
+}

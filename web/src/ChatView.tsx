@@ -12,6 +12,7 @@ import { openCompanion } from './CompanionSheet';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
+import { DeployContext, DeploySheet } from './DeploySheet';
 import { Markdown } from './Markdown';
 import { useMinute } from './useMinute';
 import { ImageStrip } from './ImageView';
@@ -19,7 +20,7 @@ import { LiveView } from './LiveView';
 import { findImagePaths } from './imagePaths';
 import { PreviewContent } from './PreviewContent';
 import { useSession, type SessionState } from './useSession';
-import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder } from './types';
+import type { ApprovalSetting, ChatItem, CrewInfo, Me, RoostConfigResponse, PreviewResult, SessionMeta, SessionMode, UserImage, Builder, DeploySuggestion } from './types';
 
 const SWITCHER_LIMIT = 5;
 
@@ -70,6 +71,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showSettings, setShowSettings] = useState(false);
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showGit, setShowGit] = useState(false);
+  const [deploy, setDeploy] = useState<{ proposal?: DeploySuggestion } | null>(null);
   const [showLive, setShowLive] = useState(false);
   const [recap, setRecap] = useState<PreviewResult | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
@@ -254,6 +256,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const currentModelLabel = isAuto ? `Auto → ${concreteLabel ?? '…'}` : concreteLabel ?? 'default';
 
   return (
+    <DeployContext.Provider value={{ open: (proposal) => setDeploy({ proposal }) }}>
     <div className="chat-page">
       <header className="chat-header">
         <button className="ghost" onClick={onBack}>
@@ -282,6 +285,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             </div>
           </div>
         </button>
+        {session.meta && (
+          <button className="ghost" onClick={() => setDeploy({})} title="Deploy">
+            <Icon name="rocket" size={22} />
+          </button>
+        )}
         <button className="ghost git-btn" onClick={() => setShowGit(true)}>
           ⎇
         </button>
@@ -296,6 +304,15 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       </header>
 
       {showLive && session.meta && <LiveView cwd={session.meta.cwd} onClose={() => setShowLive(false)} />}
+
+      {deploy && session.meta && (
+        <DeploySheet
+          cwd={session.meta.cwd}
+          proposal={deploy.proposal}
+          onAsk={(text) => session.send({ type: 'user_message', text })}
+          onClose={() => setDeploy(null)}
+        />
+      )}
 
       {showGit && session.meta && (
         <GitSheet
@@ -799,6 +816,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       )}
     </div>
+    </DeployContext.Provider>
   );
 }
 

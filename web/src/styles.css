@@ -3329,3 +3329,29 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 }
 .day-row::before { left: 0; }
 .day-row::after { right: 0; }
+
+/* ---- Deploy (DeploySheet.tsx): one button, any project -------------------- */
+.sheet.deploy p { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: var(--text); }
+.deploy-recipe, .deploy-proposal { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--surface-2); border: 1px solid var(--seam); margin-bottom: 12px; }
+.deploy-proposal { margin: 8px 0; }
+.deploy-step { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.deploy-step code { font-size: 13.5px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.deploy-label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+.deploy-none { font-size: 14px; color: var(--text-dim); font-style: italic; }
+.deploy-source { font-size: 12.5px; color: var(--text-dim); }
+.deploy-evidence { margin: 0 0 12px; padding-left: 18px; font-size: 13.5px; color: var(--text-dim); line-height: 1.5; }
+.deploy-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.deploy-field input { font: 14px ui-monospace, Menlo, monospace; padding: 10px; background: var(--surface-2); border: 1px solid var(--seam); color: var(--text); border-radius: 2px; min-width: 0; }
+.deploy-actions { display: flex; gap: 8px; margin: 4px 0 8px; }
+.deploy-actions button { flex: 1; }
+button.deploy-go { width: 100%; padding: 12px; font-weight: 700; background: var(--accent); color: var(--bg); border: 0; border-radius: 2px; }
+.deploy-actions button.deploy-go { flex: 2; }
+button.deploy-go:disabled { opacity: .55; }
+button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--accent-ink, var(--accent)); text-decoration: underline; font-size: 14px; }
+.deploy-run { margin-top: 12px; border: 1px solid var(--seam); background: var(--surface-2); }
+.deploy-run-head { display: flex; justify-content: space-between; gap: 8px; padding: 9px 11px; font-weight: 700; font-size: 14px; }
+.deploy-run.passed .deploy-run-head { color: var(--ok, #3d9c78); }
+.deploy-run.failed .deploy-run-head, .deploy-run.gate-failed .deploy-run-head { color: var(--danger, #cf5b4a); }
+.deploy-run-when { font-weight: 400; color: var(--text-dim); font-size: 12.5px; }
+.deploy-note { padding: 0 11px 8px; font-size: 13px; color: var(--text-dim); }
+.deploy-output { margin: 0; padding: 10px 11px; max-height: 40vh; overflow: auto; font-size: 12px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; border-top: 1px solid var(--seam); }

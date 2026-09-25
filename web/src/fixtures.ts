@@ -137,6 +137,14 @@ export const FIXTURES: Record<string, () => SessionState> = {
     3,
     { status: 'working', usage: { inputTokens: 340_100_000, outputTokens: 822_400 } as any, context: { agent: 'claude', usedTokens: 228_400, maxTokens: 1_000_000, percent: 23, pressure: 'clear' } as any },
   ),
+  /** Deploy: a crew member worked out what deploy means in a new project. */
+  'deploy-proposal': () => base(
+    [
+      { kind: 'user', text: 'Work out how this project deploys', imageCount: 0, ts: at(0) },
+      { kind: 'assistant', text: 'This folder is linked to a Vercel project (`.vercel/project.json`), and `package.json` has a build script, so deploy is a production push to Vercel with the build as the check.\n\n```roost-deploy\ncommand: npx vercel --prod --yes\ncheck: npm run build\n```', complete: true, crew: OLLIE, ts: at(1) },
+    ],
+    meta({ state: 'idle' }), 2, { status: 'idle' },
+  ),
   /** Item 40: moments -- a milestone and a level, the second live. */
   moments: () => base(
     [

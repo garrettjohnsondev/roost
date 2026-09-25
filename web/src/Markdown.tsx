@@ -2,6 +2,7 @@ import { useRef, useState, type ComponentProps } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
+import { DeployProposal } from './DeploySheet';
 import { ImageStrip, ImageViewer } from './ImageView';
 import { findImagePaths, imageUrl, isImagePath } from './imagePaths';
 
@@ -21,9 +22,19 @@ function copyText(text: string) {
   document.body.removeChild(ta);
 }
 
+/** The text of a fenced block tagged ```roost-deploy, or null. */
+function deployBlock(children: unknown): string | null {
+  const el = (Array.isArray(children) ? children[0] : children) as { props?: { className?: string; children?: unknown } } | undefined;
+  if (!el?.props || !/language-roost-deploy/.test(el.props.className ?? '')) return null;
+  const inner = el.props.children;
+  return Array.isArray(inner) ? inner.join('') : String(inner ?? '');
+}
+
 function Pre(props: ComponentProps<'pre'>) {
   const ref = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
+  const deploy = deployBlock(props.children);
+  if (deploy != null) return <DeployProposal text={deploy} />;
   return (
     <div className="codeblock">
       <button

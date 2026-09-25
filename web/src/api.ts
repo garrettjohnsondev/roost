@@ -1,5 +1,9 @@
 import type {
   RoadmapView,
+  DeployState,
+  DeployRecipe,
+  DeployRun,
+  DeploySuggestion,
   Companion,
   AwaySummary,
   ClientMessage,
@@ -99,6 +103,12 @@ export const api = {
     request<{ diff: string }>(`/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`),
   gitCommit: (cwd: string, message: string) =>
     request<{ output: string }>('/api/git/commit', { method: 'POST', body: JSON.stringify({ cwd, message }) }),
+  deploy: (cwd: string) => request<DeployState>(`/api/deploy?cwd=${encodeURIComponent(cwd)}`),
+  saveDeploy: (cwd: string, r: { command: string; check: string | null; source: string }) =>
+    request<{ recipe: DeployRecipe }>('/api/deploy/recipe', { method: 'POST', body: JSON.stringify({ cwd, ...r }) }),
+  forgetDeploy: (cwd: string) =>
+    request<{ recipe: null; suggestion: DeploySuggestion | null }>('/api/deploy/recipe', { method: 'POST', body: JSON.stringify({ cwd, forget: true }) }),
+  runDeploy: (cwd: string) => request<{ run: DeployRun | null }>('/api/deploy/run', { method: 'POST', body: JSON.stringify({ cwd }) }),
   gitPush: (cwd: string) => request<{ output: string }>('/api/git/push', { method: 'POST', body: JSON.stringify({ cwd }) }),
 };
 

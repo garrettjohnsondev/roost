@@ -31,6 +31,7 @@ import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import { noteLogLine, registerRescue, webRoot } from './rescue.js';
 import { readRoadmap } from './roadmap.js';
+import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, lastRun, saveRecipe, startDeploy } from './deploy.js';
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
@@ -347,6 +348,50 @@ app.post('/api/git/push', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }
+});
+
+// One Deploy button, any project (deploy.ts). The first tap finds what deploy
+// means here; the user confirms it once; every tap after runs it, gated.
+app.get('/api/deploy', (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  const recipe = getRecipe(dataDir(), cwd);
+  res.json({ recipe, suggestion: recipe ? null : detectDeploy(cwd), run: lastRun(dataDir(), cwd), ask: composeDeployAsk(cwd) });
+});
+
+app.post('/api/deploy/recipe', (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  try {
+    if (req.body?.forget) {
+      forgetRecipe(dataDir(), cwd);
+      res.json({ recipe: null, suggestion: detectDeploy(cwd) });
+      return;
+    }
+    res.json({ recipe: saveRecipe(dataDir(), cwd, req.body ?? {}) });
+  } catch (err: any) {
+    res.status(400).json({ error: String(err?.message ?? err) });
+  }
+});
+
+app.post('/api/deploy/run', (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  const recipe = getRecipe(dataDir(), cwd);
+  if (!recipe) {
+    res.status(400).json({ error: 'no deploy recipe confirmed for this project yet' });
+    return;
+  }
+  if (isRunning(cwd)) {
+    res.status(409).json({ error: 'a deploy is already running for this project' });
+    return;
+  }
+  const name = cwd.split('/').pop() ?? cwd;
+  void startDeploy(dataDir(), cwd, recipe, (r) => {
+    const words = r.phase === 'passed' ? 'deployed' : r.phase === 'gate-failed' ? 'not deployed: the check failed' : `deploy failed (exit ${r.exitCode})`;
+    sendNotification(`deploy:${cwd}`, `${name}: ${words}`, r.output.trim().split('\n').slice(-3).join('\n'));
+  }).catch(() => {});
+  res.json({ run: lastRun(dataDir(), cwd) });
 });
 
 app.post('/api/notifications', (req, res) => {
