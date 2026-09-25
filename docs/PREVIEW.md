@@ -1,6 +1,6 @@
 # Preview — see the thing you are building, from the phone
 
-*Design, 2026-09-24. Not built yet.*
+*Design, 2026-09-24. Built the same day (ROADMAP §12 item 28): `server/src/live.ts`, `liveProxy.ts`, the Live button in the session header.*
 
 > Let's say we are building a website. I can code all day in Roost, but I
 > eventually want to see an actual live version in the app — and I may not be

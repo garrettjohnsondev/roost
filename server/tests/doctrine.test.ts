@@ -704,10 +704,12 @@ describe('the names are the interface: @-mentions and the handoff', () => {
   it('same vendor switches the model for the turn; other vendor is a one-shot that lands as their turn', () => {
     const m = s.slice(s.indexOf('private async askByName('), s.indexOf('private async deliver('));
     expect(m).toMatch(/if \(suite === this\.agent && how === 'mention'\) \{[\s\S]*?await this\.adapter\.setModel\(model\);/);
-    expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, cwd: this\.cwd, capability: 'all', role: how, persona: name/);
+    expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, images, cwd: this\.cwd, capability: 'all', role: how, persona: name/);
     expect(m).toMatch(/this\.pushEvent\(\{ type: 'consult', phase: how === 'build' \? 'handoff' : how, agent: suite, crew: member/);
-    // never silent about what could not travel
-    expect(m).toMatch(/cannot see attached images yet/);
+    // Images travel now (dispatch.ts); the "cannot see attached images"
+    // notice that used to be pinned here would be a lie if it came back.
+    expect(m).not.toMatch(/cannot see attached images yet/);
+    expect(m).toMatch(/imageCount: images\?\.length \?\? 0/);
     // Stop stops it
     expect(s).toMatch(/this\.activeMention\?\.cancel\(\);/);
   });
@@ -927,7 +929,7 @@ describe('the four motions MOTION.md \u00a77 called still open', () => {
   it('the approval ring is a ONE-SHOT keyed per distinct approval, not a loop, and the haptic fires the same way', () => {
     expect(css).toMatch(/\.approval-ring::before \{[\s\S]*?animation: approval-ring-expand 900ms[^;]*;[\s\S]*?\}/);
     expect(css).not.toMatch(/approval-ring-expand[^;]*infinite/);
-    expect(c).toMatch(/if \(session\.pendingApproval && typeof navigator\.vibrate === 'function'\) navigator\.vibrate\(60\);/);
+    expect(c).toMatch(/if \(session\.pendingApproval\) buzz\('approval'\);/);
     expect(c).toMatch(/\}, \[session\.pendingApproval\?\.requestId\]\);/);
   });
 
@@ -1268,5 +1270,52 @@ describe('triage that cannot run is not "unparseable"', () => {
     expect(read('server/src/router.ts')).toMatch(/if \(isAuthFailure\(out\)\) return \{[^}]*auth: true \}/);
     const s = read('server/src/sessions.ts');
     expect(s).toMatch(/if \(triaged\.auth\) \{[\s\S]*?noteAuthFailure\([\s\S]*?reportError\([^)]*'auth'\)[\s\S]*?stage: 'triage-auth'/);
+  });
+});
+
+describe('documented once, never done — closed 2026-09-24', () => {
+  it('images travel with an @-mention or handoff on both vendors', () => {
+    const d = read('server/src/agents/dispatch.ts');
+    expect(d).toMatch(/images\?: UserImage\[\];/);
+    expect(d).toMatch(/type: 'image', source: \{ type: 'base64'/);
+    expect(d).toMatch(/\.\.\.localImages\(spec\.images\)/);
+    const s = read('server/src/sessions.ts');
+    expect(s).not.toContain('cannot see attached images yet');
+    expect(s).toMatch(/agent: suite, model, prompt, images, cwd: this\.cwd/);
+  });
+
+  it('pass, fail and approval each have their own haptic pattern, from one table', () => {
+    const h = read('web/src/haptics.ts');
+    expect(h).toMatch(/approval: \[60\]/);
+    expect(h).toMatch(/pass: \[[\d, ]+\]/);
+    expect(h).toMatch(/fail: \[[\d, ]+\]/);
+    const chat = read('web/src/ChatView.tsx');
+    expect(chat).not.toMatch(/navigator\.vibrate\(/); // only haptics.ts touches the API
+    expect(chat).toMatch(/buzz\(lastVerify\.passed \? 'pass' : 'fail'\)/);
+    // Live only: the search starts at replayedCount, never at 0.
+    expect(chat).toMatch(/i >= session\.replayedCount; i--/);
+  });
+
+  it('a project can ask for its home-screen scene, and the pin and a tap still win', () => {
+    expect(read('server/src/sessions.ts')).toMatch(/sections\.scene\?\.trim\(\)/);
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) expect(read(f)).toMatch(/\n  scene\?: string;/);
+    const scene = read('web/src/Scene.tsx');
+    expect(scene).toMatch(/const asked = taps === 0 \? SCENES\.find\(\(s\) => s\.id === projectScene\)/);
+    expect(scene).toMatch(/SCENES\.find\(\(s\) => s\.id === pinned\) \?\? asked \?\?/);
+  });
+
+  it('the hand-mirrored protocol types have not drifted (§9.7)', () => {
+    // protocol.ts ↔ types.ts are kept by hand. Until they are generated, the
+    // event unions must be textually identical, whitespace aside.
+    const pick = (src: string, name: string) => {
+      const m = src.match(new RegExp(`export type ${name} =[\\s\\S]*?;\\n`));
+      return m ? m[0].replace(/\s+/g, ' ') : null;
+    };
+    const p = read('server/src/protocol.ts');
+    const t = read('web/src/types.ts');
+    for (const name of ['ServerEvent', 'ClientMessage', 'ConsultPhase']) {
+      expect(pick(p, name), name).not.toBeNull();
+      expect(pick(t, name), name).toBe(pick(p, name));
+    }
   });
 });

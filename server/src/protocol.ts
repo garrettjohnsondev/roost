@@ -125,6 +125,9 @@ export interface SessionMeta {
   updatedAt: number;
   /** Current agent state — lets lists show which sessions are actively working. */
   state: 'idle' | 'working' | 'connecting' | 'error';
+  /** The home-screen scene this session's project asks for (`## scene` in its
+   *  .roost/project.md), if any. */
+  scene?: string;
   /** When model is 'auto': the concrete model the triage router last picked. */
   routedModel?: string;
   /** True while a completed consult awaits the user's Proceed/Dismiss decision. */

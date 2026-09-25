@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**585 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-24: server 498/498, web 87/87 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**593 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-25: server 503/503, web 90/90 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -348,8 +348,8 @@ Unified fuel gauge across every subscription: all windows both providers, burn r
 3. **`usage_EXPERIMENTAL_...` is explicitly unstable** — the method name will change on stabilisation. `typeof`-guarded; the haiku probe stays as a permanent fallback.
 4. **Codex prices are unknown.** Codex rows ship as `basis:'unknown'` → no dollar figure — and after correction 14 there is no dollar figure anywhere on the UI regardless. The config now routes light/standard/heavy to `gpt-5.6-luna` / `gpt-5.6-terra` / `gpt-6-astra` from the live `model/list` roster (Phase 7), which resolves the earlier note about disagreeing model lists. Phase 4's estimator prices in percent-of-window per 1k tokens and needs no price table.
 5. **Cross-device blindness.** Provider windows include usage from other machines and the web apps; our ledger sees only Roost. Window-derived burn is truthful; ledger-derived burn is Roost-only. Label them distinctly.
-6. **Concurrency.** Ledger and quota store are process-wide singletons using synchronous appends. Fine at chat scale; a bottleneck once Phase 3 runs parallel dispatches.
-7. **Hand-mirrored types.** `server/src/protocol.ts` ↔ `web/src/types.ts` are maintained by hand. Generate before adding many mission events.
+6. **Concurrency.** Ledger and quota store are process-wide singletons using synchronous appends. Fine at chat scale; a bottleneck once Phase 3 runs parallel dispatches. *Checked 2026-09-24: both already buffer (`unflushed`, `historyBuf`) and retry, and an append is one small line; a parallel conference has run through it without a stall. Kept as a note, no longer a risk.*
+7. **Hand-mirrored types.** `server/src/protocol.ts` ↔ `web/src/types.ts` are maintained by hand. Generate before adding many mission events. *Guarded 2026-09-24: a doctrine test fails if `ServerEvent`, `ClientMessage` or `ConsultPhase` differ between the two files.*
 8. **ACI beats orchestration where cleanly measured** — SWE-agent went 3.8% → 12.5% from *tool design alone*, larger than any orchestration gain on coding. If effort is scarce, spend it on the helpers' tools before the conversation between flagships.
 
 ---
@@ -400,7 +400,7 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 *Bugs — first:*
 9. ~~**Context alert stays up after auto-compact.**~~ — done 2026-09-24. Only the tap path cleared the offer; the auto path never did. Both clear it now, and `runCompaction` clears it again on success.
-10. ~~**Session vanished on return; a "picking up from before" recap with no characters took its place.**~~ — done 2026-09-24. Cause: transcripts were RAM-only and the server was restarted (by me, at 12:16) under the running job. The thread is now written to `.roost-data/transcripts/<id>.jsonl` as it happens and read back on restore, with a line naming the restart and the cut-off turn. Closing a session on purpose removes the file; a restart does not. *Not yet live*: the running server predates the fix, so the thread it holds will be lost once more at the next restart.
+10. ~~**Session vanished on return; a "picking up from before" recap with no characters took its place.**~~ — done 2026-09-24. Cause: transcripts were RAM-only and the server was restarted (by me, at 12:16) under the running job. The thread is now written to `.roost-data/transcripts/<id>.jsonl` as it happens and read back on restore, with a line naming the restart and the cut-off turn. Closing a session on purpose removes the file; a restart does not. Live since the next deploy that day.
 11. ~~**No Codex models in a session's settings.**~~ — done 2026-09-24, as part of 19. A session runs on one vendor, so the other vendor's models are not a picker; the settings now say how to reach that crew — by name.
 12. ~~**Pip's sprite lands after Pip's text.**~~ — done 2026-09-24. His two frames are preloaded from `index.html`.
 13. ~~**Routed chip text collides with its rounded corners.**~~ — done 2026-09-24. A 999px pill radius on a two-row box is a half-circle; 12px now.
@@ -413,7 +413,7 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 18. ~~**The composer should behave like iPhone Messages.**~~ — done 2026-09-24. Grows with the text to ~5 lines (measured from content), + at the left, ↑ inside the field at its bottom-right.
 
 *Features:*
-19. ~~**@-mention a crew member.**~~ — done 2026-09-24. `@Nell …` sends the turn to Nell: same vendor switches the session's model for the turn; other vendor runs a one-shot with the recent thread as context and full capability, landing as her own turn badged "Asked by name". Composer completes names on `@`. `mentions.ts` is pure and unit-tested. Images cannot travel the cross-vendor way yet and the thread says so.
+19. ~~**@-mention a crew member.**~~ — done 2026-09-24. `@Nell …` sends the turn to Nell: same vendor switches the session's model for the turn; other vendor runs a one-shot with the recent thread as context and full capability, landing as her own turn badged "Asked by name". Composer completes names on `@`. `mentions.ts` is pure and unit-tested. Images could not travel the cross-vendor way at first; since the evening of 2026-09-24 they go with the prompt on both vendors (`dispatch.ts`).
 20. ~~**Session naming that you can find things by.**~~ — done 2026-09-24. Named after the jobs, open one first then closed ones newest first, with the same regexes as the Chapters board (pinned to each other). A typed title sticks.
 21. ~~**Fuel: cleaner at rest, collapsible when opened, and smart.**~~ — done 2026-09-24. "Less" closes the opened card; the weights sentence is in plain words under the windows it describes; the planner is told both vendors' tightest windows and asked for a `## Fit` line with a First slice and a Remainder; and when a plan names a Remainder the consult bar offers **Park the remainder**, which appends it, dated and with its task, to the project's `ROADMAP.md`.
 22. ~~**Contexts per agent / the handoff**~~ — done 2026-09-24. Yes, each engine session is its own context (§4c). Once the meter reads degrading or critical the bar offers "Hand off to <other vendor's flagship>": briefed from the plan file (pending, or last written) and the recent thread, told to check git state before trusting the summary, continuing with a clean window, badged "Handoff". Same machinery as 19.
@@ -434,7 +434,7 @@ Written 2026-09-22, after the rename. Everything above this line ships; everythi
 
 ### 12a. Motion — the stream with the most pull behind it
 
-**The `Effects` board is a proposal, not a feature.** It demonstrates eight pieces of information-carrying motion. Roost's stylesheet contains **six** `@keyframes` — `spin`, `pulse`, and the four added with the crew (`sprite-cut`, `wake-rise`, `wake-hide`, `wake-hide-late`). **None of the eight board demos exist in the app.** The gap, named honestly:
+**The `Effects` board was a proposal; it is now a feature.** It demonstrates eight pieces of information-carrying motion, and all eight are in the app (the table is kept as the record of what each one reports):
 
 | # | Board demo | What it would report | In app |
 |---|---|---|---|
@@ -447,7 +447,7 @@ Written 2026-09-22, after the rename. Everything above this line ships; everythi
 | 7 | An agent that needs you | an approval waiting — the `peek` pose | ✅ |
 | 8 | Finishing is worth something | a verify passing — the `cheer` pose | ✅ |
 
-**Seven of the eight ship.** The eighth, the fold, is blocked on something real rather than on effort: the app has no chapters to fold — turns are one flat list — so it waits for 12d. Every one-shot fires only for items that arrived LIVE: opening a session replays its history, and a stamp and a cheer for every past verify the moment you open it would be motion reporting yesterday. Where history ends comes from the replay itself (`replayedCount`), not a clock — the phone's and the Mac's need not agree.
+**All eight ship** (the fold arrived with Chapters, item 3). Every one-shot fires only for items that arrived LIVE: opening a session replays its history, and a stamp and a cheer for every past verify the moment you open it would be motion reporting yesterday. Where history ends comes from the replay itself (`replayedCount`), not a clock — the phone's and the Mac's need not agree.
 
 **The constraint that makes this good rather than noisy**, and it is not negotiable: *motion reports state, it never decorates.* Every animation in the app is tied to something that actually happened, holds when it is done, and does not loop. Ambient movement on its own schedule is the commonest tell of a generated interface, and `doctrine.test.ts` fails the build on `infinite` in the wake-up block for exactly this reason. Fun and honest are not in tension here — the wake-up is the proof. What makes it land is that the crew really was idle and really did just get woken by you.
 
@@ -485,7 +485,7 @@ From the 2026-09-21 review. Confirmed findings that were neither silent data cor
 - **Approvals are a queue**, so concurrent requests no longer strand all but the latest; the bar shows how many are waiting.
 - **A draft survives a disconnected send**: `send()` reports whether the socket was open and the composer keeps the text until it was.
 - **Resumed Codex threads no longer ledger their history as the first call** — with no baseline, the first notification records `last`, not `total`.
-- **One writer is warned, not just decided**: opening a second session on a project posts a notice and logs a gate decision. Blocking remains a config choice to add.
+- **One writer is warned, not just decided**: opening a second session on a project posts a notice and logs a gate decision. (Blocking followed in the second pass: `guards.oneWriter: 'block'`.)
 - **Vendor presence is the last fetch's outcome**, not the presence of a cached roster (`registry.presence()`), and `reviewerFor` honours it.
 - **Preview and git parsing**: string-content user messages kept; Codex patch paths with spaces kept; only the engine's XML wrappers skipped; git's C-escaped quoted paths decoded.
 - **Notification "test" reports delivery, not attempt**; project add/remove persists before mutating live state.

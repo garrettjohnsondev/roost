@@ -11,13 +11,16 @@ import type { CrewInfo } from './types';
  *
  *  A member without the scene pose drawn yet falls back to their idle frame
  *  in the seat, not to nothing and not to someone else's art. */
-export function SceneView({ awake, onOverflow }: { awake: Array<{ member: CrewInfo; working: boolean }>; onOverflow?: (rest: CrewInfo[]) => void }) {
+export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ member: CrewInfo; working: boolean }>; projectScene?: string; onOverflow?: (rest: CrewInfo[]) => void }) {
   const [taps, setTaps] = useState(0);
   const [missing, setMissing] = useState(false);
   if (!SCENES.length || missing) return null;
   // ?scene=<id> pins a set, for review shots (scripts/shoot.mjs).
   const pinned = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('scene') : null;
-  const scene = SCENES.find((s) => s.id === pinned) ?? SCENES[sceneIndexFor(new Date(), taps)];
+  // A project can ask for its set (`## scene` in .roost/project.md): the most
+  // recently active session's project wins, until a tap moves on from it.
+  const asked = taps === 0 ? SCENES.find((s) => s.id === projectScene) : undefined;
+  const scene = SCENES.find((s) => s.id === pinned) ?? asked ?? SCENES[sceneIndexFor(new Date(), taps)];
   const { placed, overflow } = placeCrew(awake, scene);
   onOverflow?.(overflow);
   return (

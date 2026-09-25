@@ -1,10 +1,14 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { guardDispatch } from '../gate.js';
 import { logDecision } from '../decisions.js';
 import { authedQuery } from '../claudeAuth.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import { AsyncQueue, truncate } from '../util.js';
 import { sanitizeAgentOutput } from '../sanitize.js';
-import type { AgentKind } from '../protocol.js';
+import type { AgentKind, UserImage } from '../protocol.js';
 import type { CallDelta } from './types.js';
 
 /** What a dispatched agent is allowed to do.
@@ -44,11 +48,28 @@ export function sandboxFor(capability: Capability): 'read-only' | 'workspace-wri
   return CODEX_SANDBOX[capability];
 }
 
+/** Codex takes images as files on disk (the same path the chat adapter uses). */
+function localImages(images: UserImage[] | undefined): any[] {
+  if (!images?.length) return [];
+  const dir = join(tmpdir(), 'pocket-uploads');
+  mkdirSync(dir, { recursive: true });
+  return images.map((img) => {
+    const ext = img.mediaType.split('/')[1]?.split('+')[0] || 'png';
+    const path = join(dir, `${randomUUID()}.${ext}`);
+    writeFileSync(path, Buffer.from(img.data, 'base64'));
+    return { type: 'localImage', path };
+  });
+}
+
 export interface AgentTaskSpec {
   agent: AgentKind;
   model: string;
   effort?: string;
   prompt: string;
+  /** Attached by the person; both vendors take them with the prompt. Item 19
+   *  (2026-09-24) shipped @-mentions with "images cannot travel this way
+   *  yet" -- they can now. */
+  images?: UserImage[];
   cwd: string;
   capability: Capability;
   /** Ledger attribution. */
@@ -134,7 +155,9 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
   // Streaming input mode is required for interrupt() to do anything -- a plain
   // string prompt makes cancel a silent no-op.
   const input = new AsyncQueue<any>();
-  input.push({ type: 'user', message: { role: 'user', content: spec.prompt }, parent_tool_use_id: null, session_id: '' });
+  const content: any[] = (spec.images ?? []).map((img) => ({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.data } }));
+  content.push({ type: 'text', text: spec.prompt });
+  input.push({ type: 'user', message: { role: 'user', content }, parent_tool_use_id: null, session_id: '' });
   const q: any = authedQuery({
     prompt: input as AsyncIterable<any>,
     options: {
@@ -271,7 +294,7 @@ function runCodex(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => v
         await rpc.request('turn/start', {
           threadId,
           ...(spec.effort ? { effort: spec.effort } : {}),
-          input: [{ type: 'text', text: spec.prompt, text_elements: [] }],
+          input: [...localImages(spec.images), { type: 'text', text: spec.prompt, text_elements: [] }],
         }, timeoutMs);
         return await done;
       } finally {

@@ -97,7 +97,7 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
   const sleepers = crew.filter((c) => poseOf(c.name) === 'sleep');
   return (
     <section className="crew-strip" aria-label="The crew">
-      <SceneView awake={awake} />
+      <SceneView awake={awake} projectScene={[...sessions].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).find((s) => s.scene)?.scene} />
       <div className={`crew-strip-faces${sleepers.length ? ' bunks' : ''}`}>
         {crew.map((c) => {
           const pose = poseOf(c.name);

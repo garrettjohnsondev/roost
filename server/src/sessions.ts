@@ -296,6 +296,14 @@ export class Session {
     this.adapter = agent === 'claude' ? new ClaudeAdapter(adapterOptions) : new CodexAdapter(adapterOptions);
   }
 
+  /** `## scene` in the project's .roost/project.md names the home-screen set
+   *  this project prefers (docs/SCENES.md "scenes tied to the project"). Read
+   *  when asked, never cached: the file is the person's to edit. */
+  private get projectScene(): string | undefined {
+    const id = loadProjectKnowledge(this.cwd).sections.scene?.trim().split(/\s+/)[0];
+    return id ? id.toLowerCase() : undefined;
+  }
+
   meta(): SessionMeta {
     return {
       id: this.id,
@@ -308,6 +316,7 @@ export class Session {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       state: this.lastStatus,
+      scene: this.projectScene,
       crew: crewMember(this.agent, this.autoMode ? this.routedModel ?? this.model : this.model, this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
@@ -1148,14 +1157,15 @@ export class Session {
     // Other vendor (or a handoff): a one-shot on that vendor, with the recent
     // thread as context. It lands as that member's turn. Images cannot travel
     // this way yet; say so rather than drop them silently.
-    if (images?.length) this.notice(`${name} runs on ${suite} as a one-shot and cannot see attached images yet — the text went; the ${images.length === 1 ? 'image' : 'images'} did not.`);
+    // Images travel with the prompt on both vendors (dispatch.ts localImages /
+    // base64 blocks) -- the old notice that they could not is gone for good.
     const member = crewMember(suite, model, how === 'mention' ? 'chat' : 'executor');
     const context = this.transcript
       .filter((e) => e.type === 'user_message' || e.type === 'assistant_message' || e.type === 'consult')
       .slice(how === 'handoff' ? -12 : -6)
       .map((e: any) => `${e.type === 'user_message' ? 'User' : (e.crew?.name ?? 'Agent')}: ${truncate(e.text, how === 'handoff' ? 500 : 300)}`)
       .join('\n');
-    if (text) this.pushEvent({ type: 'user_message', text, imageCount: 0, ts: now() });
+    if (text || images?.length) this.pushEvent({ type: 'user_message', text, imageCount: images?.length ?? 0, ts: now() });
     const fromMember = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole);
     const from = fromMember.name;
     const prompt = promptOverride ?? (how === 'handoff'
@@ -1163,7 +1173,7 @@ export class Session {
       : composeMentionPrompt(name, text, context));
     this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : how === 'build' ? `${name} is building the plan…` : `${name} is on it…`, crew: member, ts: now() });
     const run = runAgentTask({
-      agent: suite, model, prompt, cwd: this.cwd, capability: 'all', role: how, persona: name,
+      agent: suite, model, prompt, images, cwd: this.cwd, capability: 'all', role: how, persona: name,
       timeoutMs: 20 * 60_000, maxChars: 24_000, onCall: (d) => this.ledgerCall(d, how),
     });
     this.activeMention = run;

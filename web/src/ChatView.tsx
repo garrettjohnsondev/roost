@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { buzz } from './haptics';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
@@ -217,8 +218,22 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // does not implement navigator.vibrate; those readers still get the visual
   // ring, and the existing ntfy push when nobody is watching.
   useEffect(() => {
-    if (session.pendingApproval && typeof navigator.vibrate === 'function') navigator.vibrate(60);
+    if (session.pendingApproval) buzz('approval');
   }, [session.pendingApproval?.requestId]);
+
+  // A verdict you can feel: a LIVE verify buzzes pass or fail with its own
+  // pattern (haptics.ts). Keyed on the verify's index past replay, so history
+  // never buzzes and each new verdict buzzes once.
+  const lastVerify = (() => {
+    for (let i = session.items.length - 1; i >= session.replayedCount; i--) {
+      const it = session.items[i];
+      if (it.kind === 'verify') return { i, passed: it.report.passed };
+    }
+    return null;
+  })();
+  useEffect(() => {
+    if (lastVerify) buzz(lastVerify.passed ? 'pass' : 'fail');
+  }, [lastVerify?.i]);
 
   const agent = session.meta?.agent ?? 'claude';
   const agentConfig = config[agent];

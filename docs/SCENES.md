@@ -69,4 +69,4 @@ Backdrops share the crew's palette rules: flat blocks, one-pixel dark outline on
 
 - The logo revisit (item 17) waits for this to exist, so the mark and the scene share a language.
 - No sound, no parallax, no weather. The scenes are stills.
-- A member's *own* scene preference, or scenes tied to the project (a "youtube" project gets the studio) — nice, later, and the seat model already allows it.
+- ~~Scenes tied to the project~~ — built 2026-09-24: `## scene` in a project's `.roost/project.md` names a set by id (`campfire`, `library`, …); the most recently active session's project picks the home-screen set, until a tap moves on. `?scene=` still pins for review shots. A member's *own* preference remains an idea.

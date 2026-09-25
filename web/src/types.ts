@@ -109,6 +109,9 @@ export interface SessionMeta {
   createdAt: number;
   updatedAt: number;
   state: 'idle' | 'working' | 'connecting' | 'error';
+  /** The home-screen scene this session's project asks for (`## scene` in its
+   *  .roost/project.md), if any. */
+  scene?: string;
   routedModel?: string;
   consultPending?: boolean;
   mode: SessionMode;

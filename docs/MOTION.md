@@ -171,14 +171,14 @@ Every one-shot above plays **only for items that arrived live** (§5, *Freshness
 - **Board:** *"When gates pass the chapter collapses into its named row, so you see where it went and nothing feels lost."* The Chapters board adds: *named after the work, not the date*, and *this only changes what you see, never what the agents remember.*
 - **Built:** `chaptersOf(items)` is a pure function. A job runs from its first message until a verify **passes**. A failed verify leaves it open as *needs work*. Chapters tile the thread exactly, with nothing lost or duplicated (tested). `chapterName()` drops the preamble and the leading verb: "Add a --json flag to the avatar generator" becomes *--json flag to the avatar*. A verified job folds into a row with faces, name, who and how many turns, and status.
 - **The fold itself:** `grid-template-rows: 1fr → 0fr` on the body, **never a pixel height**. The board's own fold tile clipped its name because a Silkscreen row measured 36.2px against a 36px cap. A job that closes **live** waits **1.8s** before folding, so the stamp and the cheer are seen first. Measured: 355px open through 1.6s, 210px at 2.2s, 0 at 2.7s. Replayed history arrives already folded.
-- **Not built:** the board's day grouping and week rows. Transcripts don't survive a server restart, so a thread rarely spans days yet.
+- **Built, later on 2026-09-24:** the board's day grouping (`groupChaptersByDay`), once transcripts survived a restart (item 10) and a thread could actually span days. A header appears only when the thread crosses into a new bucket.
 
 ### 07 · An agent that needs you
 
 - **Board:** *"Approval turns the sprite toward you with one ring of attention. Paired with a haptic tap you can feel it without looking."*
 - **Built:** the approval sheet shows the asking crew member in the `peek` pose with a slow lean (`peek-lean`, 2.4s, ±3°). It is the persisting-state loop the whole rule set was written around: it waits until you answer. The sheet names the crew member ("Wren wants to use Bash") via `crewAsking()`, not the vendor.
 - **Built, 2026-09-24.** The ring: `.approval-ring::before`, a one-shot expanding `box-shadow`-style border, keyed on `session.pendingApproval.requestId` rather than the item-replay `.fresh` flag -- an approval has no replay/live distinction the way a chat item does (it is either pending or it is not), so a new `requestId` mounting the element IS the "arrived" event. The haptic: `navigator.vibrate(60)` fires once per new `requestId`, in a `useEffect`. **iOS Safari does not implement `navigator.vibrate`**, confirmed unchanged; those readers get the visual ring and the existing ntfy push when nobody is watching, not a silent failure.
-- **Not built:** one distinct vibration *pattern* each for pass, fail and approval, as the board's footer asks -- today every haptic is the same single 60ms pulse.
+- **Built, 2026-09-24 (evening):** one pattern each, in `web/src/haptics.ts` -- approval one short tap (60ms), pass three rising, fail two heavy. A *live* verify buzzes its verdict (search starts at `replayedCount`, so history never buzzes); the approval tap is unchanged. Only `haptics.ts` touches `navigator.vibrate`.
 
 ### 08 · Finishing is worth something
 
