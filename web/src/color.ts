@@ -32,17 +32,23 @@ export function readableOn(color: string, bg: string, min = 4.5): string {
   const c = parse(color);
   if (!c || contrast(color, bg) == null) return color;
   if ((contrast(color, bg) ?? 0) >= min) return color;
+  // Toward white on a dark ground, toward black on a light one (item 34:
+  // light is the same room by day, and Juno's orange is 3.4:1 on paper).
+  const b = parse(bg);
+  const toward = b && luminance(b) > 0.4 ? 0 : 255;
   for (let t = 0.05; t <= 1.0001; t += 0.05) {
-    const mixed = hex(c.map((v) => v + (255 - v) * t) as [number, number, number]);
+    const mixed = hex(c.map((v) => v + (toward - v) * t) as [number, number, number]);
     if ((contrast(mixed, bg) ?? 0) >= min) return mixed;
   }
-  return '#ffffff';
+  return toward ? '#ffffff' : '#000000';
 }
 
 /** A crew name's colour for the current theme. */
 export const ROOST_GROUND = '#0f1729';
+/** The light theme's ground (styles.css :root --bg). */
+export const PAPER_GROUND = '#f4efe4';
 export function nameColor(color: string | undefined): string | undefined {
   if (!color) return color;
   const dark = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark';
-  return dark ? readableOn(color, ROOST_GROUND) : color;
+  return readableOn(color, dark ? ROOST_GROUND : PAPER_GROUND);
 }

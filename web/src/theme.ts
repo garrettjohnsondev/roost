@@ -6,7 +6,7 @@ const STORAGE_KEY = 'roost-theme';
 /** The pre-rename key. The rename changed STORAGE_KEY and silently reset everyone's
  *  saved choice; an explicit choice made under the old name is still a choice. */
 const OLD_STORAGE_KEY = 'pocket-theme';
-const THEME_COLOR = { light: '#f4f5f7', dark: '#0f1729' } as const;
+const THEME_COLOR = { light: '#f4efe4', dark: '#0f1729' } as const;
 
 function apply(theme: Theme) {
   document.documentElement.dataset.theme = theme;

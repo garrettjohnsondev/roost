@@ -381,7 +381,7 @@ export function SessionList(props: {
                 <span className="session-title">{s.title}</span>
                 {s.lastLine && (
                   <span className="convo-line">
-                    <strong style={{ color: nameColor(s.lastLine.color) ?? 'var(--accent)' }}>{s.lastLine.speaker ?? 'You'}:</strong> {s.lastLine.text}
+                    <strong style={{ color: nameColor(s.lastLine.color) ?? 'var(--accent-ink)' }}>{s.lastLine.speaker ?? 'You'}:</strong> {s.lastLine.text}
                   </span>
                 )}
                 {s.state === 'working' && s.crew && (

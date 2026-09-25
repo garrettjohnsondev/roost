@@ -1,17 +1,29 @@
 /* Light is the default theme; [data-theme="dark"] below overrides every variable. */
 :root {
-  --bg: #f4f5f7;
-  --surface: #ffffff;
-  --surface-2: #eef0f3;
-  --border: #dde1e7;
-  --text: #14181d;
-  --text-dim: #6b7280;
-  --accent: #2f6fed;
-  --accent-text: #ffffff;
+  /* Light is the same room by day (item 34, 2026-09-25): the board's shapes,
+     type and lamp, on paper instead of navy. It used to be a stock blue SaaS
+     palette with none of the design -- rounded pills, no display font. */
+  --bg: #f4efe4;
+  --surface: #fffcf5;
+  --surface-2: #efe8da;
+  --border: #d8ccb4;
+  --seam: #b7a888;
+  --text: #151c33;
+  --text-dim: #5a6278;
+  --accent: #f4b63f;
+  --accent-text: #0f1729;
+  /* Lamp as a fill reads on paper; as letters it does not (1.9:1). Text in
+     the accent colour uses this deeper amber instead (5.6:1 on --bg). */
+  --accent-ink: #8a5a00;
   --claude: #b85a30;
   --codex: #0c7a5e;
-  --danger: #cf3a31;
-  --ok: #1f8a4c;
+  --danger: #c2362d;
+  --ok: #1f7a4c;
+  --shadow-hard: 3px 3px 0 #d2c4a6;
+  --claude-ink: #a14d27;
+  --codex-ink: #0c7a5e;
+  --font-display: 'Silkscreen', ui-monospace, monospace;
+  --font-body: 'Atkinson Hyperlegible', system-ui, sans-serif;
   color-scheme: light;
 }
 
@@ -30,6 +42,7 @@
   --text-dim: #93a3c6;
   --accent: #f4b63f;
   --accent-text: #0f1729;
+  --accent-ink: #f4b63f;
   --claude: #b85a30;
   --codex: #2f8f6b;
   --danger: #e5534b;
@@ -104,7 +117,7 @@ button {
 .crash-detail {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 12px;
   font-size: 11px;
   line-height: 1.5;
@@ -136,7 +149,7 @@ button {
 .crash-rescue {
   display: inline-flex;
   align-items: center;
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 
@@ -186,7 +199,7 @@ button {
   gap: 8px;
   background: var(--danger);
   color: #fff;
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 8px 10px;
   font-size: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
@@ -252,13 +265,13 @@ button {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 2px;
   padding: 16px;
   margin-top: 16px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-[data-theme='dark'] .card {
+.card {
   box-shadow: none;
 }
 
@@ -304,7 +317,7 @@ button {
   width: 100%;
   padding: 10px 12px;
   font-size: 16px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -314,7 +327,7 @@ button {
   display: flex;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -337,7 +350,7 @@ button {
 
 .chip {
   padding: 8px 14px;
-  border-radius: 999px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-dim);
@@ -353,7 +366,7 @@ button {
 .primary {
   width: 100%;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 2px;
   background: var(--accent);
   color: var(--accent-text);
   font-weight: 600;
@@ -463,7 +476,7 @@ button {
 
 .usage-bar-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -471,7 +484,7 @@ button {
 
 .usage-bar-fill {
   height: 100%;
-  border-radius: 999px;
+  border-radius: 2px;
   transition: width 0.3s ease;
 }
 
@@ -550,7 +563,7 @@ button {
 
 .consult-msg {
   align-self: stretch;
-  border-radius: 14px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface);
   padding: 10px 14px;
@@ -580,7 +593,7 @@ button {
 .verdict-badge {
   margin-left: auto;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 2px;
   font-size: 10px;
 }
 
@@ -701,14 +714,14 @@ button {
 .tracker-step.active .tracker-dot { background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent), inset -2px -2px 0 color-mix(in srgb, #000 22%, transparent); }
 .tracker-step.active .tracker-label { color: var(--text); font-weight: 600; }
 .tracker-step.awaiting .tracker-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
-.tracker-step.awaiting .tracker-label { color: var(--accent); font-weight: 600; }
+.tracker-step.awaiting .tracker-label { color: var(--accent-ink); font-weight: 600; }
 .tracker-step.failed .tracker-dot { background: var(--danger); }
 .tracker-step.failed .tracker-label { color: var(--danger); }
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
 .tracker-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .tracker-head .tracker-name { flex: 1 1 auto; min-width: 0; }
 .tracker-who { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; color: var(--text-dim); flex-shrink: 0; }
-[data-theme='dark'] .job-tracker { box-shadow: none; }
+.job-tracker { box-shadow: none; }
 
 /* ---------- tool runs (consecutive calls, folded) ---------- */
 
@@ -719,7 +732,7 @@ button {
   gap: 8px;
   width: 100%;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-dim);
@@ -734,7 +747,7 @@ button {
 .tool-run-failed { color: var(--danger); }
 .tool-run.failed .tool-run-row { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .tool-run-body { display: flex; flex-direction: column; gap: 6px; padding-left: 12px; border-left: 2px solid var(--border); margin-left: 10px; }
-[data-theme='dark'] .tool-run-row { border-radius: 2px; }
+.tool-run-row { border-radius: 2px; }
 
 /* The conference turn says what it is: Plan, Review, Reconciled plan. */
 .consult-phase {
@@ -743,12 +756,12 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   color: var(--text-dim);
 }
-.consult-phase.plan, .consult-phase.reconcile { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--accent); }
-[data-theme='dark'] .consult-phase { border-radius: 2px; }
+.consult-phase.plan, .consult-phase.reconcile { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); color: var(--accent-ink); }
+.consult-phase { border-radius: 2px; }
 
 /* ---------- auto-route chip ---------- */
 
@@ -767,7 +780,7 @@ button {
   border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
   /* Not a pill: the line wraps to two rows on a phone, and a 999px radius on a
      two-row box is a half-circle that swallows the corners of the text. */
-  border-radius: 12px;
+  border-radius: 2px;
   padding: 5px 14px;
   max-width: calc(100% - 24px);
 }
@@ -802,7 +815,7 @@ button {
 
 .git-ahead {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .git-behind {
@@ -827,7 +840,7 @@ button {
 
 .git-file {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -886,7 +899,7 @@ button {
 }
 
 .git-diff-line.hunk {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .git-diff-line.meta {
@@ -906,7 +919,7 @@ button {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 10px 12px;
   font: inherit;
   font-size: 16px;
@@ -915,7 +928,7 @@ button {
 .git-push-btn {
   flex: 1;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 2px;
   font-weight: 600;
 }
 
@@ -941,7 +954,7 @@ button {
 .tool-expand {
   margin-top: 4px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 8px 10px;
   background: var(--surface);
   font-size: 11px;
@@ -983,7 +996,7 @@ button {
   font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--danger);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 6px 10px;
   background: transparent;
 }
@@ -1001,7 +1014,7 @@ button {
   min-width: 0;
   padding: 10px 12px;
   font-size: 16px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -1018,14 +1031,14 @@ button {
 }
 
 .notify-hint a {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .notify-topic {
   font-size: 14px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 8px 10px;
   margin-bottom: 8px;
   user-select: all;
@@ -1111,7 +1124,7 @@ button {
 
 .recap-card {
   border: 1px dashed var(--border);
-  border-radius: 14px;
+  border-radius: 2px;
   padding: 4px;
   margin-bottom: 4px;
   background: var(--surface);
@@ -1177,7 +1190,7 @@ button {
 }
 
 .preview-msg {
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 8px 10px;
   font-size: 13px;
   line-height: 1.4;
@@ -1215,7 +1228,7 @@ button {
 
 .preview-file {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 8px 10px;
 }
 
@@ -1322,7 +1335,7 @@ button {
   gap: 10px;
   text-align: left;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
@@ -1396,10 +1409,10 @@ button {
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--accent-ink);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  border-radius: 999px;
+  border-radius: 2px;
   padding: 3px 9px;
 }
 
@@ -1450,7 +1463,7 @@ button {
   bottom: 92px;
   z-index: 3;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: 2px;
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-text, #fff);
@@ -1458,7 +1471,7 @@ button {
   font-weight: 600;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
-[data-theme='dark'] .new-below { border-radius: 2px; box-shadow: var(--shadow-hard); }
+.new-below { border-radius: 2px; box-shadow: var(--shadow-hard); }
 
 .chat-header {
   display: flex;
@@ -1477,7 +1490,7 @@ button {
   min-width: 0;
   text-align: left;
   padding: 4px 6px;
-  border-radius: 10px;
+  border-radius: 2px;
 }
 
 .chat-title:active {
@@ -1513,7 +1526,7 @@ button {
   margin: 8px 12px 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 2px;
   padding: 6px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
   max-height: 70dvh;
@@ -1527,7 +1540,7 @@ button {
   width: 100%;
   text-align: left;
   padding: 10px 8px;
-  border-radius: 10px;
+  border-radius: 2px;
 }
 
 .switcher-row:active {
@@ -1539,7 +1552,7 @@ button {
 }
 
 .switcher-all {
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 600;
 }
 
@@ -1567,7 +1580,7 @@ button {
 .msg {
   max-width: 86%;
   padding: 10px 14px;
-  border-radius: 16px;
+  border-radius: 2px;
   font-size: 15px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -1638,7 +1651,7 @@ button {
 }
 
 .markdown a {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .markdown code {
@@ -1687,7 +1700,7 @@ button {
 .codeblock pre {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 10px 12px;
   overflow-x: auto;
   margin: 0;
@@ -1736,7 +1749,7 @@ button {
 }
 .gate-lock {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--accent-ink);
   animation: gate-lock-land 460ms cubic-bezier(0.2, 1, 0.4, 1) both;
 }
 @keyframes gate-lock-land {
@@ -1767,7 +1780,7 @@ button {
   max-height: 200px;
   overflow-y: auto;
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 8px;
 }
 
@@ -1778,7 +1791,7 @@ button {
   gap: 8px;
   max-width: 100%;
   padding: 6px 12px;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--surface);
   border: 1px solid var(--border);
   font-size: 13px;
@@ -1873,7 +1886,7 @@ button {
 }
 .handoff-from, .handoff-to { display: inline-flex; align-items: center; gap: 5px; }
 .handoff-from { opacity: 0.55; }
-.handoff-arrow { color: var(--accent); font-size: 14px; }
+.handoff-arrow { color: var(--accent-ink); font-size: 14px; }
 .handoff-why { font-weight: 400; width: 100%; text-align: center; }
 .handoff-pass.live .handoff-from { animation: handoff-step-back 700ms cubic-bezier(0.2, 1, 0.4, 1) both; }
 .handoff-pass.live .handoff-to { animation: handoff-step-in 700ms 250ms cubic-bezier(0.22, 1.3, 0.36, 1) both; }
@@ -1895,7 +1908,7 @@ button {
 /* ---------- the map (docs/board/Roadmap.dc.html) ---------- */
 .page-header-actions { display: flex; align-items: center; gap: 4px; }
 .map-sheet { max-height: 88dvh; overflow-y: auto; }
-.map-eyebrow { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent); }
+.map-eyebrow { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent-ink); }
 .map-title { font-family: var(--font-display, inherit); margin: 4px 0 12px; font-size: 18px; color: var(--text); }
 .map-projects { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .map-empty { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
@@ -1911,7 +1924,7 @@ button {
 .map-node.shipped { background: color-mix(in srgb, var(--ok) 14%, var(--surface)); border-color: var(--ok); }
 .map-node.shipped .map-node-id, .map-node.shipped .map-node-state { color: var(--ok); }
 .map-node.in-hand { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: var(--accent); }
-.map-node.in-hand .map-node-id, .map-node.in-hand .map-node-state { color: var(--accent); }
+.map-node.in-hand .map-node-id, .map-node.in-hand .map-node-state { color: var(--accent-ink); }
 .map-node.open { outline: 2px solid var(--text); outline-offset: 1px; }
 .map-dot { position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border: 2px solid var(--bg); background: var(--seam); }
 .map-node.shipped .map-dot { background: var(--ok); }
@@ -1919,14 +1932,14 @@ button {
 /* In hand is a state that persists until the phase ships -- the one loop here. */
 .map-dot-pulse { animation: pulse 1.8s ease-in-out infinite; }
 .map-evidence { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--accent); background: var(--surface); font-size: 14px; line-height: 1.5; color: var(--text); }
-.map-evidence-head { display: block; font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+.map-evidence-head { display: block; font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent-ink); margin-bottom: 4px; }
 .map-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin-top: 16px; padding: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-hard, 3px 3px 0 #0a1020); }
 .map-stat-n { font-family: var(--font-display, inherit); font-size: 26px; line-height: 1.1; color: var(--text); }
-.map-stat-n.ok { color: var(--ok); } .map-stat-n.lamp { color: var(--accent); } .map-stat-n.bad { color: var(--danger); }
+.map-stat-n.ok { color: var(--ok); } .map-stat-n.lamp { color: var(--accent-ink); } .map-stat-n.bad { color: var(--danger); }
 .map-stat-n.none { font-size: 14px; color: var(--text-dim); }
 .map-stat-label { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
 .map-open { margin-top: 14px; }
-.map-open-head { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent); margin-bottom: 6px; }
+.map-open-head { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent-ink); margin-bottom: 6px; }
 .map-open ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .map-open li { font-size: 14px; line-height: 1.4; color: var(--text); }
 .map-open-n { font-family: var(--font-display, inherit); font-size: 11px; color: var(--text-dim); margin-right: 4px; }
@@ -1978,7 +1991,7 @@ button {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  border-radius: 20px;
+  border-radius: 2px;
   /* Room for BOTH buttons inside the field: send (32px) and the scales
      (32px) with their gaps. 44px covered only send, so a long message ran
      under the scales (2026-09-24). */
@@ -2023,7 +2036,7 @@ button {
   width: 56px;
   height: 56px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .preview button {
@@ -2054,7 +2067,7 @@ button {
 
 .sheet {
   background: var(--surface);
-  border-radius: 20px 20px 0 0;
+  border-radius: 2px 2px 0 0;
   padding: 20px 16px calc(env(safe-area-inset-bottom) + 16px);
   width: 100%;
   max-height: 80dvh;
@@ -2068,7 +2081,7 @@ button {
 .approval-detail {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 10px;
   font-size: 12px;
   max-height: 30dvh;
@@ -2086,7 +2099,7 @@ button {
 .sheet-actions button {
   flex: 1;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 2px;
   font-weight: 600;
 }
 
@@ -2151,7 +2164,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--chip-bg, rgba(127, 127, 127, 0.16));
   color: var(--muted, #6b7280);
   white-space: nowrap;
@@ -2261,7 +2274,7 @@ button {
 }
 .avatar-opt {
   aspect-ratio: 1;
-  border-radius: 12px;
+  border-radius: 2px;
   border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
@@ -2322,7 +2335,7 @@ button {
    full-size button stacked beneath, easily a fifth of the screen. */
 .full-auto-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .full-auto-off { flex-shrink: 0; padding: 4px 10px; font-size: 12px; }
-.verify-msg { border-radius: 10px; padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line, #2a2a2a); }
+.verify-msg { border-radius: 2px; padding: 10px 12px; margin: 8px 0; border: 1px solid var(--line, #2a2a2a); }
 .verify-msg.pass { border-color: rgba(34,197,94,0.5); }
 .verify-msg.fail { border-color: rgba(239,68,68,0.5); }
 .verify-head { font-size: 13px; margin-bottom: 6px; }
@@ -2657,53 +2670,58 @@ button {
   .tool-detail.typing { animation: none; }
 }
 
+/* Square, everywhere (item 34, 2026-09-25): every radius of 8px or more is
+   2px -- the board's tiles, chips and bubbles. Pills and soft cards were the
+   phone screenshot's loudest "this is not the design". Only true circles
+   (50%) stay round. */
+
 /* ============================================================================
    Roost surfaces — the design canvas, applied to the app.
-   Everything here is scoped to the Roost theme so the light theme is untouched.
+   Both themes, since item 34: light is the same room by day, not a different app.
    ========================================================================= */
 
-[data-theme='dark'] body { font-family: var(--font-body); }
+body { font-family: var(--font-body); }
 
 /* Display type: Silkscreen, for names, headings and labels — the board sets
    every crew name and every section label in it. Body stays Atkinson
    Hyperlegible, chosen for reading at arm's length on a phone. */
-[data-theme='dark'] h1,
-[data-theme='dark'] h2,
-[data-theme='dark'] h3,
-[data-theme='dark'] .crew-ident-name,
-[data-theme='dark'] .crew-wake-name,
-[data-theme='dark'] .verify-badge,
-[data-theme='dark'] .usage-block-label,
-[data-theme='dark'] .mode-tag {
+h1,
+h2,
+h3,
+.crew-ident-name,
+.crew-wake-name,
+.verify-badge,
+.usage-block-label,
+.mode-tag {
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: 0.02em;
 }
-[data-theme='dark'] .card h2 { font-size: 15px; color: var(--accent); text-transform: uppercase; }
+.card h2 { font-size: 15px; color: var(--accent-ink); text-transform: uppercase; }
 
 /* Cards: crisp corners on a hard offset shadow, like the board's tiles. A soft
    blur under every card is the look the board names as the kit tell. */
-[data-theme='dark'] .card,
-[data-theme='dark'] .sheet,
-[data-theme='dark'] .consult-bar,
-[data-theme='dark'] .compact-offer,
-[data-theme='dark'] .surplus-bar {
+.card,
+.sheet,
+.consult-bar,
+.compact-offer,
+.surplus-bar {
   border-radius: 2px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-hard);
 }
-[data-theme='dark'] .sheet { border-radius: 2px 2px 0 0; }
+.sheet { border-radius: 2px 2px 0 0; }
 
 /* The thread. The crew speak on the bubble colour with a seam hairline; you
    speak in lamp — the board's colour for "you, and attention". Square-ish, with
    one tucked corner pointing at the speaker. */
-[data-theme='dark'] .msg { border-radius: 3px; }
-[data-theme='dark'] .msg.assistant {
+.msg { border-radius: 3px; }
+.msg.assistant {
   background: var(--surface-2);
   border: 1px solid var(--seam);
   border-top-left-radius: 0;
 }
-[data-theme='dark'] .msg.user {
+.msg.user {
   background: var(--accent);
   color: var(--accent-text);
   border-bottom-right-radius: 0;
@@ -2711,25 +2729,25 @@ button {
 }
 
 /* Chips and controls: flat, sharp, seam-edged; active in lamp. */
-[data-theme='dark'] .chip { border-radius: 2px; border-color: var(--seam); background: var(--surface-2); color: var(--text); }
-[data-theme='dark'] .chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-[data-theme='dark'] .tool-chip { border-radius: 2px; background: var(--surface); border: 1px solid var(--border); }
-[data-theme='dark'] .routed-chip { border-radius: 2px; background: transparent; border: 1px dashed var(--seam); }
+.chip { border-radius: 2px; border-color: var(--seam); background: var(--surface-2); color: var(--text); }
+.chip.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.tool-chip { border-radius: 2px; background: var(--surface); border: 1px solid var(--border); }
+.routed-chip { border-radius: 2px; background: transparent; border: 1px dashed var(--seam); }
 
 /* Inputs read as part of the room, not as a white box dropped into it. */
-[data-theme='dark'] textarea,
-[data-theme='dark'] input[type='text'],
-[data-theme='dark'] input:not([type]) {
+textarea,
+input[type='text'],
+input:not([type]) {
   background: var(--surface-2);
   color: var(--text);
   border: 1px solid var(--seam);
   border-radius: 2px;
 }
-[data-theme='dark'] textarea:focus,
-[data-theme='dark'] input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+textarea:focus,
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Links and focus are lamp, as on the board. */
-[data-theme='dark'] a { color: var(--accent); }
+a { color: var(--accent-ink); }
 
 /* ---- Home, in the board's order ------------------------------------------ */
 
@@ -2755,7 +2773,7 @@ button {
   font-size: 11px;
   line-height: 1;
   padding: 3px 6px;
-  border-radius: 8px 8px 8px 2px;
+  border-radius: 2px 2px 2px 2px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -2775,11 +2793,11 @@ button {
   100% { opacity: 0; transform: translateY(-4px); }
 }
 @media (prefers-reduced-motion: reduce) { .crew-bubble { animation: none; } }
-[data-theme='dark'] .crew-bubble { border-radius: 2px; }
+.crew-bubble { border-radius: 2px; }
 
 .crew-strip-name { font-family: var(--font-display, inherit); font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em; text-align: center; overflow-wrap: anywhere; }
 .crew-strip-label {
-  font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent);
+  font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent-ink);
   text-transform: uppercase; letter-spacing: 0.08em; text-align: center; margin-top: 8px;
 }
 
@@ -2820,8 +2838,8 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 }
 
 /* Earlier, in the board's order: what you were doing, then where. */
-[data-theme='dark'] .recent-title { color: var(--text); font-size: 15px; font-weight: 700; }
-[data-theme='dark'] .recent-project { color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.recent-title { color: var(--text); font-size: 15px; font-weight: 700; }
+.recent-project { color: var(--text-dim); font-size: 12px; font-weight: 400; }
 .fuel-when { font-size: 12px; color: var(--text-dim); margin: 2px 0 0; }
 
 /* A flex child will not shrink below its content unless told to. Without this
@@ -2846,7 +2864,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .effort-blocks { display: inline-flex; gap: 2px; }
 .effort-block { width: 6px; height: 11px; background: var(--surface-2); border: 1px solid var(--seam); }
 .effort-block.lit { background: var(--accent); border-color: var(--accent); }
-.effort-word { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
+.effort-word { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-ink); }
 .crew-row-effort-note { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); margin: -2px 0 6px; }
 /* The crew asking you something in person: Pip's proposal, the compaction ask. */
 .crew-ask { background: var(--surface-2); border: 1px solid var(--accent); padding: 11px 12px; width: 100%; box-sizing: border-box; }
@@ -2862,7 +2880,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .compact-meter { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; align-self: center; }
 .compact-meter-bar { width: 64px; height: 7px; background: var(--surface-2); border: 1px solid var(--seam); display: block; }
 .compact-meter-bar span { display: block; height: 100%; background: var(--accent); }
-.compact-meter-pct { font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent); }
+.compact-meter-pct { font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent-ink); }
 .messages .compact-ask .crew-row-face .crew-sprite[data-agent] {
   filter: saturate(calc(1 - var(--rot-face, 0.5) * 1.4)) brightness(calc(1 - var(--rot-face, 0.5) * 0.6));
 }
@@ -2878,30 +2896,30 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
    offset walks it further out), so it is one rule, not three elements.
    The crew's hangs off the bottom-left, yours off the bottom-right, pointing
    at whoever is speaking. */
-[data-theme='dark'] .msg,
-[data-theme='dark'] .crew-row .consult-msg { position: relative; }
-[data-theme='dark'] .msg.assistant { border-top-left-radius: 3px; border-bottom-left-radius: 0; }
-[data-theme='dark'] .crew-row .msg.assistant::after,
-[data-theme='dark'] .crew-row .consult-msg::after {
+.msg,
+.crew-row .consult-msg { position: relative; }
+.msg.assistant { border-top-left-radius: 3px; border-bottom-left-radius: 0; }
+.crew-row .msg.assistant::after,
+.crew-row .consult-msg::after {
   content: ''; position: absolute; left: -1px; bottom: -6px; width: 6px; height: 6px;
   background: var(--surface-2); border-left: 1px solid var(--seam); border-bottom: 1px solid var(--seam);
   box-shadow: -4px 4px 0 -1px var(--surface-2), -7px 7px 0 -2px var(--surface-2);
 }
-[data-theme='dark'] .crew-row .consult-msg {
+.crew-row .consult-msg {
   background: var(--surface-2); border: 1px solid var(--seam); border-radius: 3px; border-bottom-left-radius: 0;
   padding: 10px 14px; margin: 0; box-shadow: none;
 }
-[data-theme='dark'] .msg-row.user .msg.user::after {
+.msg-row.user .msg.user::after {
   content: ''; position: absolute; right: 0; bottom: -6px; width: 6px; height: 6px; background: var(--accent);
   box-shadow: 4px 4px 0 -1px var(--accent), 7px 7px 0 -2px var(--accent);
 }
-[data-theme='dark'] .msg-row.user .msg.user { max-width: min(100%, 300px); }
+.msg-row.user .msg.user { max-width: min(100%, 300px); }
 
 /* Faces in the Roost theme are squares with a seam edge, as on the board —
    your own at 34px, a crew member without a drawing at the full 52px slot. */
-[data-theme='dark'] .me-avatar { width: 34px; height: 34px; border-radius: 2px; border: 1px solid var(--seam); }
+.me-avatar { width: 34px; height: 34px; border-radius: 2px; border: 1px solid var(--seam); }
 [data-theme='dark'] .me-monogram { background: #2b3960 !important; color: var(--text); }
-[data-theme='dark'] .crew-row-face .crew-avatar { border-radius: 2px; border: 1px solid var(--seam); object-fit: cover; }
+.crew-row-face .crew-avatar { border-radius: 2px; border: 1px solid var(--seam); object-fit: cover; }
 
 /* ---- Chapters: the thread folded into its jobs ----------------------------- */
 .chapter { display: flex; flex-direction: column; align-self: stretch; }
@@ -2922,7 +2940,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .chapter-status { font-family: var(--font-display, inherit); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; color: var(--text-dim); }
 .chapter-status.verified { color: var(--ok); }
 .chapter-status.needs-work { color: var(--danger); }
-.chapter-status.awaiting { color: var(--accent); }
+.chapter-status.awaiting { color: var(--accent-ink); }
 .chapter-caret { color: var(--text-dim); flex-shrink: 0; }
 
 /* Folding needs no pixel height: the body is a one-row grid whose track goes
@@ -2959,21 +2977,21 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .mention-pop { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 8px; }
 .mention-opt {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px 4px 6px; border-radius: 999px;
+  padding: 4px 10px 4px 6px; border-radius: 2px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
   font: inherit; font-size: 13px; font-weight: 600;
 }
 .mention-suite { font-weight: 400; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
-[data-theme='dark'] .mention-opt { border-radius: 2px; }
+.mention-opt { border-radius: 2px; }
 
 /* The handoff, offered in the context meter once the window is degrading. */
 .context-handoff {
   font: inherit; font-size: 12px; font-weight: 600;
-  padding: 2px 8px; border-radius: 8px;
+  padding: 2px 8px; border-radius: 2px;
   border: 1px solid currentColor; background: transparent; color: inherit;
   flex-shrink: 0;
 }
-[data-theme='dark'] .context-handoff { border-radius: 2px; }
+.context-handoff { border-radius: 2px; }
 .consult-phase.mention { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); color: var(--ok); }
 .consult-phase.handoff { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); color: var(--danger); }
 
@@ -2994,7 +3012,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
   padding: 0;
   margin: 0 0 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 2px;
   overflow: hidden;
   background: var(--bg);
   cursor: pointer;
@@ -3022,8 +3040,8 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
   color: var(--text); padding: 2px 6px; border-radius: 6px;
   background: color-mix(in srgb, var(--bg) 75%, transparent);
 }
-[data-theme='dark'] .scene { border-radius: 2px; border-color: var(--seam); }
-[data-theme='dark'] .scene-name { border-radius: 2px; }
+.scene { border-radius: 2px; border-color: var(--seam); }
+.scene-name { border-radius: 2px; }
 
 /* The bunks: the sleepers only, stacked and overlapping, one Zzz visiting. */
 .crew-strip-faces.bunks { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px 0; }
@@ -3035,20 +3053,20 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 
 .img-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .img-thumb {
-  padding: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  padding: 0; border: 1px solid var(--border); border-radius: 2px; overflow: hidden;
   background: var(--surface-2); cursor: zoom-in; line-height: 0;
   -webkit-tap-highlight-color: transparent;
 }
 .img-thumb img { display: block; max-width: min(100%, 240px); max-height: 160px; object-fit: contain; }
 .img-gone {
   font-size: 12px; color: var(--text-dim); padding: 6px 10px;
-  border: 1px dashed var(--border); border-radius: 8px;
+  border: 1px dashed var(--border); border-radius: 2px;
 }
 .img-path { padding: 0; border: none; background: none; font: inherit; color: var(--accent, inherit); cursor: zoom-in; text-align: left; }
 .img-path code { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
-.md-img { max-width: 100%; border-radius: 8px; }
+.md-img { max-width: 100%; border-radius: 2px; }
 .tool-block .img-strip { margin: 6px 0 2px 4px; }
-[data-theme='dark'] .img-thumb, [data-theme='dark'] .img-gone, [data-theme='dark'] .md-img { border-radius: 2px; }
+.img-thumb, .img-gone, .md-img { border-radius: 2px; }
 
 .img-viewer {
   position: fixed; inset: 0; z-index: 1000;
@@ -3091,11 +3109,11 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .sticky-chip {
   display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
   font-size: 12px; color: var(--text-dim); padding: 4px 4px 4px 10px;
-  border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 2px; background: var(--surface-2);
 }
 .sticky-chip b { color: var(--text); }
 .sticky-clear { width: 24px; height: 24px; border-radius: 50%; border: none; background: transparent; color: var(--text-dim); font-size: 13px; line-height: 1; flex-shrink: 0; }
-[data-theme='dark'] .sticky-chip { border-radius: 2px; }
+.sticky-chip { border-radius: 2px; }
 
 .mention-text { display: inline-flex; flex-direction: column; line-height: 1.15; text-align: left; }
 .mention-model { font-weight: 400; font-size: 10.5px; color: var(--text-dim); }
@@ -3168,12 +3186,12 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .live-sheet.running { height: 88vh; height: 88dvh; }
 .live-output {
   max-height: 160px; overflow: auto; font-size: 11px; font-family: ui-monospace, monospace;
-  background: var(--surface-2); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; word-break: break-word;
+  background: var(--surface-2); border-radius: 2px; padding: 8px 10px; white-space: pre-wrap; word-break: break-word;
 }
 .live-toolbar { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .live-toolbar .live-stop { margin-left: auto; color: var(--danger); }
 .live-frame-wrap {
-  flex: 1 1 auto; min-height: 0; border: 1px solid var(--border); border-radius: 10px;
+  flex: 1 1 auto; min-height: 0; border: 1px solid var(--border); border-radius: 2px;
   overflow: hidden; background: var(--surface-2);
 }
 .live-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
@@ -3182,7 +3200,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
    otherwise force on a site that reads its own window width. */
 .live-frame-wrap.wide { overflow: auto; }
 .live-frame-wrap.wide .live-frame { width: 1280px; height: 100%; min-height: 720px; }
-[data-theme='dark'] .live-frame-wrap { border-radius: 2px; }
+.live-frame-wrap { border-radius: 2px; }
 
 /* Day and week rows (chapters.ts groupChaptersByDay, §12d's last gap): a
    plain label, not a card -- it is a divider in the scroll, not a thing to

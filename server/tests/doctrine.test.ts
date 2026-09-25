@@ -974,7 +974,7 @@ describe("the bubble tail steps down, not a single square", () => {
   // cut was one plain square (2026-09-24 review), this is the staircase.
   const css = read('web/src/styles.css');
   it('three sizes, walking diagonally away from the bubble corner, no blur', () => {
-    expect(css).toMatch(/\.crew-row \.msg\.assistant::after,\s*\[data-theme='dark'\] \.crew-row \.consult-msg::after \{[\s\S]*?box-shadow: -4px 4px 0 -1px var\(--surface-2\), -7px 7px 0 -2px var\(--surface-2\);/);
+    expect(css).toMatch(/\.crew-row \.msg\.assistant::after,\s*\.crew-row \.consult-msg::after \{[\s\S]*?box-shadow: -4px 4px 0 -1px var\(--surface-2\), -7px 7px 0 -2px var\(--surface-2\);/);
     expect(css).toMatch(/\.msg-row\.user \.msg\.user::after \{[\s\S]*?box-shadow: 4px 4px 0 -1px var\(--accent\), 7px 7px 0 -2px var\(--accent\);/);
   });
 })
@@ -1408,5 +1408,29 @@ describe('percentages that move (item 33)', () => {
     const s = read('server/src/sessions.ts');
     expect(s).toMatch(/this\.lastStatus === 'working' && event\.state === 'idle'\) \{\s*void refreshUsageSoon\(this\.cwd\)/);
     expect(s).toMatch(/for \(const s of this\.sessions\.values\(\)\) s\.refreshMeta\(\);/);
+  });
+});
+
+describe('the light theme gets the design (item 34)', () => {
+  const css = read('web/src/styles.css');
+  it('the board\'s shapes and type apply to both themes; only colour is per theme', () => {
+    // What stays dark-only is colour: syntax highlighting, the wordmark's
+    // fills, one monogram background. Everything else is shared.
+    const dark = [...css.matchAll(/\[data-theme='dark'\] ([^{,\n]+)/g)].map((m) => m[1].trim());
+    expect(dark.filter((sel) => !/^\.(hljs|wm-|me-monogram)/.test(sel)), 'dark-only non-colour rules').toEqual([]);
+  });
+  it('the dark palette block survives — a bare `{` is how it was lost once', () => {
+    expect(css).toMatch(/\[data-theme='dark'\] \{\s*--bg: #0f1729;/);
+    expect(css).not.toMatch(/^\s*\{\s*$/m);
+  });
+  it('square everywhere: no radius of 8px or more; circles are 50%', () => {
+    expect(css).not.toMatch(/border-radius: [^;]*\b(?:[89]|[1-9]\d+)px/);
+  });
+  it('lamp is a fill on paper; accent-coloured TEXT uses the deeper ink', () => {
+    expect(css).not.toMatch(/(?<![-\w])color: var\(--accent\)/);
+    expect(css).toMatch(/--accent-ink: #8a5a00;/);
+  });
+  it('crew names are made readable on whichever ground they sit on', () => {
+    expect(read('web/src/color.ts')).toMatch(/return readableOn\(color, dark \? ROOST_GROUND : PAPER_GROUND\);/);
   });
 });
