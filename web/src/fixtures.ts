@@ -154,6 +154,10 @@ export const FIXTURES: Record<string, () => SessionState> = {
   /** The work stream: narration and calls in one card, live and folded. */
   'work-live': () => base(WORK_STREAM.slice(0, 9), meta({ state: 'working' }), 0, { status: 'working' }),
   'work-done': () => base(WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), meta({ state: 'idle' }), WORK_STREAM.length, { status: 'idle' }),
+  /** The tracker (2026-09-25): a job that just passed its checks -- the stamp lands. */
+  'tracker-verified': () => base([...WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), { kind: 'verify', report: { passed: true, tampered: false, gates: [{ command: 'npm test', exitCode: 0, output: '667 passed', ms: 4100 } as any], images: [], fingerprint: '', summary: '1/1 gates passed', startedAt: 0, ms: 4100 }, ts: at(12) }], meta({ state: 'idle' }), 0, { status: 'idle' }),
+  'tracker-failed': () => base([...WORK_STREAM.map((x) => (x.kind === 'tool' ? { ...x, done: true } : x)), { kind: 'verify', report: { passed: false, tampered: false, gates: [{ command: 'npm test', exitCode: 1, output: '2 failed', ms: 4100 } as any], images: [], fingerprint: '', summary: '0/1 gates passed', startedAt: 0, ms: 4100 }, ts: at(12) }], meta({ state: 'idle' }), 0, { status: 'idle' }),
+  'tracker-back': () => base([...WORK_STREAM.slice(0, 11).map((x) => (x.kind === 'tool' ? { ...x, done: true, ok: !/vitest/.test(x.detail) } : x)), { kind: 'tool', toolId: 'w99', name: 'Edit', detail: 'web/src/tracker.ts', done: false, ts: at(13) }], meta({ state: 'working' }), 0, { status: 'working' }),
   /** Deploy: a crew member worked out what deploy means in a new project. */
   'deploy-proposal': () => base(
     [

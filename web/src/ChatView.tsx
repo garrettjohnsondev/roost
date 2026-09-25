@@ -952,6 +952,7 @@ function SpendIt({ surplus, onBoost }: { surplus: NonNullable<SessionMeta['surpl
  *  is enough. Fixed above the thread, so scrolling back through the work does
  *  not lose where the work is. */
 function JobTracker({ session }: { session: SessionState }) {
+  const seenStates = useRef<{ job: string; states: Record<string, string> } | null>(null);
   // Sleeping on idle (§12a): a minute tick, only while idle -- the one clock
   // the motion doctrine allows, because the quiet IS the state.
   const now = useMinute(session.status === 'idle');
@@ -974,26 +975,45 @@ function JobTracker({ session }: { session: SessionState }) {
   const doneStep = t.steps.find((s) => s.key === 'done');
   // A turn that finished -- proven (Done) or handed back (Your turn).
   const justFinished = (doneStep?.state === 'done' || doneStep?.state === 'awaiting') && !session.triaging && session.status !== 'working' && t.endIndex > session.replayedCount;
+  // One-shot beats on real change only (the Effects board): a segment whose
+  // state differs from how this job looked when it was first seen gets `just`,
+  // and is keyed by its state, so it plays once when the state changes and
+  // never on opening a thread. The snapshot resets when a new job starts.
+  if (!seenStates.current || seenStates.current.job !== t.name) {
+    seenStates.current = { job: t.name, states: Object.fromEntries(t.steps.map((s) => [s.key, s.state])) };
+  }
+  const first = seenStates.current.states;
+  const landing = justFinished && (t.outcome === 'verified' || t.outcome === 'failed');
   return (
-    <div className={`job-tracker ${t.status}`} aria-label={`Job: ${t.name}`}>
+    <div className={`job-tracker ${t.status} outcome-${t.outcome ?? 'live'}`} aria-label={`Job: ${t.name}. ${t.headline.word}`}>
       <div className="tracker-head">
         {t.who?.sprite && (
           justFinished ? (
-            <SpriteAvatar key={t.endIndex} crew={t.who} pose="cheer" size={22} className="tracker-cheer" />
+            <SpriteAvatar key={t.endIndex} crew={t.who} pose={t.outcome === 'failed' ? 'think' : 'cheer'} size={30} className="tracker-cheer" />
           ) : (
-            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : asleep ? 'sleep' : 'idle'} size={22} />
+            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : asleep ? 'sleep' : 'idle'} size={30} />
           )
         )}
-        <span className="tracker-name">{t.name}</span>
+        <div className="tracker-now">
+          <span key={t.headline.word} className={`tracker-word ${t.headline.key}${t.back ? ' back' : ''}`}>{t.headline.word}</span>
+          <span className="tracker-detail">{t.headline.detail || t.name}</span>
+        </div>
         {t.who && <span className="tracker-who">{asleep ? `${t.who.name} · asleep` : t.who.name}</span>}
       </div>
-      <ol className="tracker-steps">
+      <ol className="tracker-bar" style={{ '--segs': t.steps.length } as React.CSSProperties}>
         {t.steps.map((s) => (
-          <li key={s.key} className={`tracker-step ${s.state}`}>
-            <span className="tracker-dot" aria-hidden="true" />
-            <span className="tracker-label">{s.state === 'awaiting' && s.key !== 'done' ? `${s.label} · you` : s.label}</span>
+          <li key={`${s.key}:${s.state}`} className={`seg k-${s.key} ${s.state}${first[s.key] !== s.state ? ' just' : ''}${s.state === 'active' ? ' working' : ''}`}>
+            <span className="seg-label">{s.label}</span>
           </li>
         ))}
+        {(t.outcome === 'verified' || t.outcome === 'failed') && (
+          <li key={`stamp-${t.endIndex}`} className={`tracker-stamp ${t.outcome}${landing ? ' land' : ''}`} aria-hidden="true">
+            {t.outcome === 'verified' ? 'VERIFIED' : 'FAILED'}
+            {landing && t.outcome === 'verified' && (
+              <span className="stamp-confetti">{[0, 1, 2, 3, 4, 5].map((k) => <span key={k} />)}</span>
+            )}
+          </li>
+        )}
       </ol>
     </div>
   );

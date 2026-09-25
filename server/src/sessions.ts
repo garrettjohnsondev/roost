@@ -3,6 +3,7 @@ import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js
 import type { Builder, SessionMode, UserImage } from './protocol.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
+import { detectCheck } from './deploy.js';
 import { quotaStore } from './quota.js';
 import { refreshUsageSoon } from './usage.js';
 import { companionFor, noteLife, readLedgerRows, readLife } from './companions.js';
@@ -168,6 +169,13 @@ export class Session {
   private verifyAfterProceed = true;
   /** Set on Proceed; consumed when the executor's turn ends. */
   private pendingVerify?: { taskId?: string; criteria?: string[]; review: boolean };
+  /** A job that edited files is checked when it ends (2026-09-25: the
+   *  VERIFIED stamp never landed because direct work never ran a gate). */
+  private editedThisTurn = false;
+  private checking = false;
+  /** Bumped by every message you send, so a check that outlives its turn
+   *  does not mark the next turn idle. */
+  private turnSeq = 0;
   private executing = false;
 
   private get autoMode(): boolean {
@@ -573,8 +581,13 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    if (event.type === 'tool_start' && /edit|write|patch|create|delete|rename|notebook/i.test(event.name)) this.editedThisTurn = true;
     const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
     if (turnEnded) this.proceeding = false;
+    if (turnEnded && this.editedThisTurn && !this.checking && !(this.executing && this.pendingVerify)) {
+      this.editedThisTurn = false;
+      setTimeout(() => void this.autoCheck(), 0);
+    }
     if (turnEnded && this.executing && this.pendingVerify) {
       const pv = this.pendingVerify;
       this.executing = false;
@@ -731,6 +744,8 @@ export class Session {
   async handleClientMessage(msg: ClientMessage): Promise<void> {
     switch (msg.type) {
       case 'user_message': {
+        this.turnSeq++;
+        this.editedThisTurn = false;
         // Recovered 2026-09-24: a message sent while a plan was being built
         // ("Don't stop your initial plan, these are additions") was triaged by
         // Pip and then never delivered anywhere -- it survives only inside the
@@ -1418,6 +1433,34 @@ export class Session {
 
   /** Runs when the executor's turn ends after a Proceed: the project gates,
    *  and in build mode the fresh-context diff reviewer with the criteria. */
+  /** After a turn that edited files: run the project's own checks -- its
+   *  `## gates`, else what deploy detection reads as its check (tests, else a
+   *  build, else a typecheck). Commands only, never a model: no quota. A
+   *  project with no check at all is left alone rather than stamped "not
+   *  verified" after every edit. The result is the thread's verify row, which
+   *  the phase bar reads -- a pass is the VERIFIED stamp. */
+  private async autoCheck(): Promise<void> {
+    if (this.checking) return;
+    const gates = gatesFrom(loadProjectKnowledge(this.cwd));
+    const fallback = gates.length ? null : detectCheck(this.cwd).check;
+    const checks = gates.length ? undefined : fallback ? [fallback] : null;
+    if (checks === null) return;
+    this.checking = true;
+    const seq = this.turnSeq;
+    this.pushEvent({ type: 'status', state: 'working', message: 'Checking the work — running the project gates…', ts: now() });
+    try {
+      const report = await verifyTask({ cwd: this.cwd, taskId: this.id, fingerprintAtStart: this.gateFingerprintAtStart, checks });
+      this.pushEvent({ type: 'verify', report, ts: now() });
+      if (this.sockets.size === 0 && !report.passed) sendNotification(`verify:${this.id}`, `Checks failed · ${this.title}`, report.summary);
+    } catch (err: any) {
+      this.reportError(`The checks failed to run: ${String(err?.message ?? err)}`);
+    } finally {
+      this.checking = false;
+      // A new turn may have started while the checks ran; it owns the status.
+      if (seq === this.turnSeq) this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+    }
+  }
+
   private async autoVerify(pv: { taskId?: string; criteria?: string[]; review: boolean }): Promise<void> {
     this.pushEvent({ type: 'status', state: 'working', message: pv.review ? 'Execution finished — running the gates, then reviewing the diff…' : 'Execution finished — running the project gates…', ts: now() });
     try {

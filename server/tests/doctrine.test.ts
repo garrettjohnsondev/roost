@@ -566,17 +566,54 @@ describe('the job tracker reports the thread and lights up, it does not perform'
     for (const f of ['server/src/sessions.ts', 'server/src/protocol.ts']) expect(read(f), f).not.toMatch(/tracker/i);
   });
 
-  it('never estimates: a step is done only on evidence in the thread', () => {
+  it('never estimates: phases come from what the crew did, in order', () => {
+    // Rebuilt 2026-09-25: "do we really Plan every piece of work?" -- no. Plan
+    // and Review appear only when the conference actually ran; the old tracker
+    // listed them whenever the mode was Build and lit Plan behind a finished
+    // build. A phase is reached only on evidence: a tool call, a consult, a
+    // verify. "How much is left" is the phases ahead, never minutes.
     const t = read('web/src/tracker.ts');
-    expect(t).toMatch(/state: evidence\[key\] \? 'done' : 'todo'/);
-    expect(t).not.toMatch(/percent|progress:|\d+%/);
+    expect(t).toMatch(/k === 'plan' \|\| k === 'review' \? conference/);
+    expect(t).toMatch(/const conference = reached\.has\('plan'\) \|\| reached\.has\('review'\);/);
+    expect(t).not.toMatch(/percent|progress:|\d+%|\beta\b|remaining/i);
   });
 
-  it('lights the active step; the sprite is the motion', () => {
+  it('green is earned: only a passing check makes Done green', () => {
+    const t = read('web/src/tracker.ts');
+    expect(t).toMatch(/\} else if \(passed && ch\.status === 'verified'\) \{/);
+    expect(t).toMatch(/step\('done'\)!\.state = 'awaiting';/);
+  });
+
+  it('moves only on a real change: one-shots keyed by state, a stamp only when the job just finished', () => {
+    const c = read('web/src/ChatView.tsx');
+    expect(c).toMatch(/key=\{`\$\{s\.key\}:\$\{s\.state\}`\}/);
+    expect(c).toMatch(/const landing = justFinished && \(t\.outcome === 'verified' \|\| t\.outcome === 'failed'\);/);
     const css = read('web/src/styles.css');
-    const block = css.slice(css.indexOf('/* ---------- job tracker'), css.indexOf('/* ---------- auto-route chip'));
+    const block = css.slice(css.indexOf('/* ---------- job tracker'), css.indexOf('/* ---------- tool runs'));
+    // The layout block itself does not move; the motion is its own section,
+    // and every piece of it stops under reduced motion.
     expect(block).not.toMatch(/animation/);
-    expect(block).toMatch(/\.tracker-step\.active \.tracker-dot/);
+    const motion = css.slice(css.indexOf('/* ---------- tracker motion'));
+    expect(motion).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tracker-stamp\.land[\s\S]*animation: none !important/);
+    // The only loop is the phase in progress -- a persistent state, named so.
+    expect(motion).toMatch(/\.seg\.active\.working::after/);
+  });
+})
+
+describe('a job that edited files is checked when it ends', () => {
+  // 2026-09-25: the VERIFIED stamp never landed -- direct work never ran a
+  // gate. The project's own checks now run after a turn that edited files.
+  const b = read('server/src/sessions.ts');
+  const m = b.slice(b.indexOf('private async autoCheck('), b.indexOf('private async autoVerify('));
+  it('runs commands only -- never a model, so it costs no quota', () => {
+    expect(m).toMatch(/verifyTask\(\{ cwd: this\.cwd, taskId: this\.id, fingerprintAtStart: this\.gateFingerprintAtStart, checks \}\)/);
+    expect(m).not.toMatch(/review:/);
+  });
+  it('leaves a project with no check alone instead of stamping every edit "not verified"', () => {
+    expect(m).toMatch(/if \(checks === null\) return;/);
+  });
+  it('never marks a newer turn idle', () => {
+    expect(m).toMatch(/if \(seq === this\.turnSeq\) this\.pushEvent\(\{ type: 'status', state: 'idle'/);
   });
 })
 
@@ -921,7 +958,7 @@ describe('a plain chat turn gets its own finished beat', () => {
     // Still keyed on the end index, never a clock; a finished turn is Done
     // (proven) or Your turn (handed back) since 2026-09-25.
     expect(c).toMatch(/const justFinished = \(doneStep\?\.state === 'done' \|\| doneStep\?\.state === 'awaiting'\)[^;]*t\.endIndex > session\.replayedCount;/);
-    expect(c).toMatch(/<SpriteAvatar key=\{t\.endIndex\} crew=\{t\.who\} pose="cheer"/);
+    expect(c).toMatch(/<SpriteAvatar key=\{t\.endIndex\} crew=\{t\.who\} pose=\{t\.outcome === 'failed' \? 'think' : 'cheer'\}/);
   });
   it('the beat is a CSS animation, not JS, and stops under reduced motion', () => {
     const css = read('web/src/styles.css');

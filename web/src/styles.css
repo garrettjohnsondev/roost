@@ -644,84 +644,49 @@ button {
 .consult-dismiss { width: auto; margin-top: 0; padding: 6px 10px; }
 
 /* ---------- job tracker (the pizza tracker) ---------- */
-
+/* Rebuilt 2026-09-25. Look up and read where the job is: the phase in big
+   letters, what it is on, and a chunky bar -- one block per phase, filled for
+   done, lit for now, empty for what is left. Labels sit INSIDE the blocks, so
+   nothing is drawn across the text. Motion lives in the section after this
+   one and plays only on a real change. */
 .job-tracker {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 6px 12px 7px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 8px 12px 9px; min-width: 0; overflow-x: clip;
+  border-bottom: 1px solid var(--border); background: var(--surface); box-shadow: none;
 }
-.tracker-name {
-  font-family: var(--font-display, inherit);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.tracker-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.tracker-now { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tracker-word {
+  font-family: var(--font-display, inherit); font-size: 15px; line-height: 1.15; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--accent-ink, var(--accent));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* A grid, not a flex row: five nowrap labels in a flex row set a min-content
-   width over 375px and pushed the whole page past the phone's edge (found
-   2026-09-24 in headless shots). minmax(0, 1fr) has a true zero minimum. */
-.tracker-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
-  align-items: center;
-  min-width: 0;
+.outcome-verified .tracker-word { color: var(--ok); }
+.outcome-failed .tracker-word { color: var(--danger); }
+.outcome-yours .tracker-word { color: var(--accent-ink, var(--accent)); }
+.tracker-detail { font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tracker-who { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; color: var(--text-dim); flex-shrink: 0; align-self: flex-start; margin-top: 3px; }
+/* The name row is kept for the older call sites (none left in the chat). */
+.tracker-name { font-family: var(--font-display, inherit); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A grid with a true zero minimum: labels can never push the page past the
+   phone's edge (the 2026-09-24 overflow). */
+.tracker-bar {
+  list-style: none; margin: 0; padding: 0; position: relative;
+  display: grid; grid-template-columns: repeat(var(--segs, 4), minmax(0, 1fr)); gap: 3px; min-width: 0;
 }
-.job-tracker { min-width: 0; }
-.tracker-step {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  font-size: 11px;
-  color: var(--text-dim);
-  position: relative;
+.seg {
+  position: relative; height: 20px; min-width: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: color-mix(in srgb, var(--text-dim) 8%, transparent);
+  font-size: 10.5px; color: var(--text-dim); border-radius: 2px;
 }
-/* The track between steps: a hairline, filled once the step before is done. */
-/* The track: pixel dashes, lit once the step before is done (2026-09-24:
-   "it's pretty plain"). Steps are pixel blocks, like the fuel gauge. */
-.tracker-step + .tracker-step::before {
-  content: '';
-  flex: 1 1 8px;
-  height: 3px;
-  margin: 0 5px 0 -1px;
-  min-width: 6px;
-  background: repeating-linear-gradient(90deg, var(--border) 0 3px, transparent 3px 6px);
-}
-.tracker-step.done + .tracker-step::before { background: repeating-linear-gradient(90deg, var(--ok) 0 3px, transparent 3px 6px); }
-.tracker-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--text-dim) 22%, transparent);
-  flex-shrink: 0;
-  position: relative;
-}
-.tracker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tracker-step.done .tracker-dot { background: var(--ok); box-shadow: inset -2px -2px 0 color-mix(in srgb, #000 22%, transparent); }
-.tracker-step.done .tracker-label { color: var(--text); }
-/* Lit, not animated: the sprite in the head is the motion. */
-.tracker-step.active .tracker-dot { background: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent), inset -2px -2px 0 color-mix(in srgb, #000 22%, transparent); }
-.tracker-step.active .tracker-label { color: var(--text); font-weight: 600; }
-.tracker-step.awaiting .tracker-dot { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
-.tracker-step.awaiting .tracker-label { color: var(--accent-ink); font-weight: 600; }
-.tracker-step.failed .tracker-dot { background: var(--danger); }
-.tracker-step.failed .tracker-label { color: var(--danger); }
+.seg-label { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
+.seg.done { background: var(--ok); border-color: var(--ok); color: #fff; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 22%, transparent); }
+.seg.active { background: var(--accent); border-color: var(--accent); color: #1a1405; font-weight: 700; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 22%, transparent); }
+.seg.awaiting { background: transparent; border: 2px solid var(--accent); color: var(--accent-ink, var(--accent)); font-weight: 700; }
+.seg.failed { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 700; }
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
-.tracker-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.tracker-head .tracker-name { flex: 1 1 auto; min-width: 0; }
-.tracker-who { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; color: var(--text-dim); flex-shrink: 0; }
-.job-tracker { box-shadow: none; }
 
 /* ---------- tool runs (consecutive calls, folded) ---------- */
 
@@ -3380,3 +3345,72 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .work-line { font-size: 15px; line-height: 1.5; color: var(--text); min-width: 0; }
 .work-line .markdown > :first-child { margin-top: 0; }
 .work-line .markdown > :last-child { margin-bottom: 0; }
+
+/* ---------- tracker motion: state changes only (Effects board 01, 08) ----- */
+/* A phase finishing fills its block left to right and pops a check. Keyed by
+   state in ChatView, so it plays once per change and never on opening. */
+.seg.done.just::before {
+  content: ''; position: absolute; inset: 0; background: color-mix(in srgb, #fff 45%, var(--ok));
+  transform-origin: left; animation: seg-fill 520ms steps(8, end) both;
+}
+@keyframes seg-fill { from { transform: scaleX(0); opacity: 1; } 80% { transform: scaleX(1); opacity: 1; } to { transform: scaleX(1); opacity: 0; } }
+.seg.done.just .seg-label { animation: seg-pop 420ms 380ms cubic-bezier(0.3, 1.6, 0.4, 1) both; }
+@keyframes seg-pop { from { transform: scale(0.6); } to { transform: scale(1); } }
+/* The phase starting now lands with a small drop -- you see it change. */
+.seg.active.just, .seg.awaiting.just, .seg.failed.just { animation: seg-arrive 360ms cubic-bezier(0.3, 1.5, 0.4, 1) both; }
+@keyframes seg-arrive { from { transform: translateY(-5px); } to { transform: translateY(0); } }
+/* While a phase is actually in progress, a slow pixel sheen crosses it: the
+   work is ongoing, the same persistent-state rule as the typing dots. */
+.seg.active.working::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -30%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, #fff 40%, transparent), transparent);
+  animation: seg-working 1.8s steps(12, end) infinite;
+}
+@keyframes seg-working { to { left: 100%; } }
+/* The new headline arrives rather than swaps. */
+.tracker-word { animation: word-in 300ms ease-out both; }
+@keyframes word-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* The stamp. A passing check is the highest-evidence moment in the product:
+   VERIFIED slams onto the bar at an angle and stays; a failure stamps red.
+   It lands only when the job JUST finished -- replayed, it is simply there. */
+.tracker-stamp {
+  position: absolute; right: 6px; top: 50%; z-index: 2; list-style: none;
+  font-family: var(--font-display, inherit); font-size: 12px; letter-spacing: .08em;
+  padding: 3px 8px; transform: translateY(-50%) rotate(-7deg);
+  border: 2px solid var(--surface); box-shadow: var(--shadow-hard, 3px 3px 0 rgba(0,0,0,.35));
+}
+.tracker-stamp.verified { background: var(--ok); color: #fff; }
+.tracker-stamp.failed { background: var(--danger); color: #fff; }
+.tracker-stamp.land { animation: tracker-stamp-land 560ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes tracker-stamp-land {
+  0% { opacity: 0; transform: translateY(-50%) scale(2.6) rotate(-16deg); }
+  55% { opacity: 1; transform: translateY(-50%) scale(0.86) rotate(-7deg); }
+  75% { transform: translateY(-50%) scale(1.07) rotate(-7deg); }
+  100% { opacity: 1; transform: translateY(-50%) scale(1) rotate(-7deg); }
+}
+/* The whole bar takes the hit. */
+.outcome-verified .tracker-bar:has(.tracker-stamp.land), .outcome-failed .tracker-bar:has(.tracker-stamp.land) { animation: bar-thud 260ms 300ms ease-out both; }
+@keyframes bar-thud { 0% { transform: translateY(0); } 40% { transform: translateY(2px); } 100% { transform: translateY(0); } }
+/* Earned delight: a burst of pixels off the stamp, once. */
+.stamp-confetti { position: absolute; inset: 0; pointer-events: none; }
+.stamp-confetti span {
+  position: absolute; top: 40%; left: 50%; width: 5px; height: 5px;
+  animation: stamp-burst 900ms 330ms cubic-bezier(0.15, 0.7, 0.3, 1) both;
+}
+.stamp-confetti span:nth-child(1) { --dx: -34px; --dy: -22px; background: var(--accent); }
+.stamp-confetti span:nth-child(2) { --dx: -16px; --dy: -30px; background: var(--ok); }
+.stamp-confetti span:nth-child(3) { --dx: 2px; --dy: -34px; background: var(--claude, #c9764a); }
+.stamp-confetti span:nth-child(4) { --dx: 20px; --dy: -28px; background: var(--accent); }
+.stamp-confetti span:nth-child(5) { --dx: 36px; --dy: -18px; background: var(--codex, #3d9c78); }
+.stamp-confetti span:nth-child(6) { --dx: 46px; --dy: -4px; background: var(--ok); }
+@keyframes stamp-burst {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(90deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg.done.just::before, .seg.done.just .seg-label, .seg.active.just, .seg.awaiting.just, .seg.failed.just,
+  .seg.active.working::after, .tracker-word, .tracker-stamp.land, .tracker-bar, .stamp-confetti span { animation: none !important; }
+  .seg.done.just::before, .seg.active.working::after, .stamp-confetti { display: none; }
+}
