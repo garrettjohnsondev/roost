@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chaptersOf, chapterName, dayLabel, groupChaptersByDay, type Chapter } from './chapters';
+import { chaptersOf, chapterName, dayLabel, groupChaptersByDay, isWeakName, type Chapter } from './chapters';
 import type { ChatItem } from './types';
 
 const ollie = { name: 'Ollie' } as any, juno = { name: 'Juno' } as any, moss = { name: 'Moss' } as any;
@@ -113,5 +113,38 @@ describe('groupChaptersByDay — collapses consecutive same-bucket chapters, nev
   it('every group carries a stable key distinct from its label', () => {
     const groups = groupChaptersByDay([ch(now)], now);
     expect(groups[0].key).toBe('today');
+  });
+});
+
+describe('where a job ends (item 31)', () => {
+  const u = (text: string, ts: number) => ({ kind: 'user', text, imageCount: 0, ts }) as ChatItem;
+  const a = (text: string, ts: number) => ({ kind: 'assistant', text, complete: true, ts }) as ChatItem;
+  const failed = (ts: number) => ({ kind: 'verify', report: { passed: false, unverified: false, summary: '', gates: [], images: [], tampered: false }, ts }) as unknown as ChatItem;
+
+  it('a failed verify no longer holds every later task in one job (the 2026-09-24 day)', () => {
+    const items = [u('Fix the login bug', 0), a('Fixed.', 1), failed(2), u('Look at this screenshot', 3), a('I see six bars.', 4), u('Write up an md on the animations', 5), a('Written.', 6)];
+    const ch = chaptersOf(items);
+    expect(ch.map((c) => c.name)).toEqual(['login bug', 'this screenshot', 'up an md on the']);
+    expect(ch[0].status).toBe('needs-work');
+    expect(ch[1].status).toBe('open');
+  });
+
+  it('go-aheads, agreements and short questions stay in the job they answer', () => {
+    const items = [u('Build the map screen', 0), a('Plan ready.', 1), u('Proceed', 2), a('Building.', 3), u('Are we stalled?', 4), a('No.', 5), u('I agree', 6), a('Done.', 7)];
+    expect(chaptersOf(items)).toHaveLength(1);
+  });
+
+  it('a long quiet spell starts a new job even on a go-ahead', () => {
+    const items = [u('Build the map', 0), a('Done.', 1), u('ok', 1 + 46 * 60_000), a('Sure.', 2 + 46 * 60_000)];
+    expect(chaptersOf(items)).toHaveLength(2);
+  });
+
+  it('an ask that names nothing takes the next one that does, then the crew’s own line', () => {
+    expect(chaptersOf([u('Bram proceed with the remaining', 0), a('Reworking the fold tile.', 1)])[0].name).toBe('Reworking the fold tile');
+    expect(isWeakName(chapterName('Bram proceed with the remaining'))).toBe(true);
+  });
+
+  it('a job with no crew turn yet absorbs the next message instead of splitting', () => {
+    expect(chaptersOf([u('Fix the header', 0), u('and the footer', 1), a('Both fixed.', 2)])).toHaveLength(1);
   });
 });

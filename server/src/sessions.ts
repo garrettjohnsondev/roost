@@ -34,7 +34,7 @@ import { TranscriptWriter, lastState, readTranscript, removeTranscript } from '.
 import { composeHandoffPrompt, composeMentionPrompt, modelForPersona, parseMention } from './mentions.js';
 import { runAgentTask, type AgentTaskRun } from './agents/dispatch.js';
 import { allPersonas, personaFor } from './crew.js';
-import { autoTitle, jobName } from './naming.js';
+import { autoTitle, isWeakName, jobName, startsNewJob } from './naming.js';
 import { callLedger } from './ledger.js';
 import { crewMember, type CrewRole } from './crew.js';
 import { estimateCost } from './pricing.js';
@@ -115,6 +115,11 @@ export class Session {
   titleAuto = true;
   jobAsk?: string;
   jobsDone: string[] = [];
+  /** Crew turns in the open job, and the crew's first line about it -- the
+   *  name when the ask itself names nothing. */
+  private jobTurns = 0;
+  private jobWork?: string;
+  private lastEventTs = 0;
   private consultCancelled = false;
   pendingConsult?: ConsultState;
   private standardModelFor: (agent: AgentKind) => string;
@@ -605,13 +610,39 @@ export class Session {
     // Jobs, for the name: the open job starts at its first ask and closes when
     // its gates pass. The title follows unless a person set one. (The client
     // folds the same jobs into its own view; this only names things.)
-    if (event.type === 'user_message' && event.text && !event.text.startsWith('▶') && !this.jobAsk) {
+    if (event.type === 'user_message' && event.text && !event.text.startsWith('▶') && this.jobAsk && this.jobTurns > 0
+        && startsNewJob(event.text, event.ts - this.lastEventTs)) {
+      // Item 31: the next task ends this job, verified or not.
+      this.jobsDone.push(this.jobLabel());
+      this.jobAsk = event.text;
+      this.jobWork = undefined;
+      this.jobTurns = 0;
+      this.retitle();
+    } else if (event.type === 'user_message' && event.text && !event.text.startsWith('▶') && !this.jobAsk) {
+      this.jobAsk = event.text;
+      this.jobWork = undefined;
+      this.jobTurns = 0;
+      this.retitle();
+    } else if (event.type === 'user_message' && event.text && this.jobAsk && isWeakName(jobName(this.jobAsk)) && !isWeakName(jobName(event.text))) {
+      // The opener named nothing ("proceed with the remaining"); the first
+      // ask that does names the job.
       this.jobAsk = event.text;
       this.retitle();
     } else if (event.type === 'verify' && event.report.passed && this.jobAsk) {
-      this.jobsDone.push(jobName(this.jobAsk));
+      this.jobsDone.push(this.jobLabel());
       this.jobAsk = undefined;
+      this.jobTurns = 0;
       this.retitle();
+    }
+    if ((event.type === 'assistant_message' || event.type === 'consult') && event.text && this.jobAsk) {
+      this.jobTurns++;
+      if (!this.jobWork) {
+        this.jobWork = event.text.replace(/[`*_#>]/g, '').split(/(?<=[.!?])\s|\n/)[0];
+        if (isWeakName(jobName(this.jobAsk))) this.retitle();
+      }
+    }
+    if (event.type === 'user_message' || event.type === 'assistant_message' || event.type === 'consult' || event.type === 'tool_start') {
+      this.lastEventTs = event.ts;
     }
     this.transcript.push(event);
     this.transcriptWriter.append(event);
@@ -1252,9 +1283,18 @@ export class Session {
     return lines.join('\n');
   }
 
+  /** The open job's name: the ask, or -- when the ask names nothing -- the
+   *  crew's first line about the work. The same rule the board uses. */
+  private jobLabel(): string {
+    const ask = this.jobAsk ? jobName(this.jobAsk) : '';
+    if (ask && !isWeakName(ask)) return ask;
+    const work = this.jobWork ? jobName(this.jobWork) : '';
+    return work && !isWeakName(work) ? work : ask || 'Untitled job';
+  }
+
   private retitle(): void {
     if (!this.titleAuto) return;
-    const next = autoTitle(this.jobAsk, this.jobsDone);
+    const next = autoTitle(this.jobAsk ? this.jobLabel() : undefined, this.jobsDone, 60, true);
     if (next === this.title) return;
     this.title = next;
     this.onChange?.();

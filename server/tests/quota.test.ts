@@ -179,7 +179,7 @@ describe('claude structured usage read', () => {
   });
 
   it('falls back to flat five_hour/seven_day keys when limits[] is absent', () => {
-    store.noteClaudeUsageRead({ rate_limits: { five_hour: { utilization: 55, resets_at: '2026-09-25T01:00:00+00:00' }, spend: { used: 1 } } });
+    store.noteClaudeUsageRead({ rate_limits: { five_hour: { utilization: 55, resets_at: new Date(Date.now() + 3_600_000).toISOString() /* relative: a fixed date expired and failed this on 2026-09-25 */ }, spend: { used: 1 } } });
     const wins = store.windows('claude');
     expect(wins).toHaveLength(1);
     expect(wins[0].usedPercent).toBe(55);

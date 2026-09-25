@@ -752,10 +752,20 @@ describe('a session is named after its jobs', () => {
     expect(pick(a, 'PREAMBLE')).toBeTruthy();
     expect(pick(a, 'PREAMBLE')).toBe(pick(b, 'PREAMBLE'));
     expect(pick(a, 'VERB')).toBe(pick(b, 'VERB'));
+    // Item 31: where a job ends is the same rule on both sides too.
+    for (const name of ['CONTINUES', 'WEAK']) {
+      expect(pick(a, name), name).toBeTruthy();
+      expect(pick(a, name), name).toBe(pick(b, name));
+    }
+    const fn = (src: string) => src.slice(src.indexOf('export function startsNewJob'), src.indexOf('export function isWeakName'));
+    expect(fn(a)).toBe(fn(b));
+    expect(a.match(/const JOB_GAP_MS = .*;/)?.[0]).toBe(b.match(/const JOB_GAP_MS = .*;/)?.[0]);
   });
   it('the first sixty characters are no longer the title; chapters are, unless you typed one', () => {
     expect(s).not.toMatch(/this\.title = truncate\(msg\.text, 60\)/);
-    expect(s).toMatch(/this\.jobsDone\.push\(jobName\(this\.jobAsk\)\);/);
+    expect(s).toMatch(/this\.jobsDone\.push\(this\.jobLabel\(\)\);/);
+    // Item 31: the next task closes the job, verified or not.
+    expect(s).toMatch(/this\.jobTurns > 0\s*&& startsNewJob\(event\.text, event\.ts - this\.lastEventTs\)/);
     expect(s).toMatch(/this\.title = title;\s*this\.titleAuto = false;/);
     expect(s).toMatch(/if \(!this\.titleAuto\) return;/);
   });
