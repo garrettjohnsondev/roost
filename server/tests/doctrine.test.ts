@@ -1385,3 +1385,16 @@ describe('the Control, Context and Roadmap boards (docs/board/), built', () => {
     for (const name of ['effort:', "'pip-proposes':", "'compact-ask':"]) expect(fx).toContain(name);
   });
 });
+
+describe('one agent, one identity (item 32)', () => {
+  const s = read('server/src/sessions.ts');
+  it('replies and the header are signed from the model actually speaking, alias read through', () => {
+    expect(s).toMatch(/const model = this\.speakingModel\(\);/);
+    expect(s).toMatch(/crew: crewMember\(this\.agent, this\.speakingModel\(\), this\.currentRole\)/);
+    expect(s).toMatch(/return card\?\.resolvedId \|\| m;/);
+  });
+  it('outside auto there is no routed model to go stale', () => {
+    expect(s).toMatch(/if \(this\.autoMode\) this\.routedModel = model;\s*else this\.model = model;/);
+    expect(s).toMatch(/if \(!this\.autoMode\) this\.routedModel = undefined;/);
+  });
+});

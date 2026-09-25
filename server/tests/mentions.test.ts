@@ -36,6 +36,13 @@ describe('a persona resolves to a concrete model', () => {
     expect(modelForPersona({ match: 'astra', name: 'Nell', tier: 'flagship', color: '#000' }, 'codex', cards, route)).toEqual({ model: 'gpt-5.6-astra', exact: true });
   });
 
+  it('prefers a card that names the model over an alias that only resolves to it (item 32)', () => {
+    // The live roster, 2026-09-25: "default" is listed first and resolves to
+    // Opus. Matching it sent "Ollie, …" to model "default" -- Fig's.
+    const cards = [card('claude', 'default', 'claude-opus-5-5[1m]'), card('claude', 'opus[1m]', 'claude-opus-5-5[1m]')];
+    expect(modelForPersona({ match: 'opus', name: 'Ollie', tier: 'flagship', color: '#000' }, 'claude', cards, route).model).toBe('opus[1m]');
+  });
+
   it('never returns an empty model; an unresolvable match falls back and says so', () => {
     const r = modelForPersona({ match: 'nonesuch', name: 'X', tier: 'worker', color: '#000' }, 'claude', [], route);
     expect(r.model).toBe('sonnet');

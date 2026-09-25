@@ -210,6 +210,9 @@ export class Session {
     this.onChange = opts.onChange;
     this.autoRoute = config.autoRoute[agent];
     this.routedModel = opts.restore?.routedModel ?? this.routedModel;
+    // Only auto routes. A routed model restored into a chat/plan session is a
+    // leftover (this is how "default" outlived a restart, item 32).
+    if (!this.autoMode) this.routedModel = undefined;
     this.pendingConsult = opts.restore?.pendingConsult;
     // Consult one-shots run on each agent's "standard" tier model — capable enough to
     // plan/review, without paying heavy-tier prices for a throwaway run.
@@ -273,7 +276,10 @@ export class Session {
         if (asked) this.noteResolved(asked, model);
         // In auto mode 'auto' is the setting; the engine's answer is the routed reality.
         if (this.autoMode) this.routedModel = model;
-        else this.model = model;
+        else {
+          this.model = model;
+          this.routedModel = undefined;
+        }
         this.broadcastMeta();
       },
       // Per-call usage lands in the durable ledger. Engines that report their own
@@ -330,7 +336,7 @@ export class Session {
       state: this.lastStatus,
       scene: this.projectScene,
       escalation: this.escalationOffer ? { reason: this.escalationOffer.reason, planner: this.escalationOffer.planner, reviewer: this.escalationOffer.reviewer } : undefined,
-      crew: crewMember(this.agent, this.autoMode ? this.routedModel ?? this.model : this.model, this.currentRole),
+      crew: crewMember(this.agent, this.speakingModel(), this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
       mode: this.mode,
@@ -539,7 +545,7 @@ export class Session {
     // -- Phase 1's promise. Only consult turns had it; ordinary replies did not.
     // Deltas are left bare (the reducer folds them into the completed turn).
     if (event.type === 'assistant_message' && !event.crew) {
-      const model = this.routedModel || (this.model && this.model !== 'auto' ? this.model : this.standardModelFor(this.agent));
+      const model = this.speakingModel();
       event = { ...event, crew: { ...crewMember(this.agent, model, this.currentRole), effort: this.effort || undefined, effortNote: this.effortNote } };
       this.effortNote = undefined;
     }
@@ -1213,9 +1219,13 @@ export class Session {
     if (suite === this.agent && how === 'mention') {
       // Same vendor: this session becomes theirs for the turn. Auto mode
       // re-triages on the next message (lastTier cleared).
-      if (model !== (this.routedModel ?? this.model)) {
+      if (model !== (this.autoMode ? this.routedModel ?? this.model : this.model)) {
         await this.adapter.setModel(model);
-        this.routedModel = model;
+        // Outside auto there is no routed model -- the session's own model is
+        // what changed. Writing routedModel here left a stale one behind that
+        // every later reply was signed from.
+        if (this.autoMode) this.routedModel = model;
+        else this.model = model;
         this.lastTier = undefined;
       }
       if (!quiet) this.notice(`${name} takes this one — you asked by name.`);
@@ -1281,6 +1291,16 @@ export class Session {
       lines.push(`${agent}${agent === this.agent ? ' (this session)' : ''}: ${w?.label ?? 'window'} ${h.worstPercent}% used${when} — ${h.state}`);
     }
     return lines.join('\n');
+  }
+
+  /** The model that is actually speaking, as a persona sees it: routed in
+   *  auto, the session's own model otherwise -- and an alias ("default",
+   *  "opus") read through to what the engine resolved it to, so one model is
+   *  one name everywhere (item 32). */
+  private speakingModel(): string {
+    const m = this.autoMode ? this.routedModel ?? this.standardModelFor(this.agent) : this.model || this.standardModelFor(this.agent);
+    const card = modelRegistry().get(this.agent, m);
+    return card?.resolvedId || m;
   }
 
   /** The open job's name: the ask, or -- when the ask names nothing -- the

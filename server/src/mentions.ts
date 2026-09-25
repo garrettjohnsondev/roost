@@ -42,7 +42,14 @@ export function modelForPersona(
   const std = route.standard.model;
   if (!p.match) return { model: std, exact: true };
   const needle = p.match.toLowerCase();
-  const card = cards.find((c) => c.agent === suite && !c.hidden && (c.id.toLowerCase().includes(needle) || (c.resolvedId ?? '').toLowerCase().includes(needle)));
+  // A card whose OWN id names the model wins over one that only resolves to
+  // it. "default" resolves to Opus today, and matching on that sent every
+  // "Ollie, …" to the model id "default" -- which is Fig's, so Ollie's
+  // replies were signed Fig (item 32, 2026-09-25).
+  const mine = cards.filter((c) => c.agent === suite && !c.hidden);
+  const card =
+    mine.find((c) => c.id.toLowerCase().includes(needle)) ??
+    mine.find((c) => (c.resolvedId ?? '').toLowerCase().includes(needle));
   if (card) return { model: card.id, exact: true };
   for (const tier of ['heavy', 'standard', 'light'] as const) {
     const m = route[tier]?.model;
