@@ -317,11 +317,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </button>
         {session.meta && (
           <button className="ghost" onClick={() => setDeploy({})} title="Deploy">
-            <Icon name="rocket" size={22} />
+            <Icon name="rocket" size={24} />
           </button>
         )}
-        <button className="ghost git-btn" onClick={() => setShowGit(true)}>
-          ⎇
+        <button className="ghost git-btn" onClick={() => setShowGit(true)} title="Changes (git)">
+          <Icon name="github" size={24} />
         </button>
         {session.meta && (
           <button className="ghost" onClick={() => setShowLive(true)} title="Live preview">

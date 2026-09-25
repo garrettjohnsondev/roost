@@ -35,6 +35,7 @@
 [data-theme='dark'] {
   --bg: #0f1729;
   --crew-tint: 15%;
+  --tracker-tint: 9%;
   --surface: #131c33;
   --surface-2: #1c2740;
   --border: #2b3a63;
@@ -654,7 +655,9 @@ button {
 .job-tracker {
   display: flex; flex-direction: column; gap: 2px;
   padding: 7px 12px 6px; min-width: 0; overflow-x: clip;
-  border-bottom: 1px solid var(--border); background: var(--surface); box-shadow: none;
+  border-bottom: 1px solid var(--border); box-shadow: none;
+  /* Set apart from the thread: a faint wash of the lamp, per theme. */
+  background: color-mix(in srgb, var(--accent) var(--tracker-tint, 7%), var(--surface));
 }
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
 .trail-line { font-size: 13px; line-height: 1.3; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
