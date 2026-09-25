@@ -1,3 +1,4 @@
+import { CompanionHost } from './CompanionSheet';
 import { useEffect, useState } from 'react';
 import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
@@ -49,15 +50,21 @@ export function App() {
       </div>
     );
 
-  return activeSession ? (
-    <ChatView
-      sessionId={activeSession}
-      config={config}
-      onBack={() => setActiveSession(null)}
-      onSwitch={setActiveSession}
-    />
-  ) : (
-    <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} />
+  return (
+    <>
+      {activeSession ? (
+        <ChatView
+          sessionId={activeSession}
+          config={config}
+          onBack={() => setActiveSession(null)}
+          onSwitch={setActiveSession}
+        />
+      ) : (
+        <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} />
+      )}
+      {/* A crew member's card, from any face you tap (item 40). */}
+      <CompanionHost />
+    </>
   );
 }
 

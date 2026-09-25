@@ -408,3 +408,26 @@ export interface RoadmapView {
   corrections: number | null;
   open: Array<{ n: number; title: string }> | null;
 }
+
+/** The crew as companions (server/src/companions.ts, item 40). */
+export interface Companion {
+  name: string;
+  joined: number | null;
+  lastWorked: number | null;
+  calls: number;
+  callsToday: number;
+  wrote: number;
+  longestThink: number | null;
+  streak: number;
+  bestStreak: number;
+  jobsVerified: number;
+  gatesFailed: number;
+  askedByName: number;
+  lastJob: { at: number; passed: boolean; job?: string } | null;
+  energy: number | null;
+  mood: { key: string; line: string };
+  pose: 'type' | 'think' | 'cheer' | 'sleep' | 'peek' | 'blink' | 'idle';
+  level: number;
+  milestones: Array<{ id: string; label: string; how: string; earnedAt: number | null }>;
+}
+export interface AwaySummary { busiest: string | null; calls: number; shipped: number; failed: number }

@@ -8,6 +8,7 @@ import { Icon } from './icons';
 import { segmentsOf, summarizeRun } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { Contained } from './ErrorBoundary';
+import { openCompanion } from './CompanionSheet';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -816,6 +817,14 @@ export function avatarUrl(avatar?: string): string | null {
  *  cuts back to. */
 export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep' | 'sit' | 'side' | 'hold' | 'dance';
 
+/** Four drawings per working pose (item 38): the pose's own frame, then the
+ *  three drawn for it -- left paw, right paw, a pause to read back; tilt one
+ *  way, the other, then the idea. Played in order, one at a time. */
+const WORK_FRAMES: Record<'type' | 'think', string[]> = {
+  type: ['type', 'type2', 'type3', 'type4'],
+  think: ['think', 'think2', 'think3', 'think4'],
+};
+
 /** A drawn crew member, animated by CUTTING between two frames rather than
  *  cross-fading them.
  *
@@ -828,9 +837,21 @@ export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sle
  *  loops on its own schedule. */
 export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; pose: Pose; size: number; className?: string }) {
   const [failed, setFailed] = useState(false);
+  // A working pose plays four drawings (item 38) when all four are drawn;
+  // until then -- or if one fails to load -- the original two-frame cut.
+  const [short, setShort] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   const moving = pose === 'type' || pose === 'think';
   const base = `/crew/${crew.sprite}`;
+  if (moving && !short) {
+    return (
+      <span className={`crew-sprite four pose-${pose} moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
+        {WORK_FRAMES[pose].map((f, i) => (
+          <img key={f} className={`f${i}`} src={`${base}-${f}.webp`} alt="" onError={() => (i === 0 ? setFailed(true) : setShort(true))} />
+        ))}
+      </span>
+    );
+  }
   // Exactly ONE drawing visible at any moment. The frames are transparent, so a
   // frame stacked over another does not hide it — the first version kept idle
   // drawn underneath and a typing owl had four wings. A two-frame pose now
@@ -1246,7 +1267,7 @@ function CompactAsk({ crew, percent, keep, onKeep, onCompact, onNotYet }: {
 function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; head?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="crew-row">
-      <span className="crew-row-face">
+      <span className="crew-row-face" role="button" tabIndex={0} title={`${crew.name} — tap for their card`} onClick={() => openCompanion(crew)}>
         <SpriteAvatar crew={crew} pose={pose} size={52} />
       </span>
       <div className="crew-row-col">

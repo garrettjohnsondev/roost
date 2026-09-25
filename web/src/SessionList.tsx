@@ -6,6 +6,7 @@ import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
 import { RoadmapSheet } from './RoadmapSheet';
+import { AwayGreeting, openCompanion } from './CompanionSheet';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
 import { Icon, type IconName } from './icons';
@@ -98,6 +99,7 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
   const sleepers = crew.filter((c) => poseOf(c.name) === 'sleep');
   return (
     <section className="crew-strip" aria-label="The crew">
+      <AwayGreeting crew={crew} />
       <SceneView awake={awake} projectScene={[...sessions].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).find((s) => s.scene)?.scene} />
       <div className={`crew-strip-faces${sleepers.length ? ' bunks' : ''}`}>
         {crew.map((c) => {
@@ -105,7 +107,7 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
           const bubble = bubbleFor(c.name, pose);
           const visiting = bubble && visitable[visitor]?.name === c.name;
           return (
-            <div key={c.name} className={`crew-strip-member ${pose}`} title={`${c.name} — ${pose === 'sleep' ? 'asleep' : pose === 'type' ? 'working' : 'awake'}`}>
+            <div key={c.name} className={`crew-strip-member ${pose}`} title={`${c.name} — ${pose === 'sleep' ? 'asleep' : pose === 'type' ? 'working' : 'awake'} · tap for their card`} role="button" tabIndex={0} onClick={() => openCompanion(c)} onKeyDown={(e) => e.key === 'Enter' && openCompanion(c)}>
               {visiting && (
                 <span key={visit} className="crew-bubble" aria-hidden="true">
                   {'text' in bubble ? bubble.text : <Icon name={bubble.icon} />}

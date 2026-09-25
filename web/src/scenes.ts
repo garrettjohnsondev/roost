@@ -116,13 +116,14 @@ export const SCENES: Scene[] = [
   ], ambient: { stars: { x0: 60, y0: 0, x1: 512, y1: 48, n: 18 }, shooting: { x0: 120, y0: 4, x1: 440, y1: 36, every: 71 }, snow: true } },
 ];
 
-/** Which scene is on: it changes on the hour, on its own -- a set change,
- *  not a loop. `offset` is the viewer's taps on the scene. */
+/** Which scene is on: one a day (item 39, 2026-09-25 -- "I only want the
+ *  scene to switch every 24 hours"). It turns over at local midnight, the
+ *  same for every screen that day, and walks the whole set before repeating.
+ *  `offset` stays for tests; nothing in the app passes one. */
 export function sceneIndexFor(date: Date, offset = 0, count = SCENES.length): number {
   if (count <= 0) return 0;
-  const start = new Date(date.getFullYear(), 0, 0);
-  const day = Math.floor((date.getTime() - start.getTime()) / 86_400_000);
-  return (day * 24 + date.getHours() + offset) % count;
+  const day = Math.floor(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 86_400_000);
+  return (((day + offset) % count) + count) % count;
 }
 
 export interface Placed {

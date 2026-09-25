@@ -132,6 +132,77 @@ def sheet(names):
     print(f'sheet: {dest} ({len(rows)} rows x {len(cols)})')
 
 
+WORK = {'type': ['type2', 'type3', 'type4'], 'think': ['think2', 'think3', 'think4']}
+
+
+def _bbox(im):
+    return im.getchannel('A').point(lambda a: 255 if a > 40 else 0).getbbox()
+
+
+def work(names):
+    """Item 38: the three new drawings for typing and for thinking. The frames
+    are cut in place, one after another, so each is ALIGNED to the pose's
+    existing frame: same foot line, same centre, and rescaled (nearest, to keep
+    hard pixels) only when its height is off by more than 6% -- otherwise a
+    frame drawn a little bigger makes the character jitter as it plays."""
+    for name in names:
+        ref_hue = None
+        idle = SPRITE_RAW / f'{name}-idle.png'
+        if idle.exists():
+            ref_hue = mean_hue(Image.open(idle))
+        for base, frames in WORK.items():
+            ref_path = CREW / f'{name}-{base}.webp'
+            if not ref_path.exists():
+                print(f'{name}/{base}: no reference frame')
+                continue
+            ref = Image.open(ref_path).convert('RGBA')
+            rb = _bbox(ref)
+            for pose in frames:
+                src = RAW / 'poses' / name / f'{name}-{pose}.png'
+                if not src.exists():
+                    print(f'{name}/{pose}: missing')
+                    continue
+                big = Image.open(src).convert('RGBA')
+                hue = mean_hue(big)
+                gap = hue_gap(hue, ref_hue) if hue is not None and ref_hue is not None else None
+                im = big.resize((256, 256), Image.Resampling.BOX)
+                nb = _bbox(im)
+                if not nb or not rb:
+                    print(f'{name}/{pose}: empty frame, skipped')
+                    continue
+                part = im.crop(nb)
+                rh, nh = rb[3] - rb[1], nb[3] - nb[1]
+                scaled = abs(nh - rh) / rh > 0.06
+                if scaled:
+                    k = rh / nh
+                    part = part.resize((max(1, round(part.width * k)), max(1, round(part.height * k))), Image.Resampling.NEAREST)
+                out_im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+                cx = (rb[0] + rb[2]) // 2
+                x = cx - part.width // 2
+                y = rb[3] - part.height
+                out_im.paste(part, (x, y), part)
+                out = CREW / f'{name}-{pose}.webp'
+                out_im.save(out, 'WEBP', lossless=True)
+                flag = ' DRIFT' if gap is not None and gap > 12 else ''
+                print(f'{name}/{pose}: aligned to {base} (h {nh}->{part.height}{" scaled" if scaled else ""}) hue_gap={None if gap is None else round(gap, 1)}{flag} transparent={transparent(big)}')
+
+
+def worksheet(names):
+    """Each character's eight working frames in play order, for the eye."""
+    cols = ['type', 'type2', 'type3', 'type4', 'think', 'think2', 'think3', 'think4']
+    out = Image.new('RGBA', (128 * len(cols), 128 * len(names)), (13, 20, 36, 255))
+    for r, name in enumerate(names):
+        for c, pose in enumerate(cols):
+            f = CREW / f'{name}-{pose}.webp'
+            if f.exists():
+                im = Image.open(f).convert('RGBA').resize((128, 128), Image.Resampling.NEAREST)
+                out.paste(im, (128 * c, 128 * r), im)
+    dest = Path('/tmp/roost-shots/work-sheet.png')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    out.save(dest)
+    print(f'worksheet: {dest}')
+
+
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet}[mode](rest)

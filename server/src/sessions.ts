@@ -5,6 +5,7 @@ import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { quotaStore } from './quota.js';
 import { refreshUsageSoon } from './usage.js';
+import { noteLife } from './companions.js';
 import { isGateRefusal } from './gate.js';
 import { chooseRoute } from './route.js';
 import { chooseEffort, classifyKind } from './routing.js';
@@ -119,6 +120,8 @@ export class Session {
   /** Crew turns in the open job, and the crew's first line about it -- the
    *  name when the ask itself names nothing. */
   private jobTurns = 0;
+  /** Everyone who spoke in the open job: whose gate it was (item 40). */
+  private jobCrew = new Set<string>();
   private jobWork?: string;
   private lastEventTs = 0;
   /** Set by the manager: a fresh usage reading landed, so every open session
@@ -624,6 +627,7 @@ export class Session {
         && startsNewJob(event.text, event.ts - this.lastEventTs)) {
       // Item 31: the next task ends this job, verified or not.
       this.jobsDone.push(this.jobLabel());
+      this.jobCrew.clear();
       this.jobAsk = event.text;
       this.jobWork = undefined;
       this.jobTurns = 0;
@@ -643,6 +647,12 @@ export class Session {
       this.jobAsk = undefined;
       this.jobTurns = 0;
       this.retitle();
+    }
+    if ((event.type === 'assistant_message' || event.type === 'consult') && event.crew?.name) this.jobCrew.add(event.crew.name);
+    if (event.type === 'verify' && !event.report.unverified && this.jobCrew.size) {
+      // The companions' diary: a gate passed or failed on THEIR job.
+      noteLife({ at: event.ts, kind: 'verify', names: [...this.jobCrew], passed: event.report.passed, job: this.jobAsk ? this.jobLabel() : undefined, sessionId: this.id });
+      if (event.report.passed) this.jobCrew.clear();
     }
     if ((event.type === 'assistant_message' || event.type === 'consult') && event.text && this.jobAsk) {
       this.jobTurns++;
@@ -1226,6 +1236,7 @@ export class Session {
       return;
     }
     const suite: AgentKind = persona.suite ?? this.agent;
+    if (!quiet) noteLife({ at: Date.now(), kind: 'asked', names: [name], sessionId: this.id });
     const route = suite === this.agent ? this.autoRoute : this.otherAutoRoute;
     const { model, exact } = modelForPersona(persona, suite, modelRegistry().all(), route);
     if (!exact) this.notice(`${name}'s usual model is not in the roster right now — using ${model}.`);

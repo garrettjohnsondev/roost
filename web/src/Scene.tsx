@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { nameColor } from './color';
+import { openCompanion } from './CompanionSheet';
 import { SCENES, placeCrew, sceneIndexFor, type Ambient, type Placed } from './scenes';
 import type { CrewInfo } from './types';
 
@@ -7,27 +8,26 @@ import type { CrewInfo } from './types';
  *  seated, with props; a working member sits and types with a laptop. The
  *  crew only move for real state; the SET moves -- stars, fire, lamps, snow
  *  (AmbientLayer, CSS only, off under reduced motion; 2026-09-24: "each scene
- *  needs something animated"). The set changes on the hour; a tap cycles it.
+ *  needs something animated"). The set changes once a day (item 39).
  *
  *  A member without the scene pose drawn yet falls back to their idle frame
  *  in the seat, not to nothing and not to someone else's art. */
 export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ member: CrewInfo; working: boolean }>; projectScene?: string; onOverflow?: (rest: CrewInfo[]) => void }) {
-  const [taps, setTaps] = useState(0);
   const [missing, setMissing] = useState(false);
   if (!SCENES.length || missing) return null;
   // ?scene=<id> pins a set, for review shots (scripts/shoot.mjs).
   const pinned = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('scene') : null;
   // A project can ask for its set (`## scene` in .roost/project.md): the most
   // recently active session's project wins, until a tap moves on from it.
-  const asked = taps === 0 ? SCENES.find((s) => s.id === projectScene) : undefined;
-  const scene = SCENES.find((s) => s.id === pinned) ?? asked ?? SCENES[sceneIndexFor(new Date(), taps)];
+  const asked = SCENES.find((s) => s.id === projectScene);
+  const scene = SCENES.find((s) => s.id === pinned) ?? asked ?? SCENES[sceneIndexFor(new Date())];
   const { placed, overflow } = placeCrew(awake, scene);
   onOverflow?.(overflow);
   return (
-    <button
+    <div
       className="scene"
-      onClick={() => setTaps((t) => t + 1)}
-      title={`${scene.name} — tap for the next scene`}
+      role="img"
+      title={`${scene.name} — today's scene`}
       aria-label={`${scene.name}: ${placed.map((p) => p.member.name).join(', ') || 'nobody is up yet'}`}
     >
       <img className="scene-bg" src={`/scenes/${scene.id}.webp`} alt="" onError={() => setMissing(true)} draggable={false} />
@@ -36,7 +36,7 @@ export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ 
         <Seated key={p.member.name} placed={p} />
       ))}
       <span className="scene-name">{scene.name}</span>
-    </button>
+    </div>
   );
 }
 
@@ -52,7 +52,7 @@ function Seated({ placed: { member, seat, working } }: { placed: Placed }) {
   const style = { left: pct(seat.x - seat.size / 2, 512), top: pct(seat.y - seat.size / 2, 256), width: pct(seat.size, 512), height: pct(seat.size, 256), zIndex: Math.round(seat.y) };
   const [ox, oy] = seat.propOffset ?? [0, 0];
   return (
-    <span className={`seat${flip ? ' flip' : ''}${working ? ' working' : ''}`} style={style} title={`${member.name}${working ? ' — working' : ''}`}>
+    <span className={`seat${flip ? ' flip' : ''}${working ? ' working' : ''}`} style={style} title={`${member.name}${working ? ' — working' : ''} · tap for their card`} onClick={() => openCompanion(member)}>
       {member.sprite ? (
         <img className="seat-sprite" src={`/crew/${member.sprite}-${pose}.webp`} alt="" onError={() => !poseMissing && setPoseMissing(true)} draggable={false} />
       ) : (

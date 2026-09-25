@@ -4,6 +4,7 @@
 //   node scripts/scenes/gen.mjs poses pip ollie moss      # 4 scene poses each
 //   node scripts/scenes/gen.mjs scene campfire            # one backdrop
 //   node scripts/scenes/gen.mjs props guitar flute laptop # hand props
+//   node scripts/scenes/gen.mjs work ollie juno           # 6 working frames each (item 38)
 //
 // Output: .roost-data/scene-raw/{poses/<name>,scenes,props}/. Then
 // scripts/scenes/convert.py checks hue against the character's idle frame
@@ -47,6 +48,19 @@ export const SCENE_POSES = [
   ['dance', 'DANCING: standing on one foot with the other foot kicked up to the side, both arms stretched out wide, body leaning to one side, eyes squeezed into happy curved arcs, a big open smile'],
 ];
 
+// Item 38: four drawings each for typing and thinking. The existing `type` and
+// `think` frames are the first of each; these are the other three. Each set
+// reads as a little loop -- left paw, right paw, a finished flourish; tilt one
+// way, the other, then the idea.
+export const WORK_POSES = [
+  ['type2', 'WORKING HARD at an invisible keyboard: leaning slightly forward, LEFT paw pressed down low as if striking a key, RIGHT paw lifted high above it, eyes looking down, focused'],
+  ['type3', 'WORKING HARD at an invisible keyboard: leaning slightly forward, RIGHT paw pressed down low as if striking a key, LEFT paw lifted high above it, eyes looking down, the tip of its tongue poking out in concentration'],
+  ['type4', 'WORKING HARD, a pause between keystrokes: sitting up straight, both paws resting together low in front, eyes looking up and to the side as if reading back what it wrote, small content smile'],
+  ['think2', 'THINKING: head tilted to its LEFT, one paw resting on its chin, eyes looking up and to the left, mouth a small flat line'],
+  ['think3', 'THINKING: head tilted to its RIGHT, both paws folded across its belly, eyes half closed, a small pondering frown'],
+  ['think4', 'THINKING, the idea arriving: looking straight up, one paw raised high with the paw tip pointing upward, eyes wide, mouth open in a small round "oh"'],
+];
+
 const SCENES = {
   campfire: 'a night campsite: a small campfire with an orange-and-yellow flame in the lower middle, three short brown logs arranged around it as seats (one at the left, one at the right, one at the front-left), a few dark pine trees behind, a scatter of small stars in the navy sky',
   cards: 'a round wooden card table seen slightly from above, four short stools around it, a few playing cards and small poker chips on the green felt top, a warm hanging lamp above, a dark room behind',
@@ -58,6 +72,37 @@ const SCENES = {
   workshop: 'a workshop bench with a pegboard of tools behind it, a half-built small robot on the bench, a toolbox on the floor, a hanging work lamp',
   rooftop: 'a flat rooftop at dusk with a brick chimney, a string of small warm lights, a low parapet, and a city of small lit windows below under a navy sky',
   snow: 'a snowy yard at night: a snowman with a carrot nose and a scarf, a wooden sled, a snow-covered fence, falling snow dots against the navy sky',
+  // Item 39: thirty more, one a day.
+  beach: 'a sandy beach at night with a small bonfire on the sand at the left, dark waves rolling in with white foam lines, a full moon over the sea',
+  lighthouse: 'a rocky grassy point at night with a tall white-and-red lighthouse at the right casting a pale yellow beam across the navy sky, the dark sea behind',
+  arcade: 'a retro video arcade at night: a row of glowing arcade cabinets along the back wall with bright pixel screens, a checkered floor, neon strip lights',
+  greenhouse: 'inside a glass greenhouse at night: potted plants and hanging ferns on wooden shelves, moonlight through the glass panes, a watering can on the floor',
+  station: 'an empty train platform at night: a wooden bench, a round station clock on a post, a hanging lamp, rails and a dark tunnel mouth at the back',
+  treehouse: 'the wooden deck of a treehouse at night: plank floor, a rope railing, a hanging paper lantern, thick branches and leaves around, stars through the gaps',
+  bakery: 'a cosy bakery at night: a wooden counter with loaves and round pastries, a brick oven glowing orange at the back, flour sacks on the floor',
+  ramen: 'a small street ramen stall at night: a wooden counter with stools, red paper lanterns hanging from the awning, a big steaming pot at the right, a dark alley behind',
+  observatory: 'inside an observatory dome at night: a huge brass telescope pointing up through an open slit in the dome, stars visible through the slit, a curved metal wall',
+  cafe: 'a cafe table by a big rainy window at night: raindrops on the glass, city lights blurred outside, two coffee cups and a small plant on the table',
+  studio: 'a music recording studio: a microphone on a stand at the left, a mixing desk with many small lit buttons, two speakers, foam panels on the walls',
+  pottery: 'a pottery studio: a potter\'s wheel with a half-made clay pot, wooden shelves of finished pots and bowls behind, a bucket of water on the floor',
+  bowling: 'a bowling alley: one polished wooden lane stretching back to ten white pins at the far end, a ball return at the side, neon score screen above',
+  aquarium: 'inside an aquarium tunnel: a curved glass tunnel with deep blue water around it, colourful pixel fish and a small shark swimming past, soft blue light',
+  orchard: 'an apple orchard in autumn at dusk: rows of trees with red apples, a wooden crate full of apples, orange leaves on the grass, a navy evening sky',
+  lanterns: 'a lantern festival at night: dozens of glowing paper lanterns floating up over a calm dark river, a small wooden bridge at the right',
+  icerink: 'an outdoor ice rink at night: pale blue ice, a low wooden boundary wall, pine trees with string lights behind, snow on the ground at the edges',
+  summit: 'a mountain summit just before dawn: rocky ground, a small flag on a pole, a sea of clouds below, the sky navy at the top fading to pink at the horizon',
+  oasis: 'a desert oasis at night: a small pool of water ringed by palm trees, sand dunes behind, a crescent moon and stars in the navy sky',
+  spaceship: 'the bridge of a small spaceship: a huge window showing stars and a ringed planet, blinking control consoles along the bottom, a captain\'s chair',
+  submarine: 'inside a small submarine cabin: a big round porthole showing deep blue water and a jellyfish, brass pipes and dials on the walls, a metal floor',
+  castle: 'a castle great hall at night: a long wooden table, stone walls with hanging banners, iron wall torches burning, a tall arched window with the moon',
+  garage: 'a garage band practice space: a drum kit at the back, a guitar amplifier, posters on the walls, a string of fairy lights, a concrete floor',
+  laundromat: 'a laundromat at night: a row of front-loading washing machines along the back wall with round glowing doors, a folding table, flickering ceiling lights',
+  busstop: 'a bus stop on a rainy night: a small glass shelter with a bench, a streetlight casting a yellow pool of light, puddles reflecting it, rain streaks',
+  lake: 'a still lake at night: a small wooden rowboat on the water, tall reeds at the edge, the full moon and its reflection on the water, dark hills behind',
+  blossom: 'a park in spring at dusk: cherry blossom trees heavy with pink flowers, a wooden bench, pink petals on the path, a lamppost',
+  mushrooms: 'a forest floor at night full of giant glowing mushrooms in teal and purple, mossy roots, tiny floating firefly dots',
+  hotspring: 'an outdoor hot spring at night: a steaming rocky pool, snow on the rocks around it, a small wooden sign, pine trees and stars behind',
+  carnival: 'a carnival at night: a big ferris wheel lit with many small bulbs at the back, striped tents, a ticket booth, lights strung between poles',
 };
 
 const PROPS = {
@@ -120,6 +165,18 @@ if (mode === 'poses') {
     for (const [pose, how] of SCENE_POSES) {
       const file = `${name}-${pose}.png`;
       const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character -- identical colours, outline weight, eye style, proportions and features -- in a new pose.\n\n${r.desc}, ${how}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; every frame must share EXACTLY the same colours and features as the attached frame and differ ONLY in the pose. Use the image_gen tool directly; do not write code.`;
+      await draw(cwd, file, prompt, `${name}/${pose}`, existsSync(ref) ? ref : undefined);
+    }
+  }
+} else if (mode === 'work') {
+  for (const name of names) {
+    const r = ROSTER[name];
+    if (!r) { console.log(`${name}: not in roster.json`); continue; }
+    const ref = join(SPRITE_RAW, `${name}-idle.png`);
+    const cwd = join(RAW, 'poses', name);
+    for (const [pose, how] of WORK_POSES) {
+      const file = `${name}-${pose}.png`;
+      const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character -- identical colours, outline weight, eye style, proportions and features -- in a new pose, standing in the same place and at the same size as in the attached frame so the frames line up when played in sequence.\n\n${r.desc}, ${how}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; every frame must share EXACTLY the same colours and features as the attached frame and differ ONLY in the pose. Use the image_gen tool directly; do not write code.`;
       await draw(cwd, file, prompt, `${name}/${pose}`, existsSync(ref) ? ref : undefined);
     }
   }

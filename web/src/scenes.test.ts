@@ -4,20 +4,21 @@ import type { CrewInfo } from './types';
 
 const m = (name: string): CrewInfo => ({ name, role: '', roleLabel: '', tier: 'worker', color: '#000', initial: name[0], agent: 'claude', model: '', sprite: name.toLowerCase() });
 
-describe('the scene changes on the hour, on its own, and by a tap', () => {
-  it('is stable within an hour and moves on the next', () => {
-    const a = sceneIndexFor(new Date(2026, 8, 24, 10, 5), 0, 10);
-    const b = sceneIndexFor(new Date(2026, 8, 24, 10, 55), 0, 10);
-    const c = sceneIndexFor(new Date(2026, 8, 24, 11, 0), 0, 10);
+describe('the scene changes once a day (item 39)', () => {
+  it('holds all day and moves at midnight', () => {
+    const a = sceneIndexFor(new Date(2026, 8, 24, 0, 5), 0, 40);
+    const b = sceneIndexFor(new Date(2026, 8, 24, 23, 55), 0, 40);
+    const c = sceneIndexFor(new Date(2026, 8, 25, 0, 1), 0, 40);
     expect(a).toBe(b);
-    expect(c).toBe((a + 1) % 10);
+    expect(c).toBe((a + 1) % 40);
   });
-  it('a tap advances it', () => {
-    const d = new Date(2026, 8, 24, 10, 5);
-    expect(sceneIndexFor(d, 1, 10)).toBe((sceneIndexFor(d, 0, 10) + 1) % 10);
+  it('walks every scene before one repeats', () => {
+    const seen = new Set<number>();
+    for (let d = 0; d < 40; d++) seen.add(sceneIndexFor(new Date(2026, 0, 1 + d, 12), 0, 40));
+    expect(seen.size).toBe(40);
   });
   it('never indexes past the scenes that exist', () => {
-    for (let h = 0; h < 48; h++) expect(sceneIndexFor(new Date(2026, 0, 1, h), 0, SCENES.length)).toBeLessThan(SCENES.length);
+    for (let d = 0; d < 90; d++) expect(sceneIndexFor(new Date(2026, 0, 1 + d), 0, SCENES.length)).toBeLessThan(SCENES.length);
   });
 });
 

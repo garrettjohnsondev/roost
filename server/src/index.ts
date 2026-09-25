@@ -31,6 +31,7 @@ import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import { noteLogLine, registerRescue, webRoot } from './rescue.js';
 import { readRoadmap } from './roadmap.js';
+import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 // Every log line gets a time. The log had none, so on the day every session
@@ -380,6 +381,28 @@ app.get('/api/decisions', (req, res) => {
 
 /** The map (docs/board/Roadmap.dc.html): a project's ROADMAP.md, read — never
  *  typed for the screen — plus what the harness did in the last day. */
+/** The crew as companions (item 40): mood, energy, stats and milestones, all
+ *  read from the ledger, the life log and live state -- nothing invented.
+ *  `since` (epoch ms): also say what they did while you were away. */
+app.get('/api/crew/life', (req, res) => {
+  const now = Date.now();
+  const personas = [...allPersonas(), DISPATCHER];
+  const names = [...new Set(personas.map((p) => p.name))];
+  const suiteOf = new Map(personas.map((p) => [p.name, p.suite ?? 'claude'] as const));
+  const working = new Set(manager.list().filter((s) => s.state === 'working' && s.crew?.name).map((s) => s.crew!.name));
+  const ledger = readLedgerRows();
+  const life = readLife();
+  const companions = companionsFrom({
+    names, ledger, life, now, working,
+    usedPercent: (name) => {
+      const vendor = suiteOf.get(name) ?? 'claude';
+      return { vendor, percent: quotaStore().headroom(vendor, config.budget).worstPercent };
+    },
+  });
+  const since = Number(req.query.since);
+  res.json({ companions, away: Number.isFinite(since) && since > 0 ? sinceSummary({ ledger, life, since, now }) : null });
+});
+
 app.get('/api/roadmap/projects', (_req, res) => {
   // Only projects that have a map: a chip for a project with no ROADMAP.md
   // would open onto nothing.

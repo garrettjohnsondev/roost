@@ -1,5 +1,7 @@
 import type {
   RoadmapView,
+  Companion,
+  AwaySummary,
   ClientMessage,
   GitStatusResult,
   RoostConfigResponse,
@@ -47,6 +49,7 @@ export const api = {
   refreshModels: () => request<{ ok: true; changes: unknown[] }>('/api/models/refresh', { method: 'POST', body: '{}' }),
   assignModel: (agent: string, tier: string, model: string) =>
     request<{ ok: true; note: string }>('/api/models/assign', { method: 'POST', body: JSON.stringify({ agent, tier, model }) }),
+  crewLife: (since?: number) => request<{ companions: Companion[]; away: AwaySummary | null }>(`/api/crew/life${since ? `?since=${since}` : ''}`),
   roadmapProjects: () => request<{ projects: string[] }>('/api/roadmap/projects'),
   roadmap: (cwd: string) => request<{ roadmap: RoadmapView; decisionsToday: number }>(`/api/roadmap?cwd=${encodeURIComponent(cwd)}`),
   decisions: () => request<{ summary: DecisionsSummary; recent: unknown[] }>('/api/decisions'),
