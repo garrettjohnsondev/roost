@@ -1154,6 +1154,12 @@ describe('never dead in the water', () => {
     expect(svc).toMatch(/'finish-deploy'\], \{[\s\S]*?detached: true/);
   });
 
+  it('a deploy run from inside Roost hands off and returns, instead of waiting to be killed', () => {
+    expect(read('server/src/index.ts')).toContain("process.env.ROOST_HOSTED = '1'");
+    const svc = read('scripts/service.mjs');
+    expect(svc).toMatch(/if \(process\.env\.ROOST_HOSTED\) \{[\s\S]*?process\.exit\(0\);/);
+  });
+
   it('a message that fails to render costs one message, not the chat', () => {
     const chat = read('web/src/ChatView.tsx');
     expect(chat).toMatch(/<Contained[^>]*what="This message"/);

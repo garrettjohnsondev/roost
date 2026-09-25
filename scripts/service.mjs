@@ -178,6 +178,15 @@ switch (command) {
     const child = spawn(process.execPath, [fileURLToPath(import.meta.url), 'finish-deploy'], {
       cwd: repoRoot, detached: true, stdio: ['ignore', openSync(deployLog, 'a'), openSync(deployLog, 'a')],
     });
+    if (process.env.ROOST_HOSTED) {
+      // Run from a session INSIDE Roost: the restart below kills this very
+      // shell, and waiting on it only makes the session look busy while it is
+      // dead (three times in a row, 2026-09-24). Hand off and leave now.
+      child.unref();
+      console.log('     this session runs inside Roost, which the restart will end — finishing in the background.');
+      console.log(`     result: ${deployLog}, or /rescue on the phone, or \`npm run service:releases\`.`);
+      process.exit(0);
+    }
     let shown = 0;
     const relay = () => { const t = readFileSync(deployLog, 'utf8'); process.stdout.write(t.slice(shown)); shown = t.length; };
     const tick = setInterval(relay, 500);

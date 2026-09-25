@@ -45,6 +45,10 @@ for (const level of ['log', 'warn', 'error'] as const) {
   };
 }
 
+// Every agent Roost spawns inherits this, so a deploy run from inside a
+// session can tell it is about to restart the server it lives under.
+process.env.ROOST_HOSTED = '1';
+
 const config = loadConfig();
 initNotify(config);
 const manager = new SessionManager(config);
