@@ -62,6 +62,14 @@ const QUOTA_REFUSED: ChatItem[] = [
   { kind: 'error', code: 'gate', text: 'Nell: claude five_hour at 99% — refused by provider', ts: at(1) },
 ];
 
+/** Control board: effort on every turn, and the note the first time it moved. */
+const EFFORT_TURNS: ChatItem[] = [
+  { kind: 'user', text: 'Rename fmtAgo, then rework the avatar generator', imageCount: 0, ts: at(0) },
+  { kind: 'assistant', text: 'Renamed in 2 files.', complete: true, crew: { ...MOSS, model: 'haiku 4.5', effort: 'low', effortNote: 'Mechanical work is capped low whatever the tier — a rename never needs a thinking budget.' }, ts: at(1) },
+  { kind: 'assistant', text: 'Starting on the generator.', complete: true, crew: { ...OLLIE, model: 'opus 5.5', effort: 'high', effortNote: 'Stepped down from xhigh. Claude weekly is tight, and thinking is trimmed before the model is downgraded.' }, ts: at(2) },
+  { kind: 'consult', phase: 'critique', agent: 'codex', crew: { ...JUNO, effort: 'max' }, text: 'VERDICT: SOLID. One gap: the flag is not documented.', ts: at(3) },
+];
+
 /** A handoff (§12a): Ollie steps back, Juno steps in -- the last item is
  *  live so the pass plays; `?fixture=handoff-replayed` shows it static. */
 const HANDOFF: ChatItem[] = [
@@ -118,6 +126,19 @@ export const FIXTURES: Record<string, () => SessionState> = {
   /** A turn that failed because Claude's sign-in lapsed. */
   'signed-out': () => base(SIGNED_OUT, meta({ state: 'idle' }), SIGNED_OUT.length),
   'quota-refused': () => base(QUOTA_REFUSED, meta({ state: 'idle' }), QUOTA_REFUSED.length),
+  /** Control board: effort meters and the "stepped down" note. */
+  effort: () => base(EFFORT_TURNS, meta({ state: 'idle' }), EFFORT_TURNS.length, { status: 'idle' }),
+  /** Control board: Pip asks before the expensive crew start. */
+  'pip-proposes': () => base(
+    [{ kind: 'user', text: 'Add a --json flag to the avatar generator, with tests and docs', imageCount: 0, ts: at(0) }],
+    meta({ state: 'idle', escalation: { reason: 'three files and a test', planner: 'Ollie', reviewer: 'Juno' } }), 1, { status: 'idle' },
+  ),
+  /** Context board: the agent whose context it is asks, once. */
+  'compact-ask': () => base(
+    TWO_JOBS.slice(5, 8),
+    meta({ state: 'idle', contextOffer: { reason: 'context 64% full', percent: 64 } }), 3,
+    { status: 'idle', context: { agent: 'claude', usedTokens: 128_000, maxTokens: 200_000, percent: 64, pressure: 'degrading' } as any },
+  ),
   /** The pass, live: Ollie steps back, Juno steps in. */
   handoff: () => base(HANDOFF, meta({ state: 'idle', crew: JUNO }), HANDOFF.length - 1),
   'handoff-replayed': () => base(HANDOFF, meta({ state: 'idle', crew: JUNO }), HANDOFF.length),

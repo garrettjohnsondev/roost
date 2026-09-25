@@ -24,6 +24,8 @@ export type ClientMessage =
   | { type: 'consult'; text: string }
   | { type: 'consult_proceed' }
   | { type: 'consult_dismiss' }
+  /** Pip proposes, you dispose: go ahead with the plan-and-review, or just chat. */
+  | { type: 'escalation_response'; go: boolean }
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
@@ -112,6 +114,9 @@ export interface SessionMeta {
   /** The home-screen scene this session's project asks for (`## scene` in its
    *  .roost/project.md), if any. */
   scene?: string;
+  /** Pip sized the last message as large and is asking before the expensive
+   *  crew start (Control board): the message waits on this answer. */
+  escalation?: { reason: string; planner: string; reviewer: string };
   routedModel?: string;
   consultPending?: boolean;
   mode: SessionMode;
@@ -276,6 +281,12 @@ export interface CrewInfo {
   sprite?: string;
   agent: AgentKind;
   model: string;
+  /** The thinking effort this turn ran at (Control board). Absent when the
+   *  model budgets its own thinking or none is set -- no meter, not a zero. */
+  effort?: string;
+  /** Why effort moved, on the first turn after it did: "Stepped down from
+   *  xhigh. …". chooseEffort's reason, spent where the turn is. */
+  effortNote?: string;
 }
 
 export interface ContextInfo {
@@ -385,4 +396,15 @@ export interface LiveInfo {
   error?: string;
   output?: string[];
   startedAt?: number;
+}
+
+/** The map (server/src/roadmap.ts): a project's ROADMAP.md, read. null is
+ *  "no data" -- a section the file does not have -- never zero. */
+export type PhaseState = 'shipped' | 'in-hand' | 'pending';
+export interface RoadmapView {
+  exists: boolean;
+  phases: Array<{ id: string; name: string; state: PhaseState; detail: string }> | null;
+  tests: { passed: number; failing: number } | null;
+  corrections: number | null;
+  open: Array<{ n: number; title: string }> | null;
 }

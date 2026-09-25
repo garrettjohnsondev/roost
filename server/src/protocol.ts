@@ -38,6 +38,8 @@ export type ClientMessage =
   | { type: 'consult'; text: string }
   | { type: 'consult_proceed' }
   | { type: 'consult_dismiss' }
+  /** Pip proposes, you dispose: go ahead with the plan-and-review, or just chat. */
+  | { type: 'escalation_response'; go: boolean }
   | { type: 'set_boost'; on: boolean }
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
@@ -128,6 +130,9 @@ export interface SessionMeta {
   /** The home-screen scene this session's project asks for (`## scene` in its
    *  .roost/project.md), if any. */
   scene?: string;
+  /** Pip sized the last message as large and is asking before the expensive
+   *  crew start (Control board): the message waits on this answer. */
+  escalation?: { reason: string; planner: string; reviewer: string };
   /** When model is 'auto': the concrete model the triage router last picked. */
   routedModel?: string;
   /** True while a completed consult awaits the user's Proceed/Dismiss decision. */
@@ -181,6 +186,12 @@ export interface CrewInfo {
   sprite?: string;
   agent: AgentKind;
   model: string;
+  /** The thinking effort this turn ran at (Control board). Absent when the
+   *  model budgets its own thinking or none is set -- no meter, not a zero. */
+  effort?: string;
+  /** Why effort moved, on the first turn after it did: "Stepped down from
+   *  xhigh. …". chooseEffort's reason, spent where the turn is. */
+  effortNote?: string;
 }
 
 export interface ContextInfo {

@@ -34,7 +34,7 @@ So: **this is a rate-limit-management and quality harness.** Every claim the UI 
 | **7** | Model registry and auto-update | ✅ **Done** — roster, succession, audit, the one-tap assign card, and **alias-resolution drift** for Claude |
 | **6** | UI — fuel gauge, crew editor, context meter | ✅ **Done** — fuel gauge, window weights, crew editor, context meter with pressure and advice, decisions view, models card |
 
-**593 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-25: server 503/503, web 90/90 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
+**607 tests green, typecheck clean both workspaces.** <!-- written by scripts/roadmap-stats.mjs on 2026-09-25: server 517/517, web 90/90 — do not edit by hand --> New modules: `pricing.ts` `ledger.ts` `quota.ts` `policy.ts` `routing.ts` `context.ts` `usageDelta.ts` `codexInputSplit.ts`.
 
 **Verified live against both real subscriptions:**
 ```
@@ -385,7 +385,7 @@ Researched rather than assumed. **Not a novel idea; plausibly a novel product.**
 
 Kept here so a fix never becomes a detour that loses the thread. Work top to bottom; add call-outs here the moment they are raised, not after.
 
-1. **The app does not look like the boards** *(call-out, 2026-09-23)* — **partially resolved**: Home, Thread and Chapters now match the design canvas (items 2–3 below), verified against real mobile-viewport screenshots. Still open, per 12d: the `Control` (effort) and `Context` (context-window meter) boards, and whatever the `Roadmap` board renders, are not in the app. Blocked mid-session on the Artifact tool being unavailable to re-read those three boards' exact specs — resume by reading them fresh rather than guessing from memory.
+1. ~~**The app does not look like the boards**~~ *(call-out, 2026-09-23)* — **done 2026-09-25**, the last three boards read from the local copy in `docs/board/` (the Artifact tool is off inside Roost sessions; see its README). Before that: Home, Thread and Chapters now match the design canvas (items 2–3 below), verified against real mobile-viewport screenshots. Still open, per 12d: the `Control` (effort) and `Context` (context-window meter) boards, and whatever the `Roadmap` board renders, are not in the app. Blocked mid-session on the Artifact tool being unavailable to re-read those three boards' exact specs — resume by reading them fresh rather than guessing from memory.
 2. ~~**The Roost logo is not liked**~~ — done 2026-09-23. Owner chose the direction (a crew member as the mark), four candidates were drawn and each checked at 60, 32 and 16px before being shown, and the owner picked **Ollie on lamp**: the highest-contrast of the four. Originals in `.roost-data/logo-raw`; the canvas has a "The logo, four ways" board.
    - *Home*: done 2026-09-23 — palette, type, crew strip with real sleep/awake state, conversation card, compact fuel.
    - *Thread*: done 2026-09-23 — the face beside the bubble (52px), name and model on one line above it, bubbles with the board's square tails, your square avatar; verified on a live Opus 5.5 turn at a true phone viewport.
@@ -476,7 +476,15 @@ Version 16 says Roost throughout. Every "Larry" was renamed by what the row DOES
 
 The old doc stays where it is as history. It is not a backlog.
 
-### 12d. The reference boards' language is not in the app
+### 12d. ~~The reference boards' language is not in the app~~ — done 2026-09-25
+
+Read from `docs/board/Control.dc.html`, `Context.dc.html` and `Roadmap.dc.html` — the local copy of the canvas, because the Artifact tool is switched off for sessions inside Roost. Each checked at 390px against its fixture.
+
+- **Control** (`?fixture=effort`, `?fixture=pip-proposes`). Every turn that ran at a set effort carries six blocks and the word; a model that budgets its own thinking has none, not a zero. The first turn after effort moves carries the reason under the name — "Stepped down from xhigh. …" — `chooseEffort`'s reason, spent where the turn is (`effortNoteFor`). **Pip proposes, you dispose**: a message triage sizes as large no longer starts the plan-and-review at once; Pip says so in the thread and waits on **Go ahead / Just chat** — nothing expensive runs until you answer, and a new message answers "just chat". The think beat (low fidgets, max sits with it) shipped with §12a.
+- **Context** (`?fixture=compact-ask`). The compaction offer is no longer a bar pinned above the work: the agent whose context it is asks in the thread, face already greying, with a small meter, in the first person, with **Do this automatically from now on**. Automatic never means silent: the notice says where it compacted, and the next real reading says where it landed ("at 22% after compacting (was 64%)"). Hand-off is its own rung at 80% and asks on its own.
+- **Roadmap** — the flag in the home header. `server/src/roadmap.ts` reads a project's `ROADMAP.md`: phases from the status table, tests from the machine-written line, corrections from the log, what is in hand from §12's unstruck items. Only projects that have a ROADMAP.md are offered. A missing section reads "no data", never zero; a phase node opens its evidence. Nothing on it is typed for the screen.
+
+The earlier note, kept for the record:
 
 `Home`, `Thread` and `Chapters` shipped 2026-09-23 (working order items 2–3) — palette, type, crew strip, the fuel gauge, the folded chapter are now live, checked against real mobile-viewport screenshots. **Still not in the app: `Control` (the effort control) and `Context` (the context meter) and `Roadmap`** — the app has no per-task effort UI, no visible context-window meter, and nothing rendering the roadmap itself. Picking this back up needs a fresh read of those three boards from the design canvas (`https://claude.ai/artifact/28CUkGBUQvnBvygnfEJNQn`; a local copy is in `docs/board/`, readable from inside Roost) — not done yet in this pass because the Artifact tool was unavailable in-session when this was reached; do not guess at their specifics from memory. *Reached again 2026-09-24 evening: the tool was off again, so this stays open for exactly the same reason. What the app does have today, for the record: an effort chip row in session settings and a context bar under the header with a percentage, pressure word and the handoff offer — neither checked against its board.*
 

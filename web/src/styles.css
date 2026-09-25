@@ -1892,6 +1892,46 @@ button {
   }
 }
 
+/* ---------- the map (docs/board/Roadmap.dc.html) ---------- */
+.page-header-actions { display: flex; align-items: center; gap: 4px; }
+.map-sheet { max-height: 88dvh; overflow-y: auto; }
+.map-eyebrow { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent); }
+.map-title { font-family: var(--font-display, inherit); margin: 4px 0 12px; font-size: 18px; color: var(--text); }
+.map-projects { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.map-empty { color: var(--text-dim); font-size: 14px; line-height: 1.5; }
+.map-phases { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.map-node {
+  position: relative; width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 11px; border: 1px solid var(--seam); background: var(--surface-2); color: var(--text-dim);
+  box-shadow: var(--shadow-hard, 3px 3px 0 #0a1020); border-radius: 0; min-height: 44px; font: inherit;
+}
+.map-node-id { font-family: var(--font-display, inherit); font-size: 17px; line-height: 1; }
+.map-node-name { font-size: 14px; line-height: 1.3; color: var(--text); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.map-node-state { font-family: var(--font-display, inherit); font-size: 11px; }
+.map-node.shipped { background: color-mix(in srgb, var(--ok) 14%, var(--surface)); border-color: var(--ok); }
+.map-node.shipped .map-node-id, .map-node.shipped .map-node-state { color: var(--ok); }
+.map-node.in-hand { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); border-color: var(--accent); }
+.map-node.in-hand .map-node-id, .map-node.in-hand .map-node-state { color: var(--accent); }
+.map-node.open { outline: 2px solid var(--text); outline-offset: 1px; }
+.map-dot { position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border: 2px solid var(--bg); background: var(--seam); }
+.map-node.shipped .map-dot { background: var(--ok); }
+.map-node.in-hand .map-dot { background: var(--accent); }
+/* In hand is a state that persists until the phase ships -- the one loop here. */
+.map-dot-pulse { animation: pulse 1.8s ease-in-out infinite; }
+.map-evidence { margin-top: 12px; padding: 10px 12px; border-left: 2px solid var(--accent); background: var(--surface); font-size: 14px; line-height: 1.5; color: var(--text); }
+.map-evidence-head { display: block; font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+.map-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin-top: 16px; padding: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-hard, 3px 3px 0 #0a1020); }
+.map-stat-n { font-family: var(--font-display, inherit); font-size: 26px; line-height: 1.1; color: var(--text); }
+.map-stat-n.ok { color: var(--ok); } .map-stat-n.lamp { color: var(--accent); } .map-stat-n.bad { color: var(--danger); }
+.map-stat-n.none { font-size: 14px; color: var(--text-dim); }
+.map-stat-label { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.map-open { margin-top: 14px; }
+.map-open-head { font-family: var(--font-display, inherit); font-size: 12px; color: var(--accent); margin-bottom: 6px; }
+.map-open ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.map-open li { font-size: 14px; line-height: 1.4; color: var(--text); }
+.map-open-n { font-family: var(--font-display, inherit); font-size: 11px; color: var(--text-dim); margin-right: 4px; }
+.map-note { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); margin: 14px 0 0; }
+
 /* ---------- closed session banner ---------- */
 
 .closed-banner {
@@ -2165,6 +2205,7 @@ button {
 /* Respect the system setting: hold the pose instead of cutting between frames. */
 @media (prefers-reduced-motion: reduce) {
   .crew-sprite .frame-b { animation: none; opacity: 1; }
+  .map-dot-pulse { animation: none; }
   /* The pass, the send-off: simply already there. */
   .crew-sprite.sent-out, .handoff-pass.live .handoff-from, .handoff-pass.live .handoff-to { animation: none; }
   .crew-sprite .frame-a { animation: none; opacity: 0; }
@@ -2799,6 +2840,32 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .crew-row-face { flex: 0 0 52px; width: 52px; height: 52px; display: flex; align-items: flex-start; justify-content: center; }
 .crew-row-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
 .crew-row-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; min-width: 0; }
+.crew-row-head { align-self: stretch; }
+/* Effort, in the thread (Control board): six blocks, lamp-lit, and the word. */
+.effort-meter { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; align-self: center; }
+.effort-blocks { display: inline-flex; gap: 2px; }
+.effort-block { width: 6px; height: 11px; background: var(--surface-2); border: 1px solid var(--seam); }
+.effort-block.lit { background: var(--accent); border-color: var(--accent); }
+.effort-word { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
+.crew-row-effort-note { font-size: 12.5px; line-height: 1.45; color: var(--text-dim); margin: -2px 0 6px; }
+/* The crew asking you something in person: Pip's proposal, the compaction ask. */
+.crew-ask { background: var(--surface-2); border: 1px solid var(--accent); padding: 11px 12px; width: 100%; box-sizing: border-box; }
+.crew-ask-text { font-size: 15px; line-height: 1.5; color: var(--text); }
+.crew-ask-keep { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: 14px; color: var(--text-dim); cursor: pointer; }
+.crew-ask-keep input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
+.crew-ask-actions { display: flex; gap: 8px; margin-top: 10px; }
+.crew-ask-actions button { flex: 1 1 0; min-height: 44px; font-family: var(--font-display, inherit); font-size: 12px; text-transform: uppercase; border-radius: 0; }
+.crew-ask-actions .wide { flex-grow: 2; }
+.crew-ask-go { background: var(--accent); color: var(--accent-text, #0f1729); border: 0; }
+.crew-ask-no { background: transparent; color: var(--text-dim); border: 1px solid var(--seam); }
+.crew-ask-actions button:disabled { opacity: 0.5; }
+.compact-meter { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; align-self: center; }
+.compact-meter-bar { width: 64px; height: 7px; background: var(--surface-2); border: 1px solid var(--seam); display: block; }
+.compact-meter-bar span { display: block; height: 100%; background: var(--accent); }
+.compact-meter-pct { font-family: var(--font-display, inherit); font-size: 11px; color: var(--accent); }
+.messages .compact-ask .crew-row-face .crew-sprite[data-agent] {
+  filter: saturate(calc(1 - var(--rot-face, 0.5) * 1.4)) brightness(calc(1 - var(--rot-face, 0.5) * 0.6));
+}
 .crew-row-model { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .crew-row .msg.assistant,
 .crew-row .consult-msg { max-width: 100%; align-self: flex-start; }

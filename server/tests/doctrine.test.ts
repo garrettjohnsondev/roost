@@ -716,7 +716,9 @@ describe('the names are the interface: @-mentions and the handoff', () => {
 
   it('the handoff briefs from the plan file and the thread, and is offered where the meter degrades', () => {
     expect(s).toMatch(/composeHandoffPrompt\(name, from, context, this\.pendingConsult\?\.planPath \?\? this\.lastPlanPath\)/);
-    expect(c).toMatch(/session\.context\.pressure === 'degrading' \|\| session\.context\.pressure === 'critical'/);
+    // The Context board's ladder: compact asks at 60 (degrading), hand-off is
+    // the 80% rung (critical) and asks on its own.
+    expect(c).toMatch(/\{session\.context\.pressure === 'critical' && \(\(\) => \{/);
     expect(c).toMatch(/action: 'handoff', to: other\.name/);
     const h = read('server/src/mentions.ts');
     expect(h).toMatch(/check the repository state \(git status, recent diff\) before assuming anything in the summary above is done/);
@@ -1227,7 +1229,7 @@ describe('§12a beyond the eight — motion that reports what Roost already know
     expect(read('server/src/sessions.ts')).toMatch(/from: how === 'handoff' \? fromMember : undefined/);
     expect(read('web/src/useSession.ts')).toContain('from: event.from');
     expect(chat()).toMatch(/<HandoffPass from=\{item\.from\} to=\{item\.crew\} fresh=\{fresh\}/);
-    const block = css().slice(css().indexOf('.handoff-pass {'), css().indexOf('/* ---------- closed session banner'));
+    const block = css().slice(css().indexOf('.handoff-pass {'), css().indexOf('/* ---------- the map'));
     expect(block).toMatch(/\.handoff-pass\.live \.handoff-from \{ animation: handoff-step-back \d+ms [^;]*both; \}/);
     expect(block).toMatch(/\.handoff-pass\.live \.handoff-to \{ animation: handoff-step-in \d+ms [^;]*both; \}/);
     expect(block).not.toMatch(/infinite/);
@@ -1317,5 +1319,59 @@ describe('documented once, never done — closed 2026-09-24', () => {
       expect(pick(p, name), name).not.toBeNull();
       expect(pick(t, name), name).toBe(pick(p, name));
     }
+  });
+});
+
+describe('the Control, Context and Roadmap boards (docs/board/), built', () => {
+  const chat = () => read('web/src/ChatView.tsx');
+  const sessions = () => read('server/src/sessions.ts');
+
+  it('Control: every turn at a set effort carries its meter, and the reason rides the first turn after a move', () => {
+    for (const f of ['server/src/protocol.ts', 'web/src/types.ts']) {
+      expect(read(f)).toMatch(/effort\?: string;[\s\S]{0,300}effortNote\?: string;/);
+    }
+    expect(sessions()).toMatch(/effort: this\.effort \|\| undefined, effortNote: this\.effortNote \}/);
+    expect(sessions()).toMatch(/this\.effortNote = effortNoteFor\(fromEffort, newEffort, effortPick\.reason\);/);
+    expect(chat()).toMatch(/\{crew\.effort && <EffortMeter effort=\{crew\.effort\} \/>\}/);
+    // A model that budgets its own thinking has no meter, not a zero.
+    expect(chat()).toMatch(/const lit = EFFORT_BLOCKS\[effort\];\s*if \(!lit\) return null;/);
+  });
+
+  it('Control: Pip proposes, you dispose — a large message waits on Go ahead / Just chat, nothing runs first', () => {
+    const s = sessions();
+    const block = s.slice(s.indexOf("triaged?.size === 'large'"), s.indexOf('await this.deliver(msg.text, msg.images);\n        break;\n      }\n      case \'approval_response\''));
+    expect(block).toContain('this.escalationOffer = {');
+    expect(block).not.toContain('runConsult(');
+    expect(s).toMatch(/case 'escalation_response':\s*await this\.answerEscalation\(!!msg\.go/);
+    // Declining delivers the waiting message once, not twice.
+    expect(s).toMatch(/this\.echoed = offer\.text;\s*await this\.deliver\(offer\.text\);/);
+    expect(chat()).toMatch(/<PipProposes/);
+    expect(chat()).toMatch(/>Go ahead<\/button>[\s\S]{0,120}>Just chat<\/button>/);
+  });
+
+  it('Context: the agent asks in person, once, with the box that stops it asking; hand-off is its own rung', () => {
+    expect(chat()).toMatch(/<CompactAsk/);
+    expect(chat()).toContain('Do this automatically from now on');
+    expect(chat()).not.toMatch(/className="compact-offer"/);
+    expect(chat()).toMatch(/\{session\.context\.pressure === 'critical' && \(\(\) => \{/);
+  });
+
+  it('Context: automatic never means silent — it says where it compacted and where it landed', () => {
+    const s = sessions();
+    expect(s).toMatch(/Compacted automatically' : 'Compacted'\}\$\{where\}/);
+    expect(s).toMatch(/is at \$\{event\.context\.percent\}% after compacting \(was \$\{this\.compactedFrom\}%\)/);
+  });
+
+  it('Roadmap: the map is read from ROADMAP.md, never typed for the screen, and null reads as "no data"', () => {
+    expect(read('server/src/index.ts')).toMatch(/app\.get\('\/api\/roadmap'[\s\S]*?config\.projects\.includes\(cwd\)/);
+    const sheet = read('web/src/RoadmapSheet.tsx');
+    expect(sheet).toContain("api.roadmap(cwd)");
+    expect(sheet).toMatch(/n == null \? 'no data' : n/);
+    expect(read('web/src/SessionList.tsx')).toMatch(/<Icon name="flag"/);
+  });
+
+  it('each board has a design-review fixture', () => {
+    const fx = read('web/src/fixtures.ts');
+    for (const name of ['effort:', "'pip-proposes':", "'compact-ask':"]) expect(fx).toContain(name);
   });
 });

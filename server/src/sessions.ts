@@ -144,6 +144,13 @@ export class Session {
   mode: SessionMode;
   modeExplicit = false;
   private escalate = true;
+  /** A large message Pip has proposed planning, waiting on Go ahead / Just chat. */
+  private escalationOffer?: { text: string; reason: string; planner: string; reviewer: string };
+  /** The adapter echoes a delivered message; one already echoed while it
+   *  waited on Pip's question must not appear twice. */
+  private echoed?: string;
+  /** Why effort last moved, shown once on the next turn. */
+  private effortNote?: string;
   private maxReviewRounds = 1;
   private autoProceed = false;
   private verifyAfterProceed = true;
@@ -317,6 +324,7 @@ export class Session {
       updatedAt: this.updatedAt,
       state: this.lastStatus,
       scene: this.projectScene,
+      escalation: this.escalationOffer ? { reason: this.escalationOffer.reason, planner: this.escalationOffer.planner, reviewer: this.escalationOffer.reviewer } : undefined,
       crew: crewMember(this.agent, this.autoMode ? this.routedModel ?? this.model : this.model, this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
@@ -484,6 +492,7 @@ export class Session {
           this.effortChanges += 1;
           changed = true;
           effortReason = `thinking ${newEffort} \u2014 ${effortPick.reason}`;
+          this.effortNote = effortNoteFor(fromEffort, newEffort, effortPick.reason);
         }
         // Logged either way. Routes were recorded and effort was not, so the
         // effort table could never become evidence-backed the way Phase 4b
@@ -526,7 +535,12 @@ export class Session {
     // Deltas are left bare (the reducer folds them into the completed turn).
     if (event.type === 'assistant_message' && !event.crew) {
       const model = this.routedModel || (this.model && this.model !== 'auto' ? this.model : this.standardModelFor(this.agent));
-      event = { ...event, crew: crewMember(this.agent, model, this.currentRole) };
+      event = { ...event, crew: { ...crewMember(this.agent, model, this.currentRole), effort: this.effort || undefined, effortNote: this.effortNote } };
+      this.effortNote = undefined;
+    }
+    if (event.type === 'user_message' && this.echoed !== undefined && event.text === this.echoed) {
+      this.echoed = undefined;
+      return;
     }
     if (event.type === 'error') {
       // Turn failures reached the phone and nothing else — when Claude's sign-in
@@ -554,6 +568,16 @@ export class Session {
     // along; nothing ever acted on it or asked. Deferred a tick so the context
     // event is in the transcript before any notice about it.
     if (event.type === 'context') this.contextTokens = event.context.usedTokens ?? this.contextTokens;
+    if (event.type === 'context' && event.context.percent != null) {
+      // "And afterwards, every time" (Context board): after a compaction, the
+      // next real reading says where it landed, next to where it started.
+      if (this.compactedFrom != null) {
+        const who = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
+        this.notice(`${who} is at ${event.context.percent}% after compacting (was ${this.compactedFrom}%).`);
+        this.compactedFrom = null;
+      }
+      this.contextPct = event.context.percent;
+    }
     if (event.type === 'context') {
       const intent = compactionIntent({
         state: { ...event.context, advice: event.context.advice ?? null },
@@ -650,6 +674,10 @@ export class Session {
         // triage prompt. Every path below now ends in one of three visible
         // outcomes: delivered to the worker, held with a notice, or an error
         // that names the message as undelivered. Never silence.
+        if (this.escalationOffer) {
+          // A new message while Pip's question waits answers it: just chat.
+          await this.answerEscalation(false, 'lapsed');
+        }
         if (this.proceeding) {
           // The worker is mid-build. This joins the turn -- which is what the
           // composer has promised all along.
@@ -702,11 +730,18 @@ export class Session {
         // size gate that skips ceremony on small work, read the other way.
         // Nothing executes without Proceed, so this costs a plan and a
         // review, not control.
+        // Pip proposes, you dispose (Control board): he says it out loud and
+        // waits. It used to start the plan and review at once -- the expensive
+        // crew already running by the time you could say no.
         if (this.escalate && triaged?.size === 'large' && !this.consultRunning && !msg.images?.length) {
+          const other: AgentKind = this.agent === 'claude' ? 'codex' : 'claude';
           const planner = crewMember(this.agent, this.routedModel ?? this.standardModelFor(this.agent), 'planner').name;
-          this.notice(`This looks like a large task (${triaged.reason}) — ${planner} will plan it and the other engine will review before anything runs. Tap Dismiss on the bar to just chat instead.`);
-          logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', tier: triaged.tier, size: triaged.size, reason: triaged.reason });
-          await this.runConsult(msg.text);
+          const reviewer = crewMember(other, this.standardModelFor(other), 'reviewer').name;
+          this.escalationOffer = { text: msg.text, reason: triaged.reason, planner, reviewer };
+          this.pushEvent({ type: 'user_message', text: msg.text, imageCount: 0, ts: now() });
+          logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', action: 'offered', tier: triaged.tier, size: triaged.size, reason: triaged.reason });
+          this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+          this.broadcastMeta();
           break;
         }
         await this.deliver(msg.text, msg.images);
@@ -957,6 +992,9 @@ export class Session {
       case 'consult_dismiss':
         this.pendingConsult = undefined;
         this.broadcastMeta();
+        break;
+      case 'escalation_response':
+        await this.answerEscalation(!!msg.go, msg.go ? 'accepted' : 'declined');
         break;
     }
   }
@@ -1223,6 +1261,20 @@ export class Session {
     setTimeout(() => this.broadcastMeta(), 0);
   }
 
+  private async answerEscalation(go: boolean, how: 'accepted' | 'declined' | 'lapsed'): Promise<void> {
+    const offer = this.escalationOffer;
+    if (!offer) return;
+    this.escalationOffer = undefined;
+    this.broadcastMeta();
+    logDecision({ kind: 'review', sessionId: this.id, stage: 'escalate', action: how });
+    if (go) {
+      await this.runConsult(offer.text);
+    } else {
+      this.echoed = offer.text;
+      await this.deliver(offer.text);
+    }
+  }
+
   private async deliver(text: string, images?: UserImage[]): Promise<void> {
     await this.adapter.sendUserMessage(text, images);
     this.broadcastMeta();
@@ -1301,18 +1353,25 @@ export class Session {
    *  action that changes the engine's state, so "we tried and it didn't happen"
    *  is information the person needs -- the alternative is a context that keeps
    *  degrading behind a UI that claims it was handled. */
+  private contextPct: number | null = null;
+  private compactedFrom: number | null = null;
+
   private async runCompaction(why: string, how: 'auto' | 'accepted' | 'accepted-remembered'): Promise<void> {
     try {
+      const at = this.contextPct;
       const res = await this.adapter.compact();
+      this.compactedFrom = at;
       // Belt and braces: whatever path got here, the offer it answers is gone.
       if (this.contextOffer) {
         this.contextOffer = undefined;
         this.broadcastMeta();
       }
+      // Automatic never means silent: it says what it did and what went.
+      const who = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
+      const where = at != null ? ` at ${at}%` : '';
       this.notice(
-        how === 'auto'
-          ? `Compacting automatically — ${why}. Turn this off in the context meter.`
-          : `Compacting — ${why}.`,
+        `${how === 'auto' ? 'Compacted automatically' : 'Compacted'}${where} — ${why}. What ${who} remembers of the older turns is now a summary; your view of the thread is unchanged.` +
+          (how === 'auto' ? ' Turn this off in the context meter.' : ''),
       );
       logDecision({ kind: 'gate', sessionId: this.id, rule: 'compact', action: 'ran', agent: this.agent, trigger: how, mechanism: res.how, reason: why });
     } catch (err: any) {
@@ -1647,4 +1706,16 @@ function remainderOf(c: ConsultState): string | null {
 }
 function hasRemainder(c: ConsultState): boolean {
   return remainderOf(c) !== null;
+}
+
+const EFFORT_RANK: Record<string, number> = { minimal: 0, low: 1, medium: 2, high: 3, xhigh: 4, max: 5, ultra: 6 };
+
+/** "Stepped down from xhigh. Quota is tight, …" -- the Control board's line
+ *  under the name, on the first turn after effort moved. */
+export function effortNoteFor(from: string | null, to: string, reason: string): string {
+  const why = reason ? reason.charAt(0).toUpperCase() + reason.slice(1) : '';
+  const a = from ? EFFORT_RANK[from] : undefined;
+  const b = EFFORT_RANK[to];
+  const step = a === undefined || b === undefined ? '' : b < a ? `Stepped down from ${from}.` : b > a ? `Stepped up from ${from}.` : '';
+  return [step, why ? `${why}.` : ''].filter(Boolean).join(' ').replace(/\.\.$/, '.');
 }

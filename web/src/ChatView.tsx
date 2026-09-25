@@ -357,7 +357,9 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               {session.context.advice.action}: {session.context.advice.reason}
             </span>
           )}
-          {(session.context.pressure === 'degrading' || session.context.pressure === 'critical') && (() => {
+          {/* The third rung (Context board): hand off at 80%, a different
+              decision from compacting, so it asks on its own. */}
+          {session.context.pressure === 'critical' && (() => {
             // The handoff, offered where the meter says it is time: the other
             // vendor's flagship is briefed from the plan and the thread and
             // continues with a fresh window (§4c).
@@ -378,34 +380,6 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               auto-compact on · turn off
             </button>
           )}
-        </div>
-      )}
-
-      {session.meta?.contextOffer && (
-        <div className="compact-offer">
-          <span className="compact-offer-text">
-            {session.meta.contextOffer.reason}. Compacting summarizes the older turns to free room —
-            the work stays, the detail thins.
-          </span>
-          <label className="compact-offer-keep">
-            <input
-              type="checkbox"
-              checked={keepCompacting}
-              onChange={(e) => setKeepCompacting(e.target.checked)}
-            />
-            Keep doing this automatically
-          </label>
-          <div className="compact-offer-actions">
-            <button className="chip" onClick={() => session.send({ type: 'context_dismiss' })}>
-              Not now
-            </button>
-            <button
-              className="chip compact-accept"
-              onClick={() => session.send({ type: 'context_action', action: 'compact', remember: keepCompacting })}
-            >
-              Compact now
-            </button>
-          </div>
         </div>
       )}
 
@@ -506,6 +480,25 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             );
           }
         }}</Contained>
+        {/* The two questions the crew ask you in person (Control and Context
+            boards): in the thread, from whoever is asking, where the reply
+            would have been -- not as a bar pinned above the work. */}
+        {session.meta?.escalation && (
+          <PipProposes
+            offer={session.meta.escalation}
+            onAnswer={(go) => session.send({ type: 'escalation_response', go })}
+          />
+        )}
+        {session.meta?.contextOffer && session.meta.crew && (
+          <CompactAsk
+            crew={session.meta.crew}
+            percent={session.context?.percent ?? session.meta.contextOffer.percent}
+            keep={keepCompacting}
+            onKeep={setKeepCompacting}
+            onCompact={() => session.send({ type: 'context_action', action: 'compact', remember: keepCompacting })}
+            onNotYet={() => session.send({ type: 'context_dismiss' })}
+          />
+        )}
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}
@@ -1058,6 +1051,88 @@ function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh:
   );
 }
 
+/** Effort, in the thread (Control board): six blocks and the word, on every
+ *  turn that ran at a set effort. A model that budgets its own thinking has no
+ *  meter -- there is no number to show, and inventing one would be a lie. */
+const EFFORT_BLOCKS: Record<string, number> = { minimal: 1, low: 1, medium: 2, high: 3, xhigh: 4, max: 5, ultra: 6 };
+function EffortMeter({ effort }: { effort: string }) {
+  const lit = EFFORT_BLOCKS[effort];
+  if (!lit) return null;
+  return (
+    <span className="effort-meter" title={`Thinking effort: ${effort}`}>
+      <span className="effort-blocks" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => (
+          <span key={i} className={`effort-block${i < lit ? ' lit' : ''}`} />
+        ))}
+      </span>
+      <span className="effort-word">{effort}</span>
+    </span>
+  );
+}
+
+/** Pip proposes, you dispose (Control board). The cheapest agent sizes the
+ *  job and says so before the expensive ones start; one message, one way to
+ *  decline. The message waits on the answer -- nothing has run yet. */
+function PipProposes({ offer, onAnswer }: { offer: NonNullable<SessionMeta['escalation']>; onAnswer: (go: boolean) => void }) {
+  const [sent, setSent] = useState(false);
+  const answer = (go: boolean) => {
+    setSent(true);
+    onAnswer(go);
+  };
+  return (
+    <CrewRow crew={PIP} pose="peek">
+      <div className="crew-ask">
+        <div className="crew-ask-text">
+          This looks large — {offer.reason}. I'll get {offer.planner} to plan it and have {offer.reviewer} review before anything runs.
+        </div>
+        <div className="crew-ask-actions">
+          <button className="crew-ask-go" disabled={sent} onClick={() => answer(true)}>Go ahead</button>
+          <button className="crew-ask-no" disabled={sent} onClick={() => answer(false)}>Just chat</button>
+        </div>
+      </div>
+    </CrewRow>
+  );
+}
+
+/** The moment it asks (Context board): the agent whose context it is, their
+ *  colour already leaving them, asking once -- with the box that stops it
+ *  asking again. Compacting loses detail, so it is never done unasked. */
+function CompactAsk({ crew, percent, keep, onKeep, onCompact, onNotYet }: {
+  crew: CrewInfo; percent: number | null; keep: boolean; onKeep: (v: boolean) => void; onCompact: () => void; onNotYet: () => void;
+}) {
+  // The asking face is already losing its colour: it asks BECAUSE it is
+  // degrading, so it never shows as fresh here even just past the threshold.
+  return (
+    <div className="compact-ask" style={{ '--rot-face': Math.max(0.5, rotFor(percent)) } as React.CSSProperties}>
+    <CrewRow
+      crew={crew}
+      pose="idle"
+      head={percent != null ? (
+        <span className="compact-meter">
+          <span className="compact-meter-bar"><span style={{ width: `${Math.min(100, percent)}%` }} /></span>
+          <span className="compact-meter-pct">{percent}%</span>
+        </span>
+      ) : undefined}
+    >
+      <div className="crew-ask">
+        <div className="crew-ask-text">
+          {percent != null ? `I'm ${percent}% full and I can feel it` : "My context is filling and I can feel it"} — answers get worse before the
+          window actually runs out. Want me to compact? I'll keep the plan and the criteria.
+        </div>
+        <label className="crew-ask-keep">
+          <input type="checkbox" checked={keep} onChange={(e) => onKeep(e.target.checked)} />
+          Do this automatically from now on
+        </label>
+        <div className="crew-ask-actions">
+          <button className="crew-ask-go wide" onClick={onCompact}>Compact now</button>
+          <button className="crew-ask-no" onClick={onNotYet}>Not yet</button>
+        </div>
+      </div>
+    </CrewRow>
+    </div>
+  );
+}
+
 /** The board's thread row, and the iMessage layout that was asked for: the face
  *  BESIDE the bubble, not inside it — 52px, never shrinking — with the name in
  *  Silkscreen and the model small on one line above the bubble. The first
@@ -1077,7 +1152,9 @@ function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; h
             {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
           </span>
           {head}
+          {crew.effort && <EffortMeter effort={crew.effort} />}
         </div>
+        {crew.effortNote && <div className="crew-row-effort-note">{crew.effortNote}</div>}
         {children}
       </div>
     </div>

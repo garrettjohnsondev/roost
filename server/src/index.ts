@@ -30,6 +30,7 @@ import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona
 import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import { noteLogLine, registerRescue, webRoot } from './rescue.js';
+import { readRoadmap } from './roadmap.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 
 // Every log line gets a time. The log had none, so on the day every session
@@ -375,6 +376,24 @@ app.get('/api/decisions', (req, res) => {
   const rows = readDecisions(limit);
   const since = Date.now() - 24 * 3600_000;
   res.json({ summary: summarizeDecisions(rows, since), recent: rows.slice(-50) });
+});
+
+/** The map (docs/board/Roadmap.dc.html): a project's ROADMAP.md, read — never
+ *  typed for the screen — plus what the harness did in the last day. */
+app.get('/api/roadmap/projects', (_req, res) => {
+  // Only projects that have a map: a chip for a project with no ROADMAP.md
+  // would open onto nothing.
+  res.json({ projects: config.projects.filter((p) => existsSync(join(p, 'ROADMAP.md'))) });
+});
+
+app.get('/api/roadmap', (req, res) => {
+  const cwd = String(req.query.cwd ?? '');
+  if (!config.projects.includes(cwd)) {
+    res.status(400).json({ error: 'cwd must be one of the configured projects' });
+    return;
+  }
+  const since = Date.now() - 24 * 3600_000;
+  res.json({ roadmap: readRoadmap(cwd), decisionsToday: summarizeDecisions(readDecisions(2000), since).total });
 });
 
 app.get('/api/usage', (_req, res) => {
