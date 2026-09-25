@@ -851,7 +851,12 @@ export function avatarUrl(avatar?: string): string | null {
 
 /** The poses the drawn sets ship. `idle` is the resting frame every animation
  *  cuts back to. */
-export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep' | 'sit' | 'side' | 'hold' | 'dance';
+export type Pose = 'idle' | 'type' | 'think' | 'blink' | 'cheer' | 'peek' | 'sleep' | 'sit' | 'side' | 'hold' | 'dance' | PhasePose;
+/** The phase bar's poses (2026-09-25): two drawings each -- looking through a
+ *  magnifying glass, writing on a clipboard, reading a page, hammering, a
+ *  flask. A character without them yet falls back to typing. */
+export type PhasePose = 'look' | 'plan' | 'review' | 'build' | 'test';
+const PHASE_POSES = new Set<string>(['look', 'plan', 'review', 'build', 'test']);
 
 /** Four drawings per working pose (item 38): the pose's own frame, then the
  *  three drawn for it -- left paw, right paw, a pause to read back; tilt one
@@ -876,13 +881,26 @@ export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; 
   // A working pose plays four drawings (item 38) when all four are drawn;
   // until then -- or if one fails to load -- the original two-frame cut.
   const [short, setShort] = useState(false);
+  const [noPhase, setNoPhase] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
+  if (PHASE_POSES.has(pose)) {
+    if (noPhase) pose = 'type';
+    else {
+      const b = `/crew/${crew.sprite}`;
+      return (
+        <span className={`crew-sprite pose-${pose} phase moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
+          <img className="frame-a" src={`${b}-${pose}1.webp`} alt="" onError={() => setNoPhase(true)} />
+          <img className="frame-b" src={`${b}-${pose}2.webp`} alt="" onError={() => setNoPhase(true)} />
+        </span>
+      );
+    }
+  }
   const moving = pose === 'type' || pose === 'think';
   const base = `/crew/${crew.sprite}`;
   if (moving && !short) {
     return (
       <span className={`crew-sprite four pose-${pose} moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
-        {WORK_FRAMES[pose].map((f, i) => (
+        {WORK_FRAMES[pose as 'type' | 'think'].map((f, i) => (
           <img key={f} className={`f${i}`} src={`${base}-${f}.webp`} alt="" onError={() => (i === 0 ? setFailed(true) : setShort(true))} />
         ))}
       </span>
@@ -1006,10 +1024,15 @@ function JobTracker({ session }: { session: SessionState }) {
   const first = seenStates.current.states;
   const landing = justFinished && (t.outcome === 'verified' || t.outcome === 'failed');
   const n = t.steps.length;
+  // Whoever is on the job: the last to speak, else the session's own member --
+  // so the path is never empty while the work has started but nobody has said
+  // anything yet (2026-09-25: "the character wasn't visible... then all of a
+  // sudden they were").
+  const walker = t.who ?? session.meta?.crew;
   const skippedTest = t.outcome === 'yours' && t.steps.some((s) => s.key === 'test' && s.state === 'todo');
   const pose: Pose = walk ? 'side'
     : justFinished ? (t.outcome === 'failed' ? 'think' : 'cheer')
-    : session.status === 'working' ? (t.steps[at]?.state === 'awaiting' ? 'peek' : 'type')
+    : session.status === 'working' ? (t.steps[at]?.state === 'awaiting' ? 'peek' : (t.steps[at]?.key && t.steps[at].key !== 'done' ? t.steps[at].key as PhasePose : 'type'))
     : asleep ? 'sleep'
     : t.outcome === 'yours' ? 'peek' : 'idle';
   const label = (st: TrackerStep, k: number): string => {
@@ -1025,7 +1048,6 @@ function JobTracker({ session }: { session: SessionState }) {
           where it is, so nothing here repeats it (2026-09-25). */}
       <div className="trail-line">
         <span className="trail-job">{t.name}</span>
-        {t.headline.detail && <span className="trail-detail"> · {t.headline.detail}</span>}
       </div>
       {/* A plain answer with no work behind it has no path to walk. */}
       {n > 1 && (
@@ -1039,13 +1061,13 @@ function JobTracker({ session }: { session: SessionState }) {
             <span className="stop-label">{label(st, k)}</span>
           </li>
         ))}
-        {t.who?.sprite && (
+        {walker?.sprite && (
           <li
             className={`walker${walk ? ' walking' : ''}${walk && walk.to < walk.from ? ' leftward' : ''}`}
             onTransitionEnd={(e) => { if (e.propertyName === 'left') setWalk(null); }}
             aria-hidden="true"
           >
-            <SpriteAvatar key={justFinished ? `f${t.endIndex}` : 'w'} crew={t.who} pose={pose} size={30} className={justFinished && !walk ? 'tracker-cheer' : undefined} />
+            <SpriteAvatar key={justFinished ? `f${t.endIndex}` : 'w'} crew={walker} pose={pose} size={30} className={justFinished && !walk ? 'tracker-cheer' : undefined} />
             {/* Your turn is said once: by them, to you. */}
             {t.outcome === 'yours' && !walk && <span className="walker-says">your turn</span>}
           </li>

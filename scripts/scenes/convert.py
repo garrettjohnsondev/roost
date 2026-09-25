@@ -187,6 +187,98 @@ def work(names):
                 print(f'{name}/{pose}: aligned to {base} (h {nh}->{part.height}{" scaled" if scaled else ""}) hue_gap={None if gap is None else round(gap, 1)}{flag} transparent={transparent(big)}')
 
 
+def _rows(im):
+    a = im.getchannel('A').load()
+    w, h = im.size
+    for y in range(h):
+        xs = [x for x in range(w) if a[x, y] > 40]
+        if xs:
+            yield y, xs[0], xs[-1]
+
+
+def _girth(im):
+    """Median row width across the lower third of the figure (the body),
+    robust to a block or spark at the feet."""
+    rows = list(_rows(im))
+    if not rows:
+        return None
+    top, bot = rows[0][0], rows[-1][0]
+    lo = [r - l for y, l, r in rows if y >= top + (bot - top) * 0.62 and y <= bot - (bot - top) * 0.08]
+    lo.sort()
+    return lo[len(lo) // 2] if lo else None
+
+
+def _body_cx(im):
+    """Horizontal centre of the lower body, same band as _girth."""
+    rows = list(_rows(im))
+    top, bot = rows[0][0], rows[-1][0]
+    band = [(l + r) / 2 for y, l, r in rows if y >= top + (bot - top) * 0.62 and y <= bot - (bot - top) * 0.08]
+    band.sort()
+    return round(band[len(band) // 2]) if band else (rows[0][1] + rows[0][2]) // 2
+
+
+PHASES = ['look1', 'look2', 'plan1', 'plan2', 'review1', 'review2', 'build1', 'build2', 'test1', 'test2']
+
+
+def phase(names):
+    """The phase bar's poses (2026-09-25): two drawings per phase. 1024 ->
+    256 by BOX, then set on the idle frame's foot line so the pair (and the
+    walk between stops) never hops. Not rescaled: a raised hammer or a
+    held-out lens makes the drawing taller or wider on purpose."""
+    for name in names:
+        idle = CREW / f'{name}-idle.webp'
+        ref = Image.open(idle).convert('RGBA') if idle.exists() else None
+        rb = _bbox(ref) if ref else None
+        ref_hue = mean_hue(Image.open(SPRITE_RAW / f'{name}-idle.png')) if (SPRITE_RAW / f'{name}-idle.png').exists() else None
+        for pose in PHASES:
+            src = RAW / 'poses' / name / f'{name}-{pose}.png'
+            if not src.exists():
+                print(f'{name}/{pose}: missing')
+                continue
+            big = Image.open(src).convert('RGBA')
+            hue = mean_hue(big)
+            gap = hue_gap(hue, ref_hue) if hue is not None and ref_hue is not None else None
+            im = big.resize((256, 256), Image.Resampling.BOX)
+            nb = _bbox(im)
+            if not nb:
+                print(f'{name}/{pose}: empty frame, skipped')
+                continue
+            if rb:
+                part = im.crop(nb)
+                # The raised hammer is the one drawing made smaller to fit the
+                # hammer overhead, so the pair pulsed in size. It is grown back
+                # to the idle frame's width (the hammer is above the head, not
+                # beside it), never shrunk, and the hammer may run off the top.
+                if pose == 'build1' and part.width < (rb[2] - rb[0]) * 0.94:
+                    k = min(1.12, (rb[2] - rb[0]) / part.width)
+                    part = part.resize((round(part.width * k), round(part.height * k)), Image.Resampling.NEAREST)
+                    if part.height > rb[3]:
+                        part = part.crop((0, part.height - rb[3], part.width, part.height))
+                out_im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+                x = (rb[0] + rb[2]) // 2 - part.width // 2 if pose == 'build1' else nb[0]
+                out_im.paste(part, (x, rb[3] - part.height), part)
+                im = out_im
+            im.save(CREW / f'{name}-{pose}.webp', 'WEBP', lossless=True)
+            flag = ' DRIFT' if gap is not None and gap > 12 else ''
+            print(f'{name}/{pose}: ok hue_gap={None if gap is None else round(gap, 1)}{flag} transparent={transparent(big)}')
+
+
+def phasesheet(names):
+    """Each character's phase pairs, for the eye."""
+    cols = ['idle'] + PHASES
+    out = Image.new('RGBA', (96 * len(cols), 96 * len(names)), (13, 20, 36, 255))
+    for r, name in enumerate(names):
+        for c, pose in enumerate(cols):
+            f = CREW / f'{name}-{pose}.webp'
+            if f.exists():
+                im = Image.open(f).convert('RGBA').resize((96, 96), Image.Resampling.NEAREST)
+                out.paste(im, (96 * c, 96 * r), im)
+    dest = Path('/tmp/roost-shots/phase-sheet.png')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    out.save(dest)
+    print(f'phasesheet: {dest}')
+
+
 def worksheet(names):
     """Each character's eight working frames in play order, for the eye."""
     cols = ['type', 'type2', 'type3', 'type4', 'think', 'think2', 'think3', 'think4']
@@ -205,4 +297,4 @@ def worksheet(names):
 
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet}[mode](rest)

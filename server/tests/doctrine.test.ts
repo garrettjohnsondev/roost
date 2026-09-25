@@ -992,7 +992,9 @@ describe('a plain chat turn gets its own finished beat', () => {
     // Still keyed on the end index, never a clock; a finished turn is Done
     // (proven) or Your turn (handed back) since 2026-09-25.
     expect(c).toMatch(/const justFinished = \(doneStep\?\.state === 'done' \|\| doneStep\?\.state === 'awaiting'\)[^;]*t\.endIndex > session\.replayedCount;/);
-    expect(c).toMatch(/<SpriteAvatar key=\{justFinished \? `f\$\{t\.endIndex\}` : 'w'\} crew=\{t\.who\} pose=\{pose\}/);
+    expect(c).toMatch(/<SpriteAvatar key=\{justFinished \? `f\$\{t\.endIndex\}` : 'w'\} crew=\{walker\} pose=\{pose\}/);
+    // Never an empty path: the session's own member stands in until someone speaks.
+    expect(c).toMatch(/const walker = t\.who \?\? session\.meta\?\.crew;/);
     expect(c).toMatch(/: justFinished \? \(t\.outcome === 'failed' \? 'think' : 'cheer'\)/);
   });
   it('the beat is a CSS animation, not JS, and stops under reduced motion', () => {

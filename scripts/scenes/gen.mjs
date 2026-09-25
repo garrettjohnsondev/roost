@@ -61,6 +61,22 @@ export const WORK_POSES = [
   ['think4', 'THINKING, the idea arriving: looking straight up, one paw raised high with the paw tip pointing upward, eyes wide, mouth open in a small round "oh"'],
 ];
 
+/** The phase bar's poses (2026-09-25): "two new animations per character per
+ *  status... build the character is building something, plan writing on a
+ *  clipboard." Two drawings per phase, played as a pair while the phase runs. */
+export const PHASE_POSES = [
+  ['look1', 'LOOKING THINGS OVER: holding a small magnifying glass up to one eye with one paw, leaning a little to its LEFT, peering closely, the other paw on its hip'],
+  ['look2', 'LOOKING THINGS OVER: holding the same small magnifying glass out at arm length to its RIGHT, eyes wide and curious, eyebrows raised'],
+  ['plan1', 'PLANNING: holding a small brown clipboard with white paper against its belly with one paw, a yellow pencil in the other paw touching the paper as it writes, eyes down on the page'],
+  ['plan2', 'PLANNING: holding the same small clipboard, the yellow pencil lifted and tapping its chin, eyes looking up thoughtfully'],
+  ['review1', 'REVIEWING: holding a single white page of paper up in front of it with both paws, reading it closely, small round glasses on its face, a serious look'],
+  ['review2', 'REVIEWING: holding the same white page lowered to one side, small round glasses pushed up, one paw giving a small thumbs up, a satisfied nod'],
+  ['build1', 'BUILDING: holding a small wooden hammer raised high above its head with both paws, about to strike a small wooden block on the ground in front of it, determined look'],
+  ['build2', 'BUILDING: the same small wooden hammer brought down striking the small wooden block on the ground in front of it, a tiny spark at the point of impact, eyes squeezed with effort'],
+  ['test1', 'TESTING: holding up a small glass flask with bright green liquid in one paw, peering at it closely, the other paw raised a little'],
+  ['test2', 'TESTING: gently swirling the same small glass flask of bright green liquid, three small bubbles rising out of it, eyes wide watching the result'],
+];
+
 const SCENES = {
   campfire: 'a night campsite: a small campfire with an orange-and-yellow flame in the lower middle, three short brown logs arranged around it as seats (one at the left, one at the right, one at the front-left), a few dark pine trees behind, a scatter of small stars in the navy sky',
   cards: 'a round wooden card table seen slightly from above, four short stools around it, a few playing cards and small poker chips on the green felt top, a warm hanging lamp above, a dark room behind',
@@ -177,6 +193,18 @@ if (mode === 'poses') {
     for (const [pose, how] of WORK_POSES) {
       const file = `${name}-${pose}.png`;
       const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character -- identical colours, outline weight, eye style, proportions and features -- in a new pose, standing in the same place and at the same size as in the attached frame so the frames line up when played in sequence.\n\n${r.desc}, ${how}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; every frame must share EXACTLY the same colours and features as the attached frame and differ ONLY in the pose. Use the image_gen tool directly; do not write code.`;
+      await draw(cwd, file, prompt, `${name}/${pose}`, existsSync(ref) ? ref : undefined);
+    }
+  }
+} else if (mode === 'phase') {
+  for (const name of names) {
+    const r = ROSTER[name];
+    if (!r) { console.log(`${name}: not in roster.json`); continue; }
+    const ref = join(SPRITE_RAW, `${name}-idle.png`);
+    const cwd = join(RAW, 'poses', name);
+    for (const [pose, how] of PHASE_POSES) {
+      const file = `${name}-${pose}.png`;
+      const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character -- identical colours, outline weight, eye style, proportions and features -- in a new pose, standing in the same place and at the same size as in the attached frame so the frames line up when played in sequence. Any prop is small and held close, inside the frame.\n\n${r.desc}, ${how}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; every frame must share EXACTLY the same colours and features as the attached frame and differ ONLY in the pose and the prop. Use the image_gen tool directly; do not write code.`;
       await draw(cwd, file, prompt, `${name}/${pose}`, existsSync(ref) ? ref : undefined);
     }
   }
