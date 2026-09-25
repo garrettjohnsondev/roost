@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
+import { now, type ApprovalSetting, type ApprovalWords, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteCodexRateLimits } from '../usage.js';
 import { codexDelta, type CodexRaw } from '../usageDelta.js';
 import { fromCodexTokenUsage, withAdvice } from '../context.js';
@@ -123,11 +123,13 @@ export class CodexAdapter implements AgentAdapter {
 
   private async onServerRequest(method: string, params: any): Promise<any> {
     if (method === 'item/commandExecution/requestApproval' || method === 'execCommandApproval') {
+      const command = Array.isArray(params?.command) ? params.command.join(' ') : params?.command;
       const decision = await this.requestApproval(
         `Codex wants to run a command`,
-        [params?.command, params?.reason, params?.cwd ? `in ${params.cwd}` : '']
+        [command, params?.reason, params?.cwd ? `in ${params.cwd}` : '']
           .filter(Boolean)
           .join('\n'),
+        { action: 'run a command', target: command ? String(command) : undefined, note: params?.reason ? String(params.reason) : undefined, kind: 'commands' },
       );
       return { decision };
     }
@@ -139,22 +141,23 @@ export class CodexAdapter implements AgentAdapter {
       const decision = await this.requestApproval(
         'Codex wants to change files',
         [params?.reason, params?.grantRoot ? `grant root: ${params.grantRoot}` : ''].filter(Boolean).join('\n') || 'Apply proposed file changes',
+        { action: params?.grantRoot ? 'write outside the project' : 'change files', target: params?.grantRoot ? String(params.grantRoot) : undefined, note: params?.reason ? String(params.reason) : undefined, kind: 'file changes' },
       );
       return { decision };
     }
     if (method === 'item/permissions/requestApproval') {
-      const decision = await this.requestApproval('Codex requests permissions', truncate(JSON.stringify(params ?? {}, null, 2), 1500));
+      const decision = await this.requestApproval('Codex requests permissions', truncate(JSON.stringify(params ?? {}, null, 2), 1500), { action: 'have more permissions', note: params?.reason ? String(params.reason) : undefined, kind: 'permission requests' });
       return { decision };
     }
     // Anything we don't understand: refuse rather than hang the server.
     throw new Error(`Roost does not handle server request ${method}`);
   }
 
-  private requestApproval(title: string, detail: string): Promise<CodexDecision> {
+  private requestApproval(title: string, detail: string, words?: ApprovalWords): Promise<CodexDecision> {
     const requestId = randomUUID();
     return new Promise((resolve) => {
       this.pending.set(requestId, { resolve });
-      this.emit({ type: 'approval_request', requestId, title, detail, ts: now() });
+      this.emit({ type: 'approval_request', requestId, title, detail, words, ts: now() });
     });
   }
 

@@ -189,6 +189,15 @@ export const FIXTURES: Record<string, () => SessionState> = {
     ],
     meta({ state: 'idle' }), 2, { status: 'idle' },
   ),
+  /** A permission, asked as a text: one waiting, one answered. */
+  'approval-ask': () => base(
+    [
+      { kind: 'user', text: 'Clean the build and start over', imageCount: 0, ts: at(0) },
+      { kind: 'approval', requestId: 'a1', title: 'Claude wants to use Edit', detail: '{}', crew: OLLIE, decision: 'allow', words: { action: 'edit a file', target: 'web/src/tracker.ts', kind: 'file edits' }, ts: at(1) },
+      { kind: 'approval', requestId: 'a2', title: 'Claude wants to use Bash', detail: '{}', crew: OLLIE, words: { action: 'run a command', target: 'rm -rf web/dist && npm run build -w web', note: 'Delete the old build and rebuild it from scratch', kind: 'commands' }, ts: at(2) },
+    ],
+    meta({ state: 'working' }), 0, { status: 'working' },
+  ),
   /** Deploy: a crew member worked out what deploy means in a new project. */
   'deploy-proposal': () => base(
     [

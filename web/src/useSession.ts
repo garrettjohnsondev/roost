@@ -91,7 +91,7 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
       break;
     }
     case 'approval_request':
-      next.push({ kind: 'approval', requestId: event.requestId, title: event.title, detail: event.detail, ts: event.ts });
+      next.push({ kind: 'approval', requestId: event.requestId, title: event.title, detail: event.detail, words: event.words, crew: event.crew, ts: event.ts });
       break;
     case 'approval_resolved': {
       const i = next.findLastIndex((item) => item.kind === 'approval' && item.requestId === event.requestId);

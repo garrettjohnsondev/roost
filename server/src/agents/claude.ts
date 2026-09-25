@@ -1,3 +1,4 @@
+import { describeToolUse } from '../approvalWords.js';
 import { randomUUID } from 'node:crypto';
 import { authedQuery, isAuthFailure } from '../claudeAuth.js';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
@@ -262,6 +263,7 @@ export class ClaudeAdapter implements AgentAdapter {
         requestId,
         title: `Claude wants to use ${toolName}`,
         detail: truncate(JSON.stringify(toolInput, null, 2), 2000),
+        words: describeToolUse(toolName, toolInput, this.opts.cwd),
         ts: now(),
       });
     });

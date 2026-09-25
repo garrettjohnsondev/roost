@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
-import { SpriteAvatar, modelWords } from './ChatView';
+import { SpriteAvatar, contextWords, modelName } from './ChatView';
 import { nameColor } from './color';
 import { fmtAgo } from './format';
 import type { Companion, CrewInfo } from './types';
@@ -32,7 +32,7 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
             <div className="companion-sub">{c ? `Level ${c.level}` : ' '}{suiteWords(c?.suite ?? crew.agent ?? null)}{c?.tier ? ` · ${c.tier}` : ''}</div>
             <div className="companion-model">{(() => {
               const id = c?.model ?? crew.model ?? null;
-              return id ? modelWords(id) : c ? 'model: no data yet' : ' ';
+              return id ? [modelName(id), contextWords(id)].filter(Boolean).join(' · ') : c ? 'model: no data yet' : ' ';
             })()}</div>
             {c && <div className={`companion-mood ${c.mood.key}`}>{c.mood.line}</div>}
           </div>
@@ -67,7 +67,7 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
               <div className="companion-models">
                 <span className="companion-label">Has run as</span>
                 {c.models.map((m) => (
-                  <span key={m.id} className="companion-model-chip">{modelWords(m.id)} · {big(m.calls)}</span>
+                  <span key={m.id} className="companion-model-chip">{modelName(m.id)} · {big(m.calls)}</span>
                 ))}
               </div>
             )}

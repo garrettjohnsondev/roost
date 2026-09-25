@@ -286,6 +286,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   return (
     <DeployContext.Provider value={{ open: (proposal) => setDeploy({ proposal }) }}>
     <AskContext.Provider value={{ draft: askDraft, answer: answerQuestion, skip: skipQuestion, crew: session.meta?.crew, me }}>
+    <ApprovalContext.Provider value={(requestId, decision) => session.send({ type: 'approval_response', requestId, decision })}>
     <div className="chat-page">
       <header className="chat-header">
         <button className="ghost" onClick={onBack}>
@@ -308,7 +309,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               ) : null}{' '}
               {/* Who and on what, in words: "Ollie · Opus 5.5", not "claude ·
                   Default (recomme…" -- the list label of an alias. */}
-              {session.meta?.crew ? `${session.meta.crew.name} · ${modelWords(session.meta.crew.model)}` : `${agent} · ${currentModelLabel}`}
+              {session.meta?.crew ? `${session.meta.crew.name} · ${modelName(session.meta.crew.model)}` : `${agent} · ${currentModelLabel}`}
               {session.meta?.effort ? ` · ${session.meta.effort}` : ''}
               {!session.connected && ' · reconnecting…'}
             </div>
@@ -584,7 +585,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         {/* `triaging` is set locally on tap, before the server has said
             anything -- so it must show the indicator on its own, not wait for
             status to read 'working'. That wait was the reported dead air. */}
-        {(session.triaging || session.status === 'working') && !session.closedReason && !pendingQ && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
+        {(session.triaging || session.status === 'working') && !session.closedReason && !pendingQ && !session.pendingApproval && !(!session.triaging && liveWorkCard(session.items, session.status)) && (
           <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
@@ -660,66 +661,6 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       )}
 
       {signingIn && <ClaudeSignIn onClose={() => setSigningIn(false)} />}
-
-      {session.pendingApproval && (
-        <div className="sheet-backdrop">
-          <div className="sheet">
-            <h3 className="approval-head">
-              {/* An agent that needs you. The peek pose — crouched, leaning in,
-                  reading — is what "I am waiting on you" looks like, and it has
-                  been drawn and unreferenced until now. A ring expands off the
-                  face once per DISTINCT approval (keyed on requestId, which is
-                  the only "fresh" an approval has -- it is either pending or
-                  it is not, never replayed history the way a chat item is). */}
-              {session.meta?.crew?.sprite && (
-                <span className="approval-ring" key={session.pendingApproval.requestId}>
-                  <SpriteAvatar crew={session.meta.crew} pose="peek" size={34} />
-                </span>
-              )}
-              <span>
-                {/* The server names the vendor ("Claude wants to use Bash"); the
-                    thread is a crew, so it is the crew member asking. */}
-                {crewAsking(session.pendingApproval.title, session.meta?.crew)}
-                {session.pendingApprovalCount > 1 ? ` · ${session.pendingApprovalCount - 1} more waiting` : ''}
-              </span>
-            </h3>
-            <pre className="approval-detail">{session.pendingApproval.detail}</pre>
-            <div className="sheet-actions">
-              <button
-                className="danger"
-                onClick={() => session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'deny' })}
-              >
-                Deny
-              </button>
-              <button
-                className="primary"
-                onClick={() => session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'allow' })}
-              >
-                Allow
-              </button>
-            </div>
-            <button
-              className="link"
-              onClick={() => session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'allow-session' })}
-            >
-              Allow — and stop asking for this tool
-            </button>
-            <button
-              className="link link-warn"
-              onClick={() => {
-                // The tool-scoped remember-choice above is deliberately narrow (see
-                // sessions.ts) -- it used to silently widen to the whole session and
-                // that was removed on purpose. This is the real thing: an explicit,
-                // separately-labelled full-auto switch, not a side effect of "allow".
-                session.send({ type: 'approval_response', requestId: session.pendingApproval!.requestId, decision: 'allow' });
-                session.send({ type: 'set_approvals', approvals: 'full-auto' });
-              }}
-            >
-              Turn on full auto for this session
-            </button>
-          </div>
-        </div>
-      )}
 
       {showSettings && session.meta && (
         <div className="sheet-backdrop" onClick={() => setShowSettings(false)}>
@@ -799,10 +740,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 {agentConfig.models.map((m) => (
                   <button
                     key={m.id}
-                    className={!isAuto && isCurrentModel(m) ? 'chip active' : 'chip'}
+                    title={m.label}
+                    className={`${!isAuto && isCurrentModel(m) ? 'chip active' : 'chip'} model-chip`}
                     onClick={() => session.send({ type: 'set_model', model: m.id })}
                   >
-                    {m.label}
+                    {/* Clean names here too; the context size is this
+                        picker's detail, said once, under the name. */}
+                    <span className="model-chip-name">{modelName(m.resolvedModel ?? m.id)}</span>
+                    {(contextWords(m.id) ?? contextWords(m.resolvedModel)) || m.id === 'default' ? (
+                      <span className="model-chip-sub">
+                        {[contextWords(m.id) ?? contextWords(m.resolvedModel), m.id === 'default' ? 'default' : null].filter(Boolean).join(' · ')}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>
@@ -855,6 +804,13 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   </button>
                 ))}
               </div>
+              <div className="field-hint">
+                {session.meta.approvals === 'full-auto'
+                  ? 'They run commands and change files without asking. Anything they ask you is still a question in the chat.'
+                  : session.meta.approvals === 'auto-edits'
+                    ? 'File edits go ahead; commands and anything else ask you first, in the chat.'
+                    : 'They ask in the chat before running commands or changing files.'}
+              </div>
             </div>
             <div className="field">
               <label>Session name</label>
@@ -876,6 +832,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       )}
     </div>
+    </ApprovalContext.Provider>
     </AskContext.Provider>
     </DeployContext.Provider>
   );
@@ -1227,6 +1184,18 @@ function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh:
 }
 
 /** "claude-opus-5-5[1m]" -> "Opus 5.5 1M", "gpt-5.6-sol" -> "GPT-5.6 Sol". */
+/** The model and its version, and nothing else (2026-09-25): "Opus 5.5",
+ *  not "claude-opus-5-5[1m] · Chat". The context size is a setting's detail;
+ *  it lives with the model picker (contextWords). */
+export function modelName(id: string): string {
+  return modelWords(id).replace(/ 1M$/, '');
+}
+
+/** The context window, when the id says it -- never guessed. */
+export function contextWords(id: string | undefined): string | null {
+  return id && /\[1m\]/i.test(id) ? '1M context' : null;
+}
+
 export function modelWords(id: string): string {
   if (!id) return 'model not reported';
   const long = /\[1m\]$/i.test(id) ? ' 1M' : '';
@@ -1373,9 +1342,8 @@ function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; h
       <div className="crew-row-col">
         <div className="crew-row-head">
           <span className="crew-ident-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
-          <span className="crew-row-model">
-            {crew.model || crew.agent}
-            {crew.roleLabel ? ` · ${crew.roleLabel}` : ''}
+          <span className="crew-row-model" title={crew.model || undefined}>
+            {crew.model ? modelName(crew.model) : crew.agent === 'codex' ? 'Codex' : 'Claude'}
           </span>
           {head}
           {crew.effort && <EffortMeter effort={crew.effort} />}
@@ -1415,7 +1383,7 @@ function fmtMinutes(m: number): string {
 
 function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   return (
-    <span className="crew-chip" title={`${crew.name} · ${crew.roleLabel} · ${crew.model || crew.agent}`}>
+    <span className="crew-chip" title={`${crew.name} · ${crew.model ? modelName(crew.model) : crew.agent}`}>
       <CrewAvatar crew={crew} />
       <span className="crew-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
       <span className="crew-role">{crew.roleLabel}</span>
@@ -1492,12 +1460,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
     case 'tool':
       return <ToolChip item={item} fresh={fresh} />;
     case 'approval':
-      return (
-        <div className="tool-chip approval">
-          <Icon name="lock" /> {crewAsking(item.title, crew)}
-          {item.decision ? ` — ${item.decision === 'deny' ? 'denied' : 'allowed'}` : ' — waiting'}
-        </div>
-      );
+      return <ApprovalText item={item} crew={item.crew ?? crew} me={me} />;
     case 'routed':
       // The dispatcher's own turn. It used to be the only line in the thread
       // with nobody's name on it, which is odd for the decision that picks who
@@ -1518,10 +1481,10 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
                   history just stands there; nobody was sent anywhere today. */}
               <SpriteAvatar crew={item.worker} pose="idle" size={22} className={fresh ? 'sent-out' : undefined} />
               <strong style={{ color: nameColor(item.worker.color) }}>{item.worker.name}</strong>
-              <span className="routed-model"> ({item.model})</span>
+              <span className="routed-model"> ({modelName(item.model)})</span>
             </>
           ) : (
-            <strong>{item.model}</strong>
+            <strong>{modelName(item.model)}</strong>
           )}
           {item.reason ? ` — ${item.reason}` : ''}
         </div>
@@ -1918,6 +1881,44 @@ function QuestionThread({ item }: { item: Extract<ChatItem, { kind: 'question' }
     </>
   );
 }
+
+/** A permission request, asked as a text (2026-09-25). It was a pop-up over
+ *  raw JSON with two link-styled lines that "didn't even look like buttons".
+ *  Now whoever wants it asks in the thread -- "Can I run a command?", the
+ *  command, their reason -- and three real buttons answer it. The one waiting
+ *  pulses in their colour. Answered, it reads as a short exchange. Full auto
+ *  lives in the session settings, not here. */
+function ApprovalText({ item, crew, me }: { item: Extract<ChatItem, { kind: 'approval' }>; crew?: CrewInfo; me?: Me | null }) {
+  const send = React.useContext(ApprovalContext);
+  const w = item.words;
+  const ask = w ? `Can I ${w.action}?` : crewAsking(item.title, crew);
+  const waiting = !item.decision;
+  const reply = item.decision === 'deny' ? 'Not now' : item.decision === 'allow-session' ? `Yes — and don't ask again for ${w?.kind ?? 'this'}` : item.decision ? 'Yes' : null;
+  const bubble = (
+    <div className={`msg assistant approval-ask${waiting ? ' ask-pulse' : ''}`}>
+      <p className="approval-q">{ask}</p>
+      {w?.target ? <pre className="approval-target">{w.target}</pre> : !w ? <pre className="approval-target">{item.detail}</pre> : null}
+      {w?.note && <p className="approval-note">{w.note}</p>}
+      {waiting && send && (
+        <div className="approval-buttons">
+          <button className="approval-yes" onClick={() => send(item.requestId, 'allow')}>Yes</button>
+          <button className="approval-no" onClick={() => send(item.requestId, 'deny')}>Not now</button>
+          <button className="approval-always" onClick={() => send(item.requestId, 'allow-session')}>
+            Yes, and don't ask again for {w?.kind ?? 'this'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <>
+      {crew ? <CrewRow crew={crew} pose={waiting ? 'peek' : 'idle'}>{bubble}</CrewRow> : bubble}
+      {reply && <Message item={{ kind: 'user', text: reply, imageCount: 0, ts: item.ts }} me={me} />}
+    </>
+  );
+}
+
+const ApprovalContext = React.createContext<((requestId: string, decision: 'allow' | 'allow-session' | 'deny') => void) | null>(null);
 
 function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew?: CrewInfo }) {
   const [expanded, setExpanded] = useState(false);

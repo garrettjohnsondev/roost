@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isNarration, modelWords } from './ChatView';
+import { contextWords, isNarration, modelName, modelWords } from './ChatView';
 import type { ChatItem } from './types';
 
 const u = (ts: number) => ({ kind: 'user', text: 'go', imageCount: 0, ts }) as ChatItem;
@@ -40,5 +40,18 @@ describe('a question arrives as a text and is answered in place', () => {
     expect(items[0]).toMatchObject({ kind: 'question', answered: false });
     items = apply(items, { type: 'question_answered', requestId: 'q', answers: { 'Which?': 'That one' }, ts: 2 } as any);
     expect(items[0]).toMatchObject({ answered: true, answers: { 'Which?': 'That one' } });
+  });
+});
+
+describe('model names are the model and its version', () => {
+  it('drops the dashes, the date and the context bracket', () => {
+    expect(modelName('claude-opus-5-5[1m]')).toBe('Opus 5.5');
+    expect(modelName('claude-sonnet-5')).toBe('Sonnet 5');
+    expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
+    expect(modelName('gpt-6-astra')).toBe('GPT-6 Astra');
+  });
+  it('the context size is its own detail, and only when the id says it', () => {
+    expect(contextWords('opus[1m]')).toBe('1M context');
+    expect(contextWords('claude-sonnet-5')).toBeNull();
   });
 });

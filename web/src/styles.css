@@ -3310,7 +3310,7 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .deploy-field input { font: 14px ui-monospace, Menlo, monospace; padding: 10px; background: var(--surface-2); border: 1px solid var(--seam); color: var(--text); border-radius: 2px; min-width: 0; }
 .deploy-actions { display: flex; gap: 8px; margin: 4px 0 8px; }
 .deploy-actions button { flex: 1; }
-button.deploy-go { width: 100%; padding: 12px; font-weight: 700; background: var(--accent); color: var(--bg); border: 0; border-radius: 2px; }
+button.deploy-go { width: 100%; padding: 12px; font-weight: 700; background: var(--accent); color: var(--accent-text, #1a1405); border: 0; border-radius: 2px; }
 .deploy-actions button.deploy-go { flex: 2; }
 button.deploy-go:disabled { opacity: .55; }
 button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--accent-ink, var(--accent)); text-decoration: underline; font-size: 14px; }
@@ -3452,10 +3452,33 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .ask-option-label { font-weight: 700; font-size: 15px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .ask-pick { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--crew, var(--accent-ink)); font-weight: 400; }
 .ask-option-desc { font-size: 13.5px; line-height: 1.4; color: var(--text-dim); }
-.ask-send { align-self: flex-start; padding: 8px 14px; font-weight: 700; background: var(--accent); color: var(--bg); border: 0; border-radius: 2px; }
+.ask-send { align-self: flex-start; padding: 8px 14px; font-weight: 700; background: var(--accent); color: var(--accent-text, #1a1405); border: 0; border-radius: 2px; }
 .ask-send:disabled { opacity: .5; }
 .ask-hint { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 13px; color: var(--text-dim); }
 .ask-skip { margin-left: auto; background: none; border: 0; padding: 2px 0; font-size: 13px; color: var(--text-dim); text-decoration: underline; }
 .ask-skipped { align-self: center; font-size: 13px; color: var(--text-dim); padding: 2px 0; }
 .field-hint { margin-top: 6px; font-size: 13px; color: var(--text-dim); line-height: 1.4; }
 @media (prefers-reduced-motion: reduce) { .msg.assistant.ask-pulse { animation: none; } }
+
+/* ---------- a permission, asked as a text (2026-09-25) ---------- */
+.approval-q { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.approval-target {
+  margin: 8px 0 0; padding: 8px 10px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;
+  max-height: 9.5em; overflow: auto; background: var(--bg); border: 1px solid var(--seam); border-radius: 2px;
+}
+.approval-note { margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--text-dim); }
+/* Three real buttons -- full width on a phone, the safe answer and the quick
+   one side by side, the lasting one below them, spelled out. */
+.approval-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 11px; }
+.approval-buttons button { padding: 11px 10px; font-size: 15px; font-weight: 700; border-radius: 2px; min-width: 0; }
+.approval-yes { background: var(--accent); color: var(--accent-text, #1a1405); border: 0; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 22%, transparent); }
+.approval-no { background: var(--surface); color: var(--text); border: 1px solid var(--seam); }
+.approval-always {
+  grid-column: 1 / -1; background: var(--surface); color: var(--text); font-weight: 600 !important; font-size: 14px !important;
+  border: 1px dashed color-mix(in srgb, var(--crew, var(--accent)) 55%, var(--seam));
+}
+.approval-buttons button:active { transform: translateY(1px); }
+
+/* Model chips in settings: the clean name, the context size under it. */
+.model-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.2; }
+.model-chip-sub { font-size: 10.5px; opacity: .75; }

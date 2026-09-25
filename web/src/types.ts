@@ -106,6 +106,14 @@ export interface VerifyReport {
  *  unclear; talk -- a design chat first; grill -- a relentless interview. */
 export type AskLevel = 'off' | 'quick' | 'talk' | 'grill';
 
+/** A permission request in plain words (server/src/approvalWords.ts). */
+export interface ApprovalWords {
+  action: string;
+  target?: string;
+  note?: string;
+  kind: string;
+}
+
 /** One question from a crew member, with the replies they suggest. */
 export interface AskQuestion {
   question: string;
@@ -183,7 +191,7 @@ export type ServerEvent =
   | { type: 'thinking_delta'; delta: string; ts: number }
   | { type: 'tool_start'; toolId: string; name: string; detail: string; expand?: ToolExpand; ts: number }
   | { type: 'tool_end'; toolId: string; name: string; detail?: string; ok: boolean; ts: number }
-  | { type: 'approval_request'; requestId: string; title: string; detail: string; ts: number }
+  | { type: 'approval_request'; requestId: string; title: string; detail: string; words?: ApprovalWords; crew?: CrewInfo; ts: number }
   /** A crew member asking you something, as a text in the thread -- never a permission box. */
   | { type: 'question'; requestId: string; questions: AskQuestion[]; crew?: CrewInfo; ts: number }
   | { type: 'question_answered'; requestId: string; answers: Record<string, string> | null; ts: number }
@@ -395,7 +403,7 @@ export type ChatItem =
   | { kind: 'verify'; report: VerifyReport; ts: number }
   | { kind: 'thinking'; text: string; open: boolean; ts: number }
   | { kind: 'tool'; toolId: string; name: string; detail: string; expand?: ToolExpand; done: boolean; ok?: boolean; endDetail?: string; ts: number }
-  | { kind: 'approval'; requestId: string; title: string; detail: string; decision?: string; ts: number }
+  | { kind: 'approval'; requestId: string; title: string; detail: string; words?: ApprovalWords; crew?: CrewInfo; decision?: string; ts: number }
   | { kind: 'question'; requestId: string; questions: AskQuestion[]; crew?: CrewInfo; answered: boolean; answers: Record<string, string> | null; ts: number }
   | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; from?: CrewInfo; ts: number; reviewStrength?: string }

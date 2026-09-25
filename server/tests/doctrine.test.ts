@@ -311,7 +311,9 @@ describe('replayed history does not perform', () => {
     // The three new one-shots (07's ring, 08's confetti) also gate on a
     // real arrival: the ring on requestId, confetti on a fresh pass.
     const c = read('web/src/ChatView.tsx');
-    expect(c).toMatch(/<span className="approval-ring" key=\{session\.pendingApproval\.requestId\}>/);
+    // The approval waiting on you pulses in the thread until answered (the
+    // pop-up and its ring are gone, 2026-09-25); an answered one is still.
+    expect(c).toMatch(/className=\{`msg assistant approval-ask\$\{waiting \? ' ask-pulse' : ''\}`\}/);
     expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
   });
 })
@@ -397,15 +399,20 @@ describe('"stop asking" says what it actually stops', () => {
   const chat = read('web/src/ChatView.tsx');
 
   it('never re-labels the per-tool remember-choice as session-wide', () => {
-    expect(chat).not.toMatch(/Allow and stop asking this session/);
-    expect(chat).toMatch(/Allow — and stop asking for this tool/);
+    // 2026-09-25: the approval is a text in the thread now; its lasting
+    // answer names the one kind of thing it stops asking about.
+    expect(chat).not.toMatch(/stop asking this session/i);
+    expect(chat).toMatch(/Yes, and don't ask again for \{w\?\.kind \?\? 'this'\}/);
+    expect(chat).toMatch(/send\(item\.requestId, 'allow-session'\)/);
   });
 
   it('offers a real full-auto switch as its own explicit action, not a side effect', () => {
-    expect(chat).toMatch(/Turn on full auto for this session/);
-    // It must resolve the pending request AND flip the session mode --
-    // set_approvals alone does not retroactively resolve an in-flight ask.
-    expect(chat).toMatch(/decision: 'allow' \}\);\s*\n\s*session\.send\(\{ type: 'set_approvals', approvals: 'full-auto' \}\);/);
+    // It moved out of the approval ("confusing in how they were written and
+    // displayed and didn't even look like buttons") into the session settings,
+    // where it is one of the approval choices, chosen on purpose.
+    expect(chat).toMatch(/onClick=\{\(\) => session\.send\(\{ type: 'set_approvals', approvals: value \}\)\}/);
+    const a = chat.slice(chat.indexOf('function ApprovalText('), chat.indexOf('const ApprovalContext'));
+    expect(a).not.toMatch(/full-auto/);
   });
 
   it('keeps full auto visible for as long as it is on, never a fire-and-forget toggle', () => {
@@ -1537,7 +1544,7 @@ describe('the rest of the screenshot (item 36)', () => {
     expect(chat).toMatch(/\{session\.meta\?\.sticky \? \(\s*<span className="mode-tag direct"/);
   });
   it('the header names who and on what in words, not a list label', () => {
-    expect(chat).toMatch(/`\$\{session\.meta\.crew\.name\} · \$\{modelWords\(session\.meta\.crew\.model\)\}`/);
+    expect(chat).toMatch(/`\$\{session\.meta\.crew\.name\} · \$\{modelName\(session\.meta\.crew\.model\)\}`/);
   });
   it('no raw window key reaches the phone', () => {
     const q = read('server/src/quota.ts');

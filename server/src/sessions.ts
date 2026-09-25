@@ -589,6 +589,10 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    if (event.type === 'approval_request' && !event.crew) {
+      // Asked in the thread as a text from whoever wants it (2026-09-25).
+      event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };
+    }
     if (event.type === 'question') {
       if (!event.crew) event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };
       this.pendingQuestion = { requestId: event.requestId, questions: event.questions };
