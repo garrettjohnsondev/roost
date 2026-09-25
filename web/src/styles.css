@@ -3514,3 +3514,6 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .msg.assistant.typing-bubble .typing-dots i { width: 6px; height: 6px; }
 .work-thinking .typing-dots { margin-left: 4px; vertical-align: middle; }
 .chat-title-warn { color: var(--danger); font-size: 12px; margin-left: 4px; }
+.deploy-where { margin: -4px 0 12px; font-size: 12.5px; color: var(--text-dim); overflow-wrap: anywhere; }
+.deploy-where code { font-size: 12px; }
+.deploy-found button.deploy-link { display: block; margin: 10px auto 0; }

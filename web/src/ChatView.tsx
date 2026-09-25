@@ -338,6 +338,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           cwd={session.meta.cwd}
           proposal={deploy.proposal}
           onAsk={(text) => session.send({ type: 'user_message', text })}
+          crewName={session.meta?.crew?.name}
           onClose={() => setDeploy(null)}
         />
       )}

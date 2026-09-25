@@ -28,6 +28,7 @@ export function DeploySheet({
   cwd,
   proposal,
   onAsk,
+  crewName,
   onClose,
 }: {
   cwd: string;
@@ -35,6 +36,8 @@ export function DeploySheet({
   proposal?: DeploySuggestion;
   /** Send the "work out deploy" ask to the crew in this chat. */
   onAsk?: (prompt: string) => void;
+  /** Who would work it out, by name ("Ask Ollie to figure it out"). */
+  crewName?: string;
   onClose: () => void;
 }) {
   const [state, setState] = useState<DeployState | null>(null);
@@ -44,6 +47,8 @@ export function DeploySheet({
   const [check, setCheck] = useState('');
   const [busy, setBusy] = useState(false);
   const [unreachable, setUnreachable] = useState(false);
+  /** With nothing found, the command fields wait behind "I know the command". */
+  const [typing, setTyping] = useState(false);
   const alive = useRef(true);
   useEffect(() => () => void (alive.current = false), []);
 
@@ -133,6 +138,8 @@ export function DeploySheet({
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet deploy" onClick={(e) => e.stopPropagation()}>
         <h3>Deploy {name}</h3>
+        {/* Which project, said plainly: the one this chat was started in. */}
+        <div className="deploy-where">This chat's project · <code>{cwd}</code></div>
         {!state && !error && <div className="usage-empty">Reading the project…</div>}
         {error && <div className="error-note">{error}</div>}
 
@@ -168,14 +175,19 @@ export function DeploySheet({
               </div>
             ) : (
               <div className="deploy-found">
-                <p>Nothing in this project says how it gets deployed yet — no deploy script and no host's config file. Rather than guess, the crew can read the project and work it out, or you can type it.</p>
+                <p>Roost doesn't know how <strong>{name}</strong> goes live yet — nothing in it points to a host or a deploy script.</p>
                 {onAsk && (
                   <button className="deploy-go" onClick={() => { onAsk(state.ask); onClose(); }}>
-                    Ask the crew to work it out
+                    Ask {crewName ?? 'the crew'} to figure it out
                   </button>
+                )}
+                {!typing && (
+                  <button className="deploy-link" onClick={() => setTyping(true)}>I know the command</button>
                 )}
               </div>
             )}
+            {(seed || typing) && (
+            <>
             <label className="deploy-field">
               <span className="deploy-label">Deploy command</span>
               <input value={command} onChange={(e) => setCommand(e.target.value)} placeholder="e.g. npx vercel --prod" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
@@ -188,6 +200,8 @@ export function DeploySheet({
               <button className="deploy-go" disabled={!command.trim() || busy} onClick={() => save(true)}>Save and deploy</button>
               <button disabled={!command.trim() || busy} onClick={() => save(false)}>Save only</button>
             </div>
+            </>
+            )}
             {seed && onAsk && !proposal && (
               <button className="deploy-link" onClick={() => { onAsk(state.ask); onClose(); }}>Not right? Ask the crew to look</button>
             )}
