@@ -74,9 +74,17 @@ describe('the job tracker reports the thread, never a guess', () => {
     expect(states(t)).toBe('build:active done:todo');
   });
 
-  it('a plain chat turn reaches Done once work happened and the engine went idle', () => {
+  it('a turn that ended with nothing checked is "Your turn", never a green Done', () => {
+    // 2026-09-25: Done lit green while the crew only waited on a background
+    // job. Stopping is not finishing; only a passing gate is.
     const t = trackerOf(base([user('hi'), tool], { mode: 'chat', working: false }));
-    expect(states(t)).toBe('build:done done:done');
+    expect(states(t)).toBe('build:done done:awaiting');
+    expect(t!.steps.find((x) => x.key === 'done')!.label).toBe('Your turn');
+  });
+
+  it('a passing gate is the only green Done', () => {
+    const t = trackerOf(base([user('hi'), tool, pass], { mode: 'chat', working: false }));
+    expect(t!.steps.find((x) => x.key === 'done')!.state).toBe('done');
   });
 
   it('endIndex is the job\'s last item + 1, so the UI can tell a finish that just happened from replayed history', () => {

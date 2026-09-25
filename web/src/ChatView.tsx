@@ -946,7 +946,8 @@ function JobTracker({ session }: { session: SessionState }) {
   // newer than replay (it just happened in THIS session) -- never a timer.
   // Keyed on endIndex, so it plays once per finish and replays on the next.
   const doneStep = t.steps.find((s) => s.key === 'done');
-  const justFinished = doneStep?.state === 'done' && t.endIndex > session.replayedCount;
+  // A turn that finished -- proven (Done) or handed back (Your turn).
+  const justFinished = (doneStep?.state === 'done' || doneStep?.state === 'awaiting') && !session.triaging && session.status !== 'working' && t.endIndex > session.replayedCount;
   return (
     <div className={`job-tracker ${t.status}`} aria-label={`Job: ${t.name}`}>
       <div className="tracker-head">
@@ -964,7 +965,7 @@ function JobTracker({ session }: { session: SessionState }) {
         {t.steps.map((s) => (
           <li key={s.key} className={`tracker-step ${s.state}`}>
             <span className="tracker-dot" aria-hidden="true" />
-            <span className="tracker-label">{s.state === 'awaiting' ? `${s.label} · you` : s.label}</span>
+            <span className="tracker-label">{s.state === 'awaiting' && s.key !== 'done' ? `${s.label} · you` : s.label}</span>
           </li>
         ))}
       </ol>

@@ -92,6 +92,15 @@ export function trackerOf(input: TrackerInput): Tracker | null {
   };
 
   const steps: TrackerStep[] = keys.map((key) => ({ key, label: LABEL[key], state: evidence[key] ? 'done' : 'todo' }));
+  // Green "Done" is a claim only a PASSING gate can make (2026-09-25: "it
+  // isn't done, right?" -- the crew had only stopped typing, waiting on a
+  // background job). A turn that ended with nothing checked hands the job
+  // back to you: amber, "Your turn", not green.
+  const end = steps.find((st) => st.key === 'done');
+  if (end && end.state === 'done' && ch.status !== 'verified') {
+    end.state = 'awaiting';
+    end.label = 'Your turn';
+  }
   const verifyStep = steps.find((s) => s.key === 'verify');
   if (verifyStep && lastVerify && !lastVerify.report.passed && !lastVerify.report.unverified) verifyStep.state = 'failed';
 

@@ -906,7 +906,9 @@ describe('a plain chat turn gets its own finished beat', () => {
   // -- Done, and the job's last item newer than replay -- never a timer.
   const c = read('web/src/ChatView.tsx');
   it('keys the cheer on the job\'s end index, not a clock', () => {
-    expect(c).toMatch(/const justFinished = doneStep\?\.state === 'done' && t\.endIndex > session\.replayedCount;/);
+    // Still keyed on the end index, never a clock; a finished turn is Done
+    // (proven) or Your turn (handed back) since 2026-09-25.
+    expect(c).toMatch(/const justFinished = \(doneStep\?\.state === 'done' \|\| doneStep\?\.state === 'awaiting'\)[^;]*t\.endIndex > session\.replayedCount;/);
     expect(c).toMatch(/<SpriteAvatar key=\{t\.endIndex\} crew=\{t\.who\} pose="cheer"/);
   });
   it('the beat is a CSS animation, not JS, and stops under reduced motion', () => {
