@@ -593,7 +593,7 @@ describe('the job tracker reports the thread and lights up, it does not perform'
 
   it('moves only on a real change: one-shots keyed by state, a stamp only when the job just finished', () => {
     const c = read('web/src/ChatView.tsx');
-    expect(c).toMatch(/key=\{`\$\{s\.key\}:\$\{s\.state\}`\}/);
+    expect(c).toMatch(/key=\{`\$\{st\.key\}:\$\{st\.state\}`\}/);
     expect(c).toMatch(/const landing = justFinished && \(t\.outcome === 'verified' \|\| t\.outcome === 'failed'\);/);
     const css = read('web/src/styles.css');
     const block = css.slice(css.indexOf('/* ---------- job tracker'), css.indexOf('/* ---------- tool runs'));
@@ -603,7 +603,9 @@ describe('the job tracker reports the thread and lights up, it does not perform'
     const motion = css.slice(css.indexOf('/* ---------- tracker motion'));
     expect(motion).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.tracker-stamp\.land[\s\S]*animation: none !important/);
     // The only loop is the phase in progress -- a persistent state, named so.
-    expect(motion).toMatch(/\.seg\.active\.working::after/);
+    expect(motion).toMatch(/\.stop\.active\.working \.stop-mark::after/);
+    // They walk only when the phase changes, and stop by the walk's own end.
+    expect(c).toMatch(/onTransitionEnd=\{\(e\) => \{ if \(e\.propertyName === 'left'\) setWalk\(null\); \}\}/);
   });
 })
 
@@ -990,7 +992,8 @@ describe('a plain chat turn gets its own finished beat', () => {
     // Still keyed on the end index, never a clock; a finished turn is Done
     // (proven) or Your turn (handed back) since 2026-09-25.
     expect(c).toMatch(/const justFinished = \(doneStep\?\.state === 'done' \|\| doneStep\?\.state === 'awaiting'\)[^;]*t\.endIndex > session\.replayedCount;/);
-    expect(c).toMatch(/<SpriteAvatar key=\{t\.endIndex\} crew=\{t\.who\} pose=\{t\.outcome === 'failed' \? 'think' : 'cheer'\}/);
+    expect(c).toMatch(/<SpriteAvatar key=\{justFinished \? `f\$\{t\.endIndex\}` : 'w'\} crew=\{t\.who\} pose=\{pose\}/);
+    expect(c).toMatch(/: justFinished \? \(t\.outcome === 'failed' \? 'think' : 'cheer'\)/);
   });
   it('the beat is a CSS animation, not JS, and stops under reduced motion', () => {
     const css = read('web/src/styles.css');
@@ -1352,7 +1355,7 @@ describe('§12a beyond the eight — motion that reports what Roost already know
     // Quiet counts from opening the session or the last item, whichever is later.
     expect(chat()).toMatch(/Math\.max\(session\.openedAt, /);
     // Only the tracker face sleeps; nothing here adds a new keyframe loop.
-    expect(chat()).toMatch(/asleep \? 'sleep' : 'idle'/);
+    expect(chat()).toMatch(/: asleep \? 'sleep'/);
   });
 
   it('each moment has a design-review fixture', () => {

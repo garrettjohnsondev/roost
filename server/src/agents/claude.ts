@@ -158,7 +158,9 @@ export class ClaudeAdapter implements AgentAdapter {
               type: 'tool_start',
               toolId: block.id ?? randomUUID(),
               name: block.name ?? 'tool',
-              detail: truncate(toolDetail(block.name ?? '', block.input), 300),
+              // Whole commands: a test run after a long script was cut off at 300
+              // characters and never read as a test (the thread clips it visually).
+              detail: truncate(toolDetail(block.name ?? '', block.input), 4000),
               expand: toolExpand(block.name ?? '', block.input),
               ts: now(),
             });

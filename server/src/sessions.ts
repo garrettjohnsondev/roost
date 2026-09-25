@@ -2,6 +2,7 @@ import { composeReconcilePrompt } from './consult.js';
 import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
 import type { AskLevel, AskQuestion, Builder, SessionMode, UserImage } from './protocol.js';
 import { askGuidance } from './ask.js';
+import { treeFingerprint } from './treeState.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { detectCheck } from './deploy.js';
@@ -178,6 +179,8 @@ export class Session {
   /** A job that edited files is checked when it ends (2026-09-25: the
    *  VERIFIED stamp never landed because direct work never ran a gate). */
   private editedThisTurn = false;
+  /** The tree as it was when you last sent something (treeState.ts). */
+  private treeAtTurnStart: Promise<string | null> | null = null;
   private checking = false;
   /** Bumped by every message you send, so a check that outlives its turn
    *  does not mark the next turn idle. */
@@ -602,9 +605,20 @@ export class Session {
     if (event.type === 'tool_start' && /edit|write|patch|create|delete|rename|notebook/i.test(event.name)) this.editedThisTurn = true;
     const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
     if (turnEnded) this.proceeding = false;
-    if (turnEnded && this.editedThisTurn && !this.checking && !(this.executing && this.pendingVerify)) {
+    if (turnEnded && !this.checking && !(this.executing && this.pendingVerify)) {
+      // Did this turn change the project? Git says, however the files were
+      // written; the edit-tool flag is the fallback outside a repository.
+      const byTool = this.editedThisTurn;
+      const before = this.treeAtTurnStart;
       this.editedThisTurn = false;
-      setTimeout(() => void this.autoCheck(), 0);
+      void (async () => {
+        const start = before ? await before : null;
+        const end = start != null ? await treeFingerprint(this.cwd) : null;
+        const changed = start != null && end != null ? start !== end : byTool;
+        if (!changed) return;
+        this.treeAtTurnStart = Promise.resolve(end);
+        await this.autoCheck();
+      })();
     }
     if (turnEnded && this.executing && this.pendingVerify) {
       const pv = this.pendingVerify;
@@ -772,6 +786,9 @@ export class Session {
         }
         this.turnSeq++;
         this.editedThisTurn = false;
+        // Only a turn that starts from rest takes a fresh reading: a message
+        // that joins a running turn keeps the turn's starting point.
+        if (this.lastStatus !== 'working' || !this.treeAtTurnStart) this.treeAtTurnStart = treeFingerprint(this.cwd);
         // Recovered 2026-09-24: a message sent while a plan was being built
         // ("Don't stop your initial plan, these are additions") was triaged by
         // Pip and then never delivered anywhere -- it survives only inside the

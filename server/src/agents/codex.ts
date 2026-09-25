@@ -282,7 +282,7 @@ export class CodexAdapter implements AgentAdapter {
       case 'commandExecution':
         return {
           name: 'shell',
-          detail: truncate(item.command ?? '', 300),
+          detail: truncate(item.command ?? '', 4000),
           expand: { raw: truncate(item.command ?? '', EXPAND_SNIPPET) },
         };
       case 'fileChange': {

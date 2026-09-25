@@ -3,8 +3,8 @@ import { buzz } from './haptics';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
-import { trackerOf } from './tracker';
-import { Icon } from './icons';
+import { trackerOf, type TrackerStep } from './tracker';
+import { Icon, type IconName } from './icons';
 import { segmentsOf, summarizeRun, workSegments } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { Contained } from './ErrorBoundary';
@@ -976,6 +976,17 @@ function JobTracker({ session }: { session: SessionState }) {
     consultPending: !!session.meta?.consultPending,
     approvalPending: !!session.pendingApproval || session.items.some((it) => it.kind === 'question' && !it.answered),
   });
+  // Where they stand on the path: the phase happening now, or how it ended.
+  const at = walkerAt(t);
+  // They walk to the next stop when the phase really changes: `walk` is set
+  // from the change itself and cleared by the walk's own transitionend --
+  // no timer. On opening a thread they are simply standing there.
+  const prevAt = useRef<number | null>(null);
+  const [walk, setWalk] = useState<{ from: number; to: number } | null>(null);
+  useEffect(() => {
+    if (at >= 0 && prevAt.current != null && prevAt.current >= 0 && prevAt.current !== at) setWalk({ from: prevAt.current, to: at });
+    prevAt.current = at;
+  }, [at, t?.name]);
   if (!t) return null;
   // A finished beat for a plain chat turn (2026-09-24): "a plain-chat turn
   // that ends after real work has no finished beat at all." The trigger is
@@ -994,40 +1005,79 @@ function JobTracker({ session }: { session: SessionState }) {
   }
   const first = seenStates.current.states;
   const landing = justFinished && (t.outcome === 'verified' || t.outcome === 'failed');
+  const n = t.steps.length;
+  const skippedTest = t.outcome === 'yours' && t.steps.some((s) => s.key === 'test' && s.state === 'todo');
+  const pose: Pose = walk ? 'side'
+    : justFinished ? (t.outcome === 'failed' ? 'think' : 'cheer')
+    : session.status === 'working' ? (t.steps[at]?.state === 'awaiting' ? 'peek' : 'type')
+    : asleep ? 'sleep'
+    : t.outcome === 'yours' ? 'peek' : 'idle';
+  const label = (st: TrackerStep, k: number): string => {
+    if (st.key === 'test' && skippedTest) return 'Not tested';
+    if (st.key === 'done') return t.outcome === 'verified' ? 'Verified' : 'Done';
+    if (st.state === 'failed') return 'Failed';
+    if (k === at && (st.state === 'active' || st.state === 'awaiting') && session.status === 'working') return t.headline.word;
+    return st.label;
+  };
   return (
     <div className={`job-tracker ${t.status} outcome-${t.outcome ?? 'live'}`} aria-label={`Job: ${t.name}. ${t.headline.word}`}>
-      <div className="tracker-head">
-        {t.who?.sprite && (
-          justFinished ? (
-            <SpriteAvatar key={t.endIndex} crew={t.who} pose={t.outcome === 'failed' ? 'think' : 'cheer'} size={30} className="tracker-cheer" />
-          ) : (
-            <SpriteAvatar crew={t.who} pose={session.status === 'working' ? 'type' : asleep ? 'sleep' : 'idle'} size={30} />
-          )
-        )}
-        <div className="tracker-now">
-          <span key={t.headline.word} className={`tracker-word ${t.headline.key}${t.back ? ' back' : ''}`}>{t.headline.word}</span>
-          <span className="tracker-detail">{t.headline.detail || t.name}</span>
-        </div>
-        {t.who && <span className="tracker-who">{asleep ? `${t.who.name} · asleep` : t.who.name}</span>}
+      {/* One line: the job, and what it is on right now. The path below says
+          where it is, so nothing here repeats it (2026-09-25). */}
+      <div className="trail-line">
+        <span className="trail-job">{t.name}</span>
+        {t.headline.detail && <span className="trail-detail"> · {t.headline.detail}</span>}
       </div>
-      <ol className="tracker-bar" style={{ '--segs': t.steps.length } as React.CSSProperties}>
-        {t.steps.map((s) => (
-          <li key={`${s.key}:${s.state}`} className={`seg k-${s.key} ${s.state}${first[s.key] !== s.state ? ' just' : ''}${s.state === 'active' ? ' working' : ''}`}>
-            <span className="seg-label">{s.label}</span>
+      {/* A plain answer with no work behind it has no path to walk. */}
+      {n > 1 && (
+      <ol className="trail" style={{ '--n': n, '--at': at } as React.CSSProperties}>
+        {t.steps.map((st, k) => (
+          <li
+            key={`${st.key}:${st.state}`}
+            className={`stop k-${st.key} ${st.key === 'test' && skippedTest ? 'skipped' : st.state}${k === at ? ' here' : ''}${first[st.key] !== st.state ? ' just' : ''}${st.state === 'active' ? ' working' : ''}`}
+          >
+            <span className="stop-mark"><Icon name={STOP_ICON[st.key]} size={12} /></span>
+            <span className="stop-label">{label(st, k)}</span>
           </li>
         ))}
+        {t.who?.sprite && (
+          <li
+            className={`walker${walk ? ' walking' : ''}${walk && walk.to < walk.from ? ' leftward' : ''}`}
+            onTransitionEnd={(e) => { if (e.propertyName === 'left') setWalk(null); }}
+            aria-hidden="true"
+          >
+            <SpriteAvatar key={justFinished ? `f${t.endIndex}` : 'w'} crew={t.who} pose={pose} size={30} className={justFinished && !walk ? 'tracker-cheer' : undefined} />
+            {/* Your turn is said once: by them, to you. */}
+            {t.outcome === 'yours' && !walk && <span className="walker-says">your turn</span>}
+          </li>
+        )}
         {(t.outcome === 'verified' || t.outcome === 'failed') && (
           <li key={`stamp-${t.endIndex}`} className={`tracker-stamp ${t.outcome}${landing ? ' land' : ''}`} aria-hidden="true">
             {t.outcome === 'verified' ? 'VERIFIED' : 'FAILED'}
             {landing && t.outcome === 'verified' && (
-              <span className="stamp-confetti">{[0, 1, 2, 3, 4, 5].map((k) => <span key={k} />)}</span>
+              <span className="stamp-confetti">{[0, 1, 2, 3, 4, 5].map((c) => <span key={c} />)}</span>
             )}
           </li>
         )}
       </ol>
+      )}
     </div>
   );
 }
+
+/** The stop they stand at: the phase happening now, or how the job ended. */
+function walkerAt(t: ReturnType<typeof trackerOf>): number {
+  if (!t) return -1;
+  const n = t.steps.length;
+  if (t.outcome === 'verified' || t.outcome === 'yours') return n - 1;
+  if (t.outcome === 'failed') return Math.max(0, t.steps.findIndex((s) => s.key === 'test'));
+  const live = t.steps.findIndex((s) => s.state === 'active' || s.state === 'awaiting' || s.state === 'failed');
+  if (live >= 0) return live;
+  let last = 0;
+  t.steps.forEach((s, k) => { if (s.state === 'done') last = k; });
+  return last;
+}
+
+const STOP_ICON: Record<TrackerStep['key'], IconName> = { look: 'lens', plan: 'scroll', review: 'eye', build: 'hammer', test: 'flask', done: 'flag' };
 
 /** Pip, the dispatcher, known locally so the phone can put him on screen the
  *  instant ↑ is tapped -- before the server has sent anything that would name

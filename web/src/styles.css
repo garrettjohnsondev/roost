@@ -645,49 +645,69 @@ button {
 .consult-dismiss { width: auto; margin-top: 0; padding: 6px 10px; }
 
 /* ---------- job tracker (the pizza tracker) ---------- */
-/* Rebuilt 2026-09-25. Look up and read where the job is: the phase in big
-   letters, what it is on, and a chunky bar -- one block per phase, filled for
-   done, lit for now, empty for what is left. Labels sit INSIDE the blocks, so
-   nothing is drawn across the text. Motion lives in the section after this
-   one and plays only on a real change. */
+/* Rebuilt again 2026-09-25: "It just feels like we added 4 rectangles for
+   statuses." A path now: one stop per phase with its own pixel icon, and the
+   crew member standing on it where the job is. Behind them, stops are checked
+   and the path is solid; ahead, it is dotted. A skipped test is a gap that says
+   so. "Your turn" is said once -- by them. One line above: the job and what it
+   is on. Motion is its own section at the end of the file. */
 .job-tracker {
-  display: flex; flex-direction: column; gap: 7px;
-  padding: 8px 12px 9px; min-width: 0; overflow-x: clip;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 12px 6px; min-width: 0; overflow-x: clip;
   border-bottom: 1px solid var(--border); background: var(--surface); box-shadow: none;
 }
-.tracker-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.tracker-now { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.tracker-word {
-  font-family: var(--font-display, inherit); font-size: 15px; line-height: 1.15; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--accent-ink, var(--accent));
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.outcome-verified .tracker-word { color: var(--ok); }
-.outcome-failed .tracker-word { color: var(--danger); }
-.outcome-yours .tracker-word { color: var(--accent-ink, var(--accent)); }
-.tracker-detail { font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tracker-who { font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: 0.04em; color: var(--text-dim); flex-shrink: 0; align-self: flex-start; margin-top: 3px; }
-/* The name row is kept for the older call sites (none left in the chat). */
-.tracker-name { font-family: var(--font-display, inherit); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-/* A grid with a true zero minimum: labels can never push the page past the
-   phone's edge (the 2026-09-24 overflow). */
-.tracker-bar {
-  list-style: none; margin: 0; padding: 0; position: relative;
-  display: grid; grid-template-columns: repeat(var(--segs, 4), minmax(0, 1fr)); gap: 3px; min-width: 0;
-}
-.seg {
-  position: relative; height: 20px; min-width: 0; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); background: color-mix(in srgb, var(--text-dim) 8%, transparent);
-  font-size: 10.5px; color: var(--text-dim); border-radius: 2px;
-}
-.seg-label { position: relative; z-index: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; }
-.seg.done { background: var(--ok); border-color: var(--ok); color: #fff; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 22%, transparent); }
-.seg.active { background: var(--accent); border-color: var(--accent); color: #1a1405; font-weight: 700; box-shadow: inset 0 -2px 0 color-mix(in srgb, #000 22%, transparent); }
-.seg.awaiting { background: transparent; border: 2px solid var(--accent); color: var(--accent-ink, var(--accent)); font-weight: 700; }
-.seg.failed { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 700; }
 .job-tracker.verified { border-bottom-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
+.trail-line { font-size: 13px; line-height: 1.3; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.trail-job { color: var(--text); font-weight: 700; }
+.trail {
+  list-style: none; margin: 0; padding: 32px 0 0; position: relative; min-width: 0;
+  display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+}
+.stop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+/* The path into each stop, from the one before: centre to centre. */
+.stop + .stop::before {
+  content: ''; position: absolute; top: 10px; right: 50%; width: 100%; height: 3px; z-index: 0;
+  margin-right: 12px; width: calc(100% - 24px);
+  background: repeating-linear-gradient(90deg, var(--border) 0 3px, transparent 3px 6px);
+}
+.stop.done::before, .stop.active::before, .stop.awaiting::before, .stop.failed::before, .stop.here::before { background: var(--ok); }
+.stop.skipped::before { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--danger) 55%, transparent) 0 3px, transparent 3px 7px); }
+.stop-mark {
+  position: relative; z-index: 1; width: 23px; height: 23px; display: grid; place-items: center;
+  border: 2px solid var(--border); background: var(--surface); color: var(--text-dim); border-radius: 2px;
+}
+.stop.done .stop-mark { background: var(--ok); border-color: var(--ok); color: #fff; }
+.stop.active .stop-mark, .stop.awaiting .stop-mark { background: var(--accent); border-color: var(--accent); color: #1a1405; }
+.stop.failed .stop-mark { background: var(--danger); border-color: var(--danger); color: #fff; }
+.stop.skipped .stop-mark { border-style: dashed; border-color: color-mix(in srgb, var(--danger) 60%, var(--border)); color: color-mix(in srgb, var(--danger) 70%, var(--text-dim)); }
+.stop.k-done.done .stop-mark { background: var(--ok); }
+/* Handed back, not finished: the flag waits, outlined, and they say whose turn it is. */
+.stop.k-done.awaiting .stop-mark { background: var(--surface); border-color: var(--accent); color: var(--accent-ink, var(--accent)); }
+.stop.k-done.awaiting .stop-label { color: var(--text-dim); font-weight: 400; }
+.stop-label { font-size: 11px; line-height: 1.2; color: var(--text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stop.done .stop-label { color: var(--text); }
+.stop.here .stop-label { color: var(--text); font-weight: 700; }
+.stop.skipped .stop-label { color: color-mix(in srgb, var(--danger) 80%, var(--text)); font-weight: 700; }
+.stop.failed .stop-label { color: var(--danger); font-weight: 700; }
+.outcome-verified .stop.k-done .stop-label { color: var(--ok); font-weight: 700; }
+/* Them, standing above the stop where the job is. */
+.walker {
+  position: absolute; top: 0; z-index: 2; list-style: none;
+  left: calc((var(--at, 0) + 0.5) * 100% / var(--n, 4)); transform: translateX(-50%);
+  display: flex; align-items: flex-end;
+}
+.walker-says {
+  position: absolute; left: calc(100% + 2px); top: -2px; white-space: nowrap;
+  font-family: var(--font-display, inherit); font-size: 10px; letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 6px; background: var(--accent); color: #1a1405; border-radius: 2px;
+}
+/* The bubble's tail, pointing back at them. */
+.walker-says::before { content: ''; position: absolute; left: -4px; bottom: 3px; border: 4px solid transparent; border-right-color: var(--accent); border-left: 0; }
+/* At the far right there is no room after them: the bubble sits on their left. */
+.outcome-yours .walker-says { left: auto; right: calc(100% + 2px); }
+.outcome-yours .walker-says::before { left: auto; right: -4px; border-right-color: transparent; border-left: 4px solid var(--accent); }
+/* The old name row, for any caller left. */
+.tracker-name { font-family: var(--font-display, inherit); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- tool runs (consecutive calls, folded) ---------- */
 
@@ -3348,72 +3368,67 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .work-line .markdown > :last-child { margin-bottom: 0; }
 
 /* ---------- tracker motion: state changes only (Effects board 01, 08) ----- */
-/* A phase finishing fills its block left to right and pops a check. Keyed by
-   state in ChatView, so it plays once per change and never on opening. */
-.seg.done.just::before {
-  content: ''; position: absolute; inset: 0; background: color-mix(in srgb, #fff 45%, var(--ok));
-  transform-origin: left; animation: seg-fill 520ms steps(8, end) both;
+/* They walk to the next stop when the phase really changes: a stepped slide
+   in their side pose, with a small hop per step. Keyed off the change itself;
+   the walk's own transitionend puts them back in their working pose. */
+.walker { transition: left 900ms steps(9, end); }
+.walker.walking .crew-sprite { transform: scaleX(-1); animation: walk-hop 225ms steps(2, end) 4; }
+.walker.walking.leftward .crew-sprite { transform: none; }
+@keyframes walk-hop { 0% { translate: 0 0; } 50% { translate: 0 -3px; } 100% { translate: 0 0; } }
+/* A stop they just finished pops its check. Keyed by state in ChatView, so it
+   plays once per change and never on opening a thread. */
+.stop.done.just .stop-mark { animation: stop-pop 420ms cubic-bezier(0.3, 1.6, 0.4, 1) both; }
+@keyframes stop-pop { 0% { transform: scale(0.5); } 100% { transform: scale(1); } }
+.stop.done.just::before { transform-origin: left; animation: path-fill 500ms steps(6, end) both; }
+@keyframes path-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* While a phase is in progress, a ring breathes off its stop: the work is
+   ongoing -- a persistent state, like the typing dots. */
+.stop.active.working .stop-mark::after {
+  content: ''; position: absolute; inset: -2px; border: 2px solid var(--accent); border-radius: 2px;
+  animation: stop-working 1.6s ease-out infinite;
 }
-@keyframes seg-fill { from { transform: scaleX(0); opacity: 1; } 80% { transform: scaleX(1); opacity: 1; } to { transform: scaleX(1); opacity: 0; } }
-.seg.done.just .seg-label { animation: seg-pop 420ms 380ms cubic-bezier(0.3, 1.6, 0.4, 1) both; }
-@keyframes seg-pop { from { transform: scale(0.6); } to { transform: scale(1); } }
-/* The phase starting now lands with a small drop -- you see it change. */
-.seg.active.just, .seg.awaiting.just, .seg.failed.just { animation: seg-arrive 360ms cubic-bezier(0.3, 1.5, 0.4, 1) both; }
-@keyframes seg-arrive { from { transform: translateY(-5px); } to { transform: translateY(0); } }
-/* While a phase is actually in progress, a slow pixel sheen crosses it: the
-   work is ongoing, the same persistent-state rule as the typing dots. */
-.seg.active.working::after {
-  content: ''; position: absolute; top: 0; bottom: 0; width: 30%; left: -30%;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, #fff 40%, transparent), transparent);
-  animation: seg-working 1.8s steps(12, end) infinite;
-}
-@keyframes seg-working { to { left: 100%; } }
-/* The new headline arrives rather than swaps. */
-.tracker-word { animation: word-in 300ms ease-out both; }
-@keyframes word-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes stop-working { from { transform: scale(1); opacity: .9; } to { transform: scale(1.7); opacity: 0; } }
+.walker-says { animation: says-in 300ms cubic-bezier(0.3, 1.5, 0.4, 1) both; }
+@keyframes says-in { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* The stamp. A passing check is the highest-evidence moment in the product:
-   VERIFIED slams onto the bar at an angle and stays; a failure stamps red.
-   It lands only when the job JUST finished -- replayed, it is simply there. */
+   VERIFIED slams down beside the flag at an angle and stays; a failure stamps
+   red by the flask. It lands only when the job JUST finished. */
 .tracker-stamp {
-  position: absolute; right: 6px; top: 50%; z-index: 2; list-style: none;
+  position: absolute; top: 2px; z-index: 3; list-style: none;
   font-family: var(--font-display, inherit); font-size: 12px; letter-spacing: .08em;
-  padding: 3px 8px; transform: translateY(-50%) rotate(-7deg);
+  padding: 3px 8px; transform: rotate(-7deg);
   border: 2px solid var(--surface); box-shadow: var(--shadow-hard, 3px 3px 0 rgba(0,0,0,.35));
 }
-.tracker-stamp.verified { background: var(--ok); color: #fff; }
-.tracker-stamp.failed { background: var(--danger); color: #fff; }
+.tracker-stamp.verified { right: calc(100% / var(--n, 4) + 2px); background: var(--ok); color: #fff; }
+.tracker-stamp.failed { left: calc((var(--at, 0) + 1) * 100% / var(--n, 4)); background: var(--danger); color: #fff; }
 .tracker-stamp.land { animation: tracker-stamp-land 560ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 @keyframes tracker-stamp-land {
-  0% { opacity: 0; transform: translateY(-50%) scale(2.6) rotate(-16deg); }
-  55% { opacity: 1; transform: translateY(-50%) scale(0.86) rotate(-7deg); }
-  75% { transform: translateY(-50%) scale(1.07) rotate(-7deg); }
-  100% { opacity: 1; transform: translateY(-50%) scale(1) rotate(-7deg); }
+  0% { opacity: 0; transform: scale(2.6) rotate(-16deg); }
+  55% { opacity: 1; transform: scale(0.86) rotate(-7deg); }
+  75% { transform: scale(1.07) rotate(-7deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-7deg); }
 }
-/* The whole bar takes the hit. */
-.outcome-verified .tracker-bar:has(.tracker-stamp.land), .outcome-failed .tracker-bar:has(.tracker-stamp.land) { animation: bar-thud 260ms 300ms ease-out both; }
-@keyframes bar-thud { 0% { transform: translateY(0); } 40% { transform: translateY(2px); } 100% { transform: translateY(0); } }
-/* Earned delight: a burst of pixels off the stamp, once. */
 .stamp-confetti { position: absolute; inset: 0; pointer-events: none; }
 .stamp-confetti span {
   position: absolute; top: 40%; left: 50%; width: 5px; height: 5px;
   animation: stamp-burst 900ms 330ms cubic-bezier(0.15, 0.7, 0.3, 1) both;
 }
-.stamp-confetti span:nth-child(1) { --dx: -34px; --dy: -22px; background: var(--accent); }
-.stamp-confetti span:nth-child(2) { --dx: -16px; --dy: -30px; background: var(--ok); }
-.stamp-confetti span:nth-child(3) { --dx: 2px; --dy: -34px; background: var(--claude, #c9764a); }
-.stamp-confetti span:nth-child(4) { --dx: 20px; --dy: -28px; background: var(--accent); }
-.stamp-confetti span:nth-child(5) { --dx: 36px; --dy: -18px; background: var(--codex, #3d9c78); }
-.stamp-confetti span:nth-child(6) { --dx: 46px; --dy: -4px; background: var(--ok); }
+.stamp-confetti span:nth-child(1) { --dx: -34px; --dy: -14px; background: var(--accent); }
+.stamp-confetti span:nth-child(2) { --dx: -16px; --dy: -22px; background: var(--ok); }
+.stamp-confetti span:nth-child(3) { --dx: 2px; --dy: -24px; background: var(--claude, #c9764a); }
+.stamp-confetti span:nth-child(4) { --dx: 20px; --dy: -20px; background: var(--accent); }
+.stamp-confetti span:nth-child(5) { --dx: 36px; --dy: -12px; background: var(--codex, #3d9c78); }
+.stamp-confetti span:nth-child(6) { --dx: 44px; --dy: 4px; background: var(--ok); }
 @keyframes stamp-burst {
   0% { opacity: 0; transform: translate(0, 0) rotate(0); }
   15% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(90deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .seg.done.just::before, .seg.done.just .seg-label, .seg.active.just, .seg.awaiting.just, .seg.failed.just,
-  .seg.active.working::after, .tracker-word, .tracker-stamp.land, .tracker-bar, .stamp-confetti span { animation: none !important; }
-  .seg.done.just::before, .seg.active.working::after, .stamp-confetti { display: none; }
+  .walker, .walker.walking .crew-sprite, .stop.done.just .stop-mark, .stop.done.just::before,
+  .stop.active.working .stop-mark::after, .walker-says, .tracker-stamp.land, .stamp-confetti span { animation: none !important; transition: none !important; }
+  .stop.active.working .stop-mark::after, .stamp-confetti { display: none; }
 }
 
 /* ---------- the crew's own colour on their replies (2026-09-25) ---------- */
