@@ -16,6 +16,17 @@ function settleChat() {
 }
 document.addEventListener('focusout', () => requestAnimationFrame(settleChat));
 window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(settleChat));
+// 2026-09-26: once the chat column itself shrinks for the keyboard (below),
+// iOS's OWN "scroll the focused field into view" still fires on focus too --
+// double correction, since the column already put the composer above the
+// keyboard. That second scroll shoved the whole page up past the top,
+// leaving blank background under a composer stranded at the very top of the
+// screen ("shot up all the way"). Settle on focus-IN too, not just focus-out,
+// and again a beat later -- iOS's own scroll can land after the first frame.
+document.addEventListener('focusin', () => {
+  requestAnimationFrame(settleChat);
+  setTimeout(settleChat, 100);
+});
 
 // 100dvh is the LAYOUT viewport, not what's actually visible -- opening the
 // keyboard here (a home-screen web app) shrinks the VISUAL viewport only, so
