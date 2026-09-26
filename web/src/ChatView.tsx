@@ -215,6 +215,21 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     }
   }, [session.items, session.status, recap, unseen]);
 
+  // 2026-09-26: "where I was on your last message was not all the way at the
+  // bottom" when the keyboard opened. Being pinned re-scrolls to the bottom
+  // whenever new items arrive, but the keyboard opening isn't a new item --
+  // it shrinks this panel's own height (--vvh, main.tsx), which moves the
+  // bottom without moving scrollTop's numeric value. Re-pin on that too.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !window.visualViewport) return;
+    const onResize = () => {
+      if (pinned.current) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    };
+    window.visualViewport.addEventListener('resize', onResize);
+    return () => window.visualViewport?.removeEventListener('resize', onResize);
+  }, []);
+
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
