@@ -26,6 +26,13 @@ export interface AgentAdapterOptions {
   approvals: ApprovalSetting;
   /** Resume an existing agent-side session/thread id. */
   resume?: string;
+  /** Tools already granted "for this session" before a restart -- so "don't
+   *  ask again" survives a Roost restart instead of resetting with the
+   *  in-memory Set that held it (2026-09-26: approved once, asked again the
+   *  very next turn, because the restart that turn triggered wiped it). */
+  allowedTools?: string[];
+  /** Called whenever the set of session-allowed tools changes, so it can be persisted. */
+  onAllowedToolsChange?: (tools: string[]) => void;
   emit: (event: ServerEvent) => void;
   /** Called when the underlying agent session id becomes known. */
   onAgentSessionId: (id: string) => void;

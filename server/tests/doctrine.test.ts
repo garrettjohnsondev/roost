@@ -1620,3 +1620,30 @@ describe('forty scenes, one a day (item 39)', () => {
     for (const id of ids) expect(existsSync(join(root, 'web/public/scenes', `${id}.webp`)), id).toBe(true);
   });
 });
+
+describe('bugs from the phone, 2026-09-26', () => {
+  const s = read('server/src/sessions.ts');
+
+  it('a restart right after a fresh release says what shipped, not just "cut off"', () => {
+    expect(s).toMatch(/function recentDeploy\(since: number\)/);
+    // gated on the release landing AFTER this session was last saved -- an
+    // old release must never be reported as the cause of an unrelated restart
+    expect(s).toMatch(/Date\.parse\(meta\.at\) <= since\) return null;/);
+    expect(s).toMatch(/const deploy = cut \? recentDeploy\(this\.updatedAt\) : null;/);
+    expect(s).toMatch(/that was this turn's own deploy going live/);
+    // the old line survives as the fallback when the restart was NOT a deploy
+    expect(s).toMatch(/Roost restarted at \$\{at\} — the turn that was running was cut off/);
+  });
+
+  it('"don\'t ask again" survives a restart instead of resetting silently', () => {
+    // seeded into the adapter from the restored session, and fed back out
+    // whenever a new tool is granted, so the next restart has it too
+    expect(s).toMatch(/allowedTools: this\.sessionAllowedTools,/);
+    expect(s).toMatch(/onAllowedToolsChange: \(tools: string\[\]\) => \{\s*this\.sessionAllowedTools = tools;/);
+    expect(s).toMatch(/sessionAllowedTools: s\.sessionAllowedTools,/); // saved
+    expect(s).toMatch(/sessionAllowedTools: entry\.sessionAllowedTools,/); // restored
+    const claude = read('server/src/agents/claude.ts');
+    expect(claude).toMatch(/this\.sessionAllowedTools = new Set\(opts\.allowedTools \?\? \[\]\);/);
+    expect(claude).toMatch(/this\.opts\.onAllowedToolsChange\?\.\(\[\.\.\.this\.sessionAllowedTools\]\);/);
+  });
+});

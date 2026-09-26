@@ -44,8 +44,10 @@ export class ClaudeAdapter implements AgentAdapter {
   private input = new AsyncQueue<any>();
   private q: any;
   private pending = new Map<string, PendingApproval>();
-  /** Tools the user approved "for this session". */
-  private sessionAllowedTools = new Set<string>();
+  /** Tools the user approved "for this session". Seeded from a prior process's
+   *  grants (opts.allowedTools) so a restart doesn't ask again for something
+   *  already settled. */
+  private sessionAllowedTools: Set<string>;
   private approvals: ApprovalSetting;
   private disposed = false;
   /** Last seen cumulative modelUsage, per model key. The SDK documents
@@ -62,6 +64,7 @@ export class ClaudeAdapter implements AgentAdapter {
 
   constructor(private opts: AgentAdapterOptions) {
     this.approvals = opts.approvals;
+    this.sessionAllowedTools = new Set(opts.allowedTools ?? []);
     this.start();
     // The CLI engine starts lazily on the first message; the session is ready for input now.
     this.emit({ type: 'status', state: 'idle', ts: now() });
@@ -100,7 +103,10 @@ export class ClaudeAdapter implements AgentAdapter {
         const decision = await this.requestApproval(toolName, toolInput);
         // Remember the TOOL. Switching the session to bypassPermissions here
         // silently widened every later permission the user never saw.
-        if (decision === 'allow-session') this.sessionAllowedTools.add(toolName);
+        if (decision === 'allow-session') {
+          this.sessionAllowedTools.add(toolName);
+          this.opts.onAllowedToolsChange?.([...this.sessionAllowedTools]);
+        }
         if (decision === 'allow' || decision === 'allow-session') return { behavior: 'allow', updatedInput: toolInput };
         return { behavior: 'deny', message: 'Denied by user from Roost.' };
       },

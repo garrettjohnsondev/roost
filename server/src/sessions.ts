@@ -33,7 +33,7 @@ import { truncate } from './util.js';
 import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
-import { statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
+import { dataDir, statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
 import { TranscriptWriter, lastState, readTranscript, removeTranscript } from './transcripts.js';
@@ -47,6 +47,23 @@ import { estimateCost } from './pricing.js';
 import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startConsultStep, type ConsultRun } from './consult.js';
 
 const TRANSCRIPT_CAP = 5000;
+
+/** A restart that happens to land right after a fresh release is a deploy,
+ *  not a crash -- distinguished by the release timestamp landing after this
+ *  session was last saved, never by guessing at which bash command an agent
+ *  ran. Used to turn "the turn that was running was cut off" (true, but
+ *  reads like something broke) into what actually happened (2026-09-26: a
+ *  deploy this same turn triggered killed its own turn before it could say
+ *  it finished). */
+function recentDeploy(since: number): { commit: string; subject: string; smoke: string } | null {
+  try {
+    const meta = JSON.parse(readFileSync(join(dataDir(), 'releases', 'current', 'meta.json'), 'utf8'));
+    if (typeof meta?.at !== 'string' || Date.parse(meta.at) <= since) return null;
+    return { commit: String(meta.commit ?? ''), subject: String(meta.subject ?? ''), smoke: String(meta.smoke ?? '') };
+  } catch {
+    return null;
+  }
+}
 
 /** What a finished consult leaves behind for Proceed. */
 type ConsultState = { task: string; plan: string; critique: string; criteria?: string[]; taskId?: string; planPath?: string };
@@ -73,6 +90,7 @@ interface SessionOpts {
     jobsDone?: string[];
       builder?: Builder;
     sticky?: string;
+    sessionAllowedTools?: string[];
   };
   onChange?: () => void;
 }
@@ -122,6 +140,11 @@ export class Session {
   titleAuto = true;
   jobAsk?: string;
   jobsDone: string[] = [];
+  /** Tools granted "for this session" (the adapter's Set, mirrored here so a
+   *  restart can hand them back instead of asking again -- 2026-09-26: approved
+   *  once, then asked again the very next turn, because the restart that turn
+   *  triggered reset the in-memory grant with nothing to restore it from. */
+  sessionAllowedTools: string[];
   /** Crew turns in the open job, and the crew's first line about it -- the
    *  name when the ask itself names nothing. */
   private jobTurns = 0;
@@ -222,6 +245,7 @@ export class Session {
     this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
     this.builder = opts.restore?.builder ?? 'auto';
     this.sticky = opts.restore?.sticky;
+    this.sessionAllowedTools = opts.restore?.sessionAllowedTools ?? [];
     this.jobAsk = opts.restore?.jobAsk;
     this.jobsDone = opts.restore?.jobsDone ?? [];
     // Auto and build route per message, which requires the sentinel. Whatever
@@ -266,11 +290,14 @@ export class Session {
       this.transcript = readTranscript(this.id, TRANSCRIPT_CAP);
       const cut = lastState(this.transcript) === 'working';
       const at = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const deploy = cut ? recentDeploy(this.updatedAt) : null;
       if (this.transcript.length) {
         setTimeout(() => {
-          this.notice(cut
-            ? `Roost restarted at ${at} — the turn that was running was cut off. The thread above is what happened before; say "continue" to pick it back up.`
-            : `Roost restarted at ${at}. The thread above is what happened before.`);
+          this.notice(deploy
+            ? `Roost restarted at ${at} — that was this turn's own deploy going live: ${deploy.commit} — ${deploy.subject}${deploy.smoke === 'passed' ? ' (smoke passed).' : '.'} The turn was cut off right after, before it could say so; say "continue" to pick it back up.`
+            : cut
+              ? `Roost restarted at ${at} — the turn that was running was cut off. The thread above is what happened before; say "continue" to pick it back up.`
+              : `Roost restarted at ${at}. The thread above is what happened before.`);
           if (cut) this.pushEvent({ type: 'status', state: 'idle', ts: now() });
         }, 0);
       }
@@ -289,6 +316,11 @@ export class Session {
       effort: this.effort,
       approvals: this.approvals,
       resume: opts.resume,
+      allowedTools: this.sessionAllowedTools,
+      onAllowedToolsChange: (tools: string[]) => {
+        this.sessionAllowedTools = tools;
+        this.onChange?.(); // worth a persist -- this is exactly what must survive a restart
+      },
       emit: (event: ServerEvent) => this.pushEvent(event),
       onAgentSessionId: (id: string) => {
         this.agentSessionId = id;
@@ -1768,6 +1800,7 @@ interface PersistedSession {
   titleAuto?: boolean;
   jobAsk?: string;
   jobsDone?: string[];
+  sessionAllowedTools?: string[];
 }
 
 export class SessionManager {
@@ -1829,6 +1862,7 @@ export class SessionManager {
       sticky: s.sticky,
       jobAsk: s.jobAsk,
       jobsDone: s.jobsDone,
+      sessionAllowedTools: s.sessionAllowedTools,
     }));
     try {
       const path = statePath();
@@ -1890,6 +1924,7 @@ export class SessionManager {
             sticky: entry.sticky,
             jobAsk: entry.jobAsk,
             jobsDone: entry.jobsDone,
+            sessionAllowedTools: entry.sessionAllowedTools,
           },
           onChange: () => this.scheduleSave(),
         });
