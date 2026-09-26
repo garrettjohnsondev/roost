@@ -1438,7 +1438,10 @@ button {
 .chat-page {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* --vvh (main.tsx) tracks the real visible area, which shrinks for the
+     keyboard on iOS while 100dvh does not; falls back to 100dvh before the
+     first measurement or on browsers with no visualViewport. */
+  height: var(--vvh, 100dvh);
   position: relative;
 }
 

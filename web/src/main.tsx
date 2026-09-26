@@ -17,6 +17,22 @@ function settleChat() {
 document.addEventListener('focusout', () => requestAnimationFrame(settleChat));
 window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(settleChat));
 
+// 100dvh is the LAYOUT viewport, not what's actually visible -- opening the
+// keyboard here (a home-screen web app) shrinks the VISUAL viewport only, so
+// the chat column never shrank and the composer sat below the fold, under
+// the keyboard, until some unrelated reflow (typing a letter grows the
+// textarea) happened to drag it back into view (2026-09-26: "sometimes...
+// intermittent"). Tracked directly and applied as a var the layout can size
+// against, so the composer is above the keyboard from the first tap, not by
+// luck.
+function setVisibleHeight() {
+  const h = window.visualViewport?.height ?? window.innerHeight;
+  document.documentElement.style.setProperty('--vvh', `${h}px`);
+}
+setVisibleHeight();
+window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(setVisibleHeight));
+window.addEventListener('resize', () => requestAnimationFrame(setVisibleHeight));
+
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
     <GlobalErrorBanner />
