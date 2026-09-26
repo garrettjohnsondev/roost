@@ -72,6 +72,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [showGit, setShowGit] = useState(false);
   const [deploy, setDeploy] = useState<{ proposal?: DeploySuggestion } | null>(null);
+  const [deployCommand, setDeployCommand] = useState<{ cwd: string; command: string } | null>(null);
+  const cwd = session.meta?.cwd;
+  useEffect(() => {
+    if (!cwd || fixture) return;
+    let cancelled = false;
+    api.deploy(cwd).then((state) => {
+      if (!cancelled) setDeployCommand(state.recipe ? { cwd, command: state.recipe.command } : null);
+    }).catch(() => {
+      if (!cancelled) setDeployCommand(null);
+    });
+    return () => { cancelled = true; };
+  }, [cwd, deploy, fixture]);
   // A question from the crew, answered one at a time like texts; the answers
   // go back together once the last one is in.
   const [askDraft, setAskDraft] = useState<{ id: string; answers: Record<string, string> } | null>(null);
@@ -314,7 +326,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </div>
         </button>
         {session.meta && (
-          <button className="ghost" onClick={() => setDeploy({})} title="Deploy">
+          <button className="ghost" onClick={() => setDeploy({})} title={deployCommand && deployCommand.cwd === cwd ? `Deploy: ${deployCommand.command}` : 'Set up deploy'}>
             <Icon name="rocket" size={24} />
           </button>
         )}
@@ -1464,6 +1476,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
 }
 
 function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean }) {
+  const deploy = React.useContext(DeployContext);
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1614,6 +1627,9 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
               <div className="review-strength">{r.review.strength}</div>
               <Markdown text={r.review.text} />
             </div>
+          )}
+          {r.passed && r.changed && deploy && (
+            <button className="deploy-go" onClick={() => deploy.open()}>Deploy</button>
           )}
         </div>
       );

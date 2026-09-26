@@ -215,6 +215,21 @@ switch (command) {
     console.log(`Installed and started ${LABEL} — ${meta?.commit}.`);
     console.log(`It now starts automatically at login and restarts if it crashes.`);
     console.log(`Logs: tail -f ${logPath}`);
+
+    // Deploy going live and GitHub having the commit used to be two separate
+    // steps, and the second one only happened if someone remembered to open
+    // the Changes sheet and tap Push. GitHub sat 40 commits behind for a full
+    // day this way (2026-09-25). Bundled here, after the live app is already
+    // confirmed healthy, so a push failure (offline, no remote) never blocks
+    // or reverts a deploy that already succeeded -- it only means GitHub
+    // catches up next time.
+    console.log('Also: pushing to GitHub');
+    try {
+      run('git push');
+      console.log('     pushed.');
+    } catch (e) {
+      console.error(`     could not push (deploy still succeeded): ${e.message ?? e}`);
+    }
     break;
   }
   case 'rollback': {

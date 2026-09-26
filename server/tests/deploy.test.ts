@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { detectCheck, detectDeploy, forgetRecipe, getRecipe, lastRun, parseProposal, saveRecipe, startDeploy } from '../src/deploy.js';
 
 const dir = (files: Record<string, string>) => {
@@ -15,6 +16,14 @@ const dir = (files: Record<string, string>) => {
 const pkg = (scripts: Record<string, string>) => JSON.stringify({ name: 'x', private: true, scripts });
 
 describe('what deploy means in a project', () => {
+  it('recognizes this repo as a Roost installer project', () => {
+    const repoRoot = fileURLToPath(new URL('../../', import.meta.url));
+    expect(detectDeploy(repoRoot)).toMatchObject({
+      source: 'Roost installer',
+      command: 'node scripts/service.mjs install',
+    });
+  });
+
   it('prefers the project\'s own deploy script', () => {
     const s = detectDeploy(dir({ 'package.json': pkg({ deploy: 'wrangler deploy', test: 'vitest run' }), 'vercel.json': '{}' }));
     expect(s?.command).toBe('npm run deploy');

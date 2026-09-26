@@ -6,6 +6,7 @@ import { treeFingerprint } from './treeState.js';
 import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { detectCheck } from './deploy.js';
+import { getGitStatus, gitCommit } from './git.js';
 import { quotaStore } from './quota.js';
 import { refreshUsageSoon } from './usage.js';
 import { companionFor, noteLife, readLedgerRows, readLife } from './companions.js';
@@ -1021,6 +1022,7 @@ export class Session {
             review: msg.review ? { executorAgent: this.agent, criteria: typeof msg.criteria === 'string' ? msg.criteria : undefined, onCall: (d) => this.ledgerCall(d, 'review') } : undefined,
           });
           this.pushEvent({ type: 'verify', report, ts: now() });
+          if (report.passed) await this.autoCommitIfDirty();
         } catch (err: any) {
           this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);
         } finally {
@@ -1509,7 +1511,8 @@ export class Session {
     this.pushEvent({ type: 'status', state: 'working', message: 'Checking the work — running the project gates…', ts: now() });
     try {
       const report = await verifyTask({ cwd: this.cwd, taskId: this.id, fingerprintAtStart: this.gateFingerprintAtStart, checks });
-      this.pushEvent({ type: 'verify', report, ts: now() });
+      this.pushEvent({ type: 'verify', report: { ...report, changed: true }, ts: now() });
+      if (report.passed) await this.autoCommitIfDirty();
       if (this.sockets.size === 0 && !report.passed) sendNotification(`verify:${this.id}`, `Checks failed · ${this.title}`, report.summary);
     } catch (err: any) {
       this.reportError(`The checks failed to run: ${String(err?.message ?? err)}`);
@@ -1517,6 +1520,24 @@ export class Session {
       this.checking = false;
       // A new turn may have started while the checks ran; it owns the status.
       if (seq === this.turnSeq) this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+    }
+  }
+
+  /** A passing check used to leave the work sitting uncommitted until you
+   *  opened the Changes sheet yourself -- the actual cause of "I coded and
+   *  said deploy and it wasn't committing" (2026-09-25). Once the gates
+   *  pass, commit whatever the agent left dirty, with the job's own name as
+   *  the message. A crew member that already committed its own work leaves
+   *  nothing dirty here, so this is a backstop, not a second commit. */
+  private async autoCommitIfDirty(): Promise<void> {
+    try {
+      const status = await getGitStatus(this.cwd);
+      if (!status.isRepo || !status.files.length) return;
+      const message = this.jobLabel();
+      const out = await gitCommit(this.cwd, message);
+      this.notice(`Committed: ${message} — ${out.split('\n')[0]}`);
+    } catch (err: any) {
+      this.notice(`Passed, but couldn't commit: ${String(err?.message ?? err)}`);
     }
   }
 
@@ -1530,6 +1551,7 @@ export class Session {
         review: pv.review ? { executorAgent: this.agent, criteria: pv.criteria?.length ? pv.criteria.map((c) => `- ${c}`).join('\n') : undefined, onCall: (d) => this.ledgerCall(d, 'review') } : undefined,
       });
       this.pushEvent({ type: 'verify', report, ts: now() });
+      if (report.passed) await this.autoCommitIfDirty();
       if (this.sockets.size === 0) sendNotification(`verify:${this.id}`, `${report.passed ? 'Verified' : report.unverified ? 'Not verified' : 'Verification FAILED'} · ${this.title}`, report.summary);
     } catch (err: any) {
       this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);

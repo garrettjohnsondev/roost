@@ -87,6 +87,8 @@ export interface ImageCheck {
 export interface VerifyReport {
   taskId?: string;
   passed: boolean;
+  /** This check followed a turn that changed the project. */
+  changed?: boolean;
   /** Nothing was checked: the project defines no gates and no images were
    *  given. Not a pass, and not a failure either -- shown as NOT VERIFIED. */
   unverified?: boolean;
