@@ -32,6 +32,20 @@ describe('chat reducer', () => {
     items = apply(items, { type: 'assistant_message', text: 'two', ts });
     expect(items).toHaveLength(2);
   });
+
+  // 2026-09-26: "you never sent me a message" -- a restart's own recovery
+  // line went out as a 'status' event with a message, which only ever set
+  // the transient statusMessage line and was never added to the visible
+  // thread; the very next plain status event (no message) erased it. A
+  // 'notice' is the fix: its own event, always a permanent item.
+  it('a notice is a permanent item, unlike a status message which is transient', () => {
+    let items: ChatItem[] = [];
+    items = apply(items, { type: 'notice', text: 'Roost restarted at 8:03 AM — commit abc123 went live.', ts });
+    expect(items).toEqual([{ kind: 'notice', text: 'Roost restarted at 8:03 AM — commit abc123 went live.', ts }]);
+    // a plain status update right after must not remove it
+    items = apply(items, { type: 'status', state: 'idle', ts } as any);
+    expect(items).toHaveLength(1);
+  });
 });
 
 const pip: CrewInfo = { name: 'Pip', role: 'dispatcher', roleLabel: 'Dispatch', tier: 'worker', color: '#c9803a', initial: 'P', sprite: 'pip', agent: 'claude', model: '' };

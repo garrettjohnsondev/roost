@@ -12,7 +12,13 @@ import './styles.css';
 // full-height layout that never scrolls the page itself: when a field loses
 // focus there, or the visible area grows back, put the page back at the top.
 function settleChat() {
-  if (document.querySelector('.chat-page') && window.scrollY !== 0) window.scrollTo(0, 0);
+  if (!document.querySelector('.chat-page')) return;
+  if (window.scrollY !== 0) window.scrollTo(0, 0);
+  // body is pinned (styles.css) so it can no longer scroll at all -- #root
+  // carries the session list's scrolling instead, and is the one that could
+  // still get panned on .chat-page too (2026-09-26).
+  const root = document.getElementById('root');
+  if (root && root.scrollTop !== 0) root.scrollTop = 0;
 }
 document.addEventListener('focusout', () => requestAnimationFrame(settleChat));
 window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(settleChat));

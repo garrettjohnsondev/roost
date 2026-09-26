@@ -1725,10 +1725,17 @@ export class Session {
    *  turn just ended" -- 2026-09-24 it fired the gate the instant Proceed
    *  handed a build to another vendor, 63s before the build finished. */
   private inNotice = false;
+  /** The status event's message is the transient "doing now" line under the
+   *  sprite -- the next status event with no message of its own erases it,
+   *  often within seconds. A notice is worth keeping, so it ALSO lands as its
+   *  own permanent item in the thread (2026-09-26: "you never sent me a
+   *  message" -- true, this text used to only ever pass through the line
+   *  that erases itself). */
   notice(message: string) {
     this.inNotice = true;
     try {
       this.pushEvent({ type: 'status', state: this.lastStatus, message, ts: now() });
+      this.pushEvent({ type: 'notice', text: message, ts: now() });
     } finally {
       this.inNotice = false;
     }

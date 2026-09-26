@@ -206,7 +206,14 @@ export type ServerEvent =
   | { type: 'status'; state: 'idle' | 'working' | 'connecting' | 'error'; message?: string; crew?: CrewInfo; ts: number }
   /** A crew member levelled up or earned a milestone, on this turn (item 40). */
   | { type: 'milestone'; crew: CrewInfo; label: string; detail: string; level?: number; ts: number }
-  | { type: 'error'; message: string; code?: 'auth' | 'context' | 'gate'; ts: number };
+  | { type: 'error'; message: string; code?: 'auth' | 'context' | 'gate'; ts: number }
+  /** An explanation worth keeping in the thread -- a restart naming what
+   *  shipped, a routing decision, concurrent sessions warned about. Distinct
+   *  from 'status' with a message, which is the transient "doing now" line
+   *  under the sprite and was never added to the visible history at all
+   *  (2026-09-26: "you never sent me a message" -- true, it only ever
+   *  flickered through statusMessage and the next status event erased it). */
+  | { type: 'notice'; text: string; ts: number };
 
 export interface ModelOption {
   id: string;
@@ -410,7 +417,8 @@ export type ChatItem =
   | { kind: 'routed'; model: string; tier: string; reason: string; crew?: CrewInfo; worker?: CrewInfo; ts: number }
   | { kind: 'consult'; phase: ConsultPhase; agent: AgentKind; text: string; crew?: CrewInfo; from?: CrewInfo; ts: number; reviewStrength?: string }
   | { kind: 'milestone'; crew: CrewInfo; label: string; detail: string; level?: number; ts: number }
-  | { kind: 'error'; text: string; code?: 'auth' | 'context' | 'gate'; ts: number };
+  | { kind: 'error'; text: string; code?: 'auth' | 'context' | 'gate'; ts: number }
+  | { kind: 'notice'; text: string; ts: number };
 
 /** You, in the thread. Mirrors server/src/me.ts. */
 export interface Me {

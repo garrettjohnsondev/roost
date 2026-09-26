@@ -71,11 +71,34 @@ body,
   margin: 0;
 }
 
+/* 2026-09-26: the composer kept getting shoved to the top of the screen on
+   focus, and settling window.scrollY back to 0 (main.tsx) didn't reliably
+   catch it. Root cause: body sized to 100% never shrinks for the keyboard,
+   while .chat-page inside sizes to --vvh and does -- leaving slack height in
+   body around the shrunk column. iOS's own "scroll the focused field into
+   view" can PAN the visual viewport into that slack independent of
+   window.scrollY (a separate mechanism from document scrolling), so checking
+   scrollY alone missed it. Pinning body to the same --vvh height removes the
+   slack outright -- there is nothing left to pan into. The session list
+   (.page) scrolled the document itself and has no container of its own, so
+   the scrolling body gave up moves to #root instead, right below it --
+   .chat-page's own height already matches #root's exactly (it manages its
+   own message-list scrolling internally), so #root scrolling stays inert
+   there, same as body's did before. */
 body {
+  position: fixed;
+  inset: 0;
+  height: var(--vvh, 100dvh);
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 button {
@@ -1728,6 +1751,16 @@ button {
   align-self: stretch;
   background: color-mix(in srgb, var(--danger) 15%, var(--surface));
   border: 1px solid var(--danger);
+  font-size: 13px;
+}
+
+/* A kept explanation, not a failure -- same shape as .msg.error, neutral
+   tone instead of danger red (2026-09-26). */
+.msg.notice {
+  align-self: stretch;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
   font-size: 13px;
 }
 

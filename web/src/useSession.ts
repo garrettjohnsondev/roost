@@ -113,6 +113,9 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
     case 'error':
       next.push({ kind: 'error', text: event.message, code: event.code, ts: event.ts });
       break;
+    case 'notice':
+      next.push({ kind: 'notice', text: event.text, ts: event.ts });
+      break;
   }
   return next;
 }

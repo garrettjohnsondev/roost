@@ -1727,6 +1727,11 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
         );
       }
       return <div className="msg error">{item.text}</div>;
+    case 'notice':
+      // A restart naming what shipped, a routing decision, a concurrent-
+      // session warning: worth keeping in the thread, but not a crew reply --
+      // no avatar, no name, quieter than an error (2026-09-26).
+      return <div className="msg notice">{item.text}</div>;
   }
 }
 
