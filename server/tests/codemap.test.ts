@@ -124,3 +124,47 @@ describe('the code map', () => {
     expect(explore(project({ 'README.md': '# hi' }), 'anything')).toMatch(/code map is empty here/);
   });
 });
+
+describe('the code map for Codex', () => {
+  it('is handed to each thread through config overrides, auto-approved, launched from Roost itself', async () => {
+    const { codexCodemapConfig } = await import('../src/codemapTool.js');
+    const cfg = codexCodemapConfig('/some/project') as any;
+    const server = cfg['mcp_servers.roost'];
+    expect(server.command).toBe(process.execPath);
+    expect(server.args.at(-1)).toBe('/some/project');
+    expect(server.args.some((a: string) => /codemapStdio\.(ts|js)$/.test(a))).toBe(true);
+    expect(server.default_tools_approval_mode).toBe('approve');
+  });
+
+  it('the stdio server answers the same tools as the Claude side', async () => {
+    const { spawn } = await import('node:child_process');
+    const { codemapStdioCommand } = await import('../src/codemapTool.js');
+    const root = project(APP);
+    const cmd = codemapStdioCommand(root)!;
+    const child = spawn(cmd.command, cmd.args, { stdio: ['pipe', 'pipe', 'ignore'] });
+    const replies = new Map<number, any>();
+    let buf = '';
+    child.stdout.on('data', (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i);
+        buf = buf.slice(i + 1);
+        try {
+          const m = JSON.parse(line);
+          if (m.id != null) replies.set(m.id, m);
+        } catch { /* not ours */ }
+      }
+    });
+    const send = (m: object) => child.stdin.write(JSON.stringify(m) + '\n');
+    send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } });
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+    send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'code_explore', arguments: { query: 'Store.save' } } });
+    for (let t = 0; t < 100 && !replies.has(3); t++) await new Promise((r) => setTimeout(r, 100));
+    child.kill();
+    expect(replies.get(1)?.result?.serverInfo?.name).toBe('roost');
+    expect(replies.get(2)?.result?.tools.map((t: any) => t.name).sort()).toEqual(['code_explore', 'code_impact']);
+    expect(replies.get(3)?.result?.content?.[0]?.text).toMatch(/### Store\.save \(method, exported\)/);
+  }, 20_000);
+});

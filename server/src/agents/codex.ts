@@ -9,6 +9,8 @@ import { fromCodexTokenUsage, withAdvice } from '../context.js';
 import { truncate } from '../util.js';
 import { JsonRpcProcess } from '../jsonrpc.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
+import { codexCodemapConfig } from '../codemapTool.js';
+import { toolDetail } from '../toolDetail.js';
 
 const EXPAND_SNIPPET = 4000;
 
@@ -80,6 +82,11 @@ export class CodexAdapter implements AgentAdapter {
       approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
       sandbox: 'workspace-write',
     };
+    // Roost's code map for Codex too (2026-09-27): the same tools the Claude
+    // crew gets in-process, over stdio, handed to this thread only -- nothing
+    // written to the person's own ~/.codex/config.toml.
+    const codemap = codexCodemapConfig(this.opts.cwd);
+    if (codemap) params.config = codemap;
     const result = this.opts.resume
       ? await this.rpc.request('thread/resume', { threadId: this.opts.resume, ...params })
       : await this.rpc.request('thread/start', params);
@@ -300,7 +307,8 @@ export class CodexAdapter implements AgentAdapter {
       case 'mcpToolCall':
         return {
           name: `${item.server}:${item.tool}`,
-          detail: truncate(JSON.stringify(item.arguments ?? {}), 300),
+          // Same chip wording as Claude's call to the same tool ("code map: …").
+          detail: truncate(toolDetail(`mcp__${item.server}__${item.tool}`, item.arguments ?? {}), 300),
           expand: { raw: truncate(JSON.stringify(item.arguments ?? {}, null, 2), EXPAND_SNIPPET) },
         };
       case 'webSearch':
