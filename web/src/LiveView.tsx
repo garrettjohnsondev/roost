@@ -10,7 +10,7 @@ import type { LiveInfo } from './types';
  *
  *  Named `Live`, not `Preview` -- that word already means the read-only
  *  recap of a past session (PreviewSheet.tsx). */
-export function LiveView({ cwd, onClose }: { cwd: string; onClose: () => void }) {
+export function LiveView({ cwd, onClose, onAsk, crewName }: { cwd: string; onClose: () => void; onAsk?: (prompt: string) => void; crewName?: string }) {
   const [info, setInfo] = useState<LiveInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [wide, setWide] = useState(false);
@@ -60,11 +60,26 @@ export function LiveView({ cwd, onClose }: { cwd: string; onClose: () => void })
 
         {info && !info.configured && (
           <>
-            <div className="usage-empty">This project has no preview command yet.</div>
-            <p className="section-hint">
-              Add a <code>## preview</code> section to its project file -- a command like{' '}
+            {/* 2026-09-27 audit: this was developer instructions ("add a ## preview
+                section…"). The crew can work it out, the way Deploy does. */}
+            <p className="live-empty">This project can't be previewed yet.</p>
+            <p className="section-hint">Someone has to work out how it runs first — it's a quick job for the crew.</p>
+            {onAsk && (
+              <button
+                className="primary"
+                onClick={() => {
+                  onAsk('Set up Live preview for this project: work out how it runs locally, then add a `## preview` section to .roost/project.md with the command (use {port} for the port), or `static: <dir>` for a built site. Check it starts, then tell me in one line.');
+                  onClose();
+                }}
+              >
+                Ask {crewName ?? 'the crew'} to set it up
+              </button>
+            )}
+            <details className="section-hint">
+              <summary>Or set it up yourself</summary>
+              Add a <code>## preview</code> section to the project file with a command like{' '}
               <code>npm run dev -- --port {'{port}'} --host 127.0.0.1</code>, or <code>static: dist</code> for a built site.
-            </p>
+            </details>
           </>
         )}
 

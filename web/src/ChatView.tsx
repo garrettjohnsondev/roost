@@ -330,7 +330,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   asked for sticks and goes straight to them, around plan and
                   build -- so "PLAN" while Ollie edits files was a lie. */}
               {session.meta?.sticky ? (
-                <span className="mode-tag direct" title={`Messages go straight to ${session.meta.sticky}; the ${session.meta.mode ?? 'session'} mode is not applied until you clear them.`}>direct</span>
+                <span className="mode-tag direct" title={`Messages go straight to ${session.meta.sticky}; the ${session.meta.mode ?? 'session'} mode is not applied until you clear them.`}>with {session.meta.sticky}</span>
               ) : session.meta?.mode ? (
                 <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span>
               ) : null}{' '}
@@ -342,23 +342,27 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </button>
         {session.meta && (
           <button className="ghost" onClick={() => setDeploy({})} title={deployCommand && deployCommand.cwd === cwd ? `Deploy: ${deployCommand.command}` : 'Set up deploy'}>
-            <Icon name="rocket" size={24} />
+            <Icon name="rocket" size={22} />
+            <span className="hdr-label">Deploy</span>
           </button>
         )}
         <button className="ghost git-btn" onClick={() => setShowGit(true)} title="Changes (git)">
-          <Icon name="github" size={24} />
+          <Icon name="github" size={22} />
+          <span className="hdr-label">Changes</span>
         </button>
         {session.meta && (
           <button className="ghost" onClick={() => setShowLive(true)} title="Live preview">
-            <Icon name="eye" size={22} />
+            <Icon name="eye" size={20} />
+            <span className="hdr-label">Preview</span>
           </button>
         )}
-        <button className="ghost" onClick={() => setShowSettings(true)}>
-          <Icon name="gear" size={24} title="Session settings" />
+        <button className="ghost" onClick={() => setShowSettings(true)} aria-label="Session settings">
+          <Icon name="gear" size={22} title="Session settings" />
+          <span className="hdr-label">Settings</span>
         </button>
       </header>
 
-      {showLive && session.meta && <LiveView cwd={session.meta.cwd} onClose={() => setShowLive(false)} />}
+      {showLive && session.meta && <LiveView cwd={session.meta.cwd} onClose={() => setShowLive(false)} onAsk={(text) => session.send({ type: 'user_message', text })} crewName={session.meta?.crew?.name} />}
 
       {deploy && session.meta && (
         <DeploySheet
@@ -429,8 +433,8 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         )}
         {session.usage && (
           <div className="usage-bar">
-            {fmtTokens(session.usage.inputTokens)} in · {fmtTokens(session.usage.outputTokens)} out
-            {session.usage.contextPct != null && <> · ctx {session.usage.contextPct}%</>}
+            {/* Plain words (2026-09-27 audit: "63.4M in · 187.4k out"). */}
+            This chat so far: {fmtTokens(session.usage.inputTokens)} read · {fmtTokens(session.usage.outputTokens)} written
           </div>
         )}
         {session.context && (
@@ -448,13 +452,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               {session.context.usedTokens != null && session.context.maxTokens != null
                 ? ` · ${fmtTokens(session.context.usedTokens)} of ${fmtTokens(session.context.maxTokens)}`
                 : ''}
-              {` · ${session.context.pressure}`}
+              {PRESSURE_WORDS[session.context.pressure] ? ` · ${PRESSURE_WORDS[session.context.pressure]}` : ''}
               {session.context.overLimit ? ` · ${fmtTokens(session.context.overLimit.tokensOver)} over the ${session.context.overLimit.kind === 'hard_limit' ? 'hard limit' : 'compaction window'}` : ''}
             </span>
             {session.context.advice && (
-              <span className="context-advice">
-                {session.context.advice.action}: {session.context.advice.reason}
-              </span>
+              <span className="context-advice">{ADVICE_WORDS[session.context.advice.action] ?? session.context.advice.reason}</span>
             )}
             {/* The third rung (Context board): hand off at 80%, a different
                 decision from compacting, so it asks on its own. */}
@@ -902,13 +904,48 @@ const WORK_FRAMES: Record<'type' | 'think', string[]> = {
  *  animation IS. Motion only ever reflects real state: `type` while a reply is
  *  actually streaming, `think` while the engine is actually reasoning. Nothing
  *  loops on its own schedule. */
-export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; pose: Pose; size: number; className?: string }) {
+/** A stable per-name 0..1, so each member keeps their own rhythm and a crew
+ *  of six never blinks in unison. */
+export function nameSeed(name: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < name.length; i++) h = Math.imul(h ^ name.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 1000) / 1000;
+}
+
+/** Idle, alive (2026-09-27: "the crew is frozen"): the crew breathe, blink and
+ *  now and then glance aside, from their own drawn idle/blink/side frames --
+ *  only where they're standing around (the home screen, a chat's crew line),
+ *  never on a message in the thread, where stillness keeps the work readable.
+ *  Exactly one drawing shows at a time; a missing frame just never shows. */
+function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; className?: string }) {
+  const [missing, setMissing] = useState<Record<string, true>>({});
+  const seed = nameSeed(crew.name);
+  const base = `/crew/${crew.sprite}`;
+  const style = {
+    width: size,
+    height: size,
+    '--cycle': `${12 + seed * 6}s`,
+    '--offset': `${-seed * 18}s`,
+    '--breath': `${3 + seed * 1.4}s`,
+    '--lift': `${Math.max(1, Math.round(size / 28))}px`,
+  } as React.CSSProperties;
+  return (
+    <span className={`crew-sprite pose-idle alive${missing.blink ? ' no-blink' : ''}${missing.side ? ' no-side' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={style}>
+      <img className="alive-idle" src={`${base}-idle.webp`} alt="" />
+      {!missing.blink && <img className="alive-blink" src={`${base}-blink.webp`} alt="" onError={() => setMissing((m) => ({ ...m, blink: true }))} />}
+      {!missing.side && <img className="alive-side" src={`${base}-side.webp`} alt="" onError={() => setMissing((m) => ({ ...m, side: true }))} />}
+    </span>
+  );
+}
+
+export function SpriteAvatar({ crew, pose, size, className, alive }: { crew: CrewInfo; pose: Pose; size: number; className?: string; alive?: boolean }) {
   const [failed, setFailed] = useState(false);
   // A working pose plays four drawings (item 38) when all four are drawn;
   // until then -- or if one fails to load -- the original two-frame cut.
   const [short, setShort] = useState(false);
   const [noPhase, setNoPhase] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
+  if (alive && pose === 'idle') return <AliveSprite crew={crew} size={size} className={className} />;
   if (PHASE_POSES.has(pose)) {
     if (noPhase) pose = 'type';
     else {
@@ -950,17 +987,41 @@ export function SpriteAvatar({ crew, pose, size, className }: { crew: CrewInfo; 
   );
 }
 
-const CONFETTI_COLOURS = ['lamp', 'claude', 'codex', 'lamp', 'claude'] as const;
+const CONFETTI_COLOURS = ['lamp', 'claude', 'codex', 'pass', 'lamp', 'claude', 'codex', 'paper'] as const;
 
 /** A handful of pixels in the crew's own colours, rising off the verdict and
  *  fading, once. The board's one unprompted moment ("Finishing is worth
  *  something") -- earned because a whole job just verified, never decoration.
  *  Pure CSS, `aria-hidden`, gone under reduced motion. */
+/** A deterministic 0..1 per piece and channel: every burst looks hand-thrown,
+ *  and the same burst every time (tests and screenshots can rely on it). */
+const scatter = (i: number, ch: number) => {
+  const x = Math.sin(i * 12.9898 + ch * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+};
+const CONFETTI_PIECES = Array.from({ length: 26 }, (_, i) => ({
+  colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+  x: Math.round((scatter(i, 1) - 0.5) * 320),
+  y: -Math.round(70 + scatter(i, 2) * 120),
+  r: Math.round(scatter(i, 3) * 720 - 360),
+  d: Math.round(scatter(i, 4) * 220),
+  w: 4 + Math.round(scatter(i, 5) * 4),
+  h: scatter(i, 6) > 0.6 ? 10 : 4 + Math.round(scatter(i, 7) * 4),
+}));
+
+/** 2026-09-27 audit: the old confetti was five 5px dots rising 26px -- filmed
+ *  frame by frame, you could barely find it. This is a burst: two dozen
+ *  pixels thrown up and out from the verdict, falling back under their own
+ *  weight. Still once, still only for a pass that arrived live. */
 function Confetti() {
   return (
     <span className="confetti" aria-hidden="true">
-      {CONFETTI_COLOURS.map((c, i) => (
-        <i key={i} className={`confetti-piece ${c}`} style={{ '--i': i } as React.CSSProperties} />
+      {CONFETTI_PIECES.map((p, i) => (
+        <i
+          key={i}
+          className={`confetti-piece ${p.colour}`}
+          style={{ '--x': `${p.x}px`, '--y': `${p.y}px`, '--r': `${p.r}deg`, '--d': `${p.d}ms`, width: p.w, height: p.h } as React.CSSProperties}
+        />
       ))}
     </span>
   );
@@ -1062,7 +1123,9 @@ function JobTracker({ session }: { session: SessionState }) {
     : asleep ? 'sleep'
     : t.outcome === 'yours' ? 'peek' : 'idle';
   const label = (st: TrackerStep, k: number): string => {
-    if (st.key === 'test' && skippedTest) return 'Not tested';
+    // A gap to know about, not a failure (2026-09-27 audit: red "Not tested"
+    // on ordinary turns read like something broke).
+    if (st.key === 'test' && skippedTest) return 'Unchecked';
     if (st.key === 'done') return t.outcome === 'verified' ? 'Verified' : 'Done';
     if (st.state === 'failed') return 'Failed';
     if (k === at && (st.state === 'active' || st.state === 'awaiting') && session.status === 'working') return t.headline.word;
@@ -1214,6 +1277,13 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
   const [missing, setMissing] = useState<Record<string, true>>({});
   const gone = (key: string) => setMissing((m) => (m[key] ? m : { ...m, [key]: true }));
   const drawn = crew.filter((c) => c.sprite);
+  // Once everyone is up (each rises 220ms after the one before), they stop
+  // holding one drawing and start living: breathing, blinking, glancing.
+  const [woke, setWoke] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setWoke(true), 900 + drawn.length * 220 + 150);
+    return () => clearTimeout(t);
+  }, [drawn.length]);
   if (drawn.length === 0) return null;
   return (
     <div className="crew-wake" aria-hidden="true">
@@ -1224,6 +1294,9 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
           style={{ animationDelay: `${i * 220}ms` }}
           title={`${c.name} — ${c.model || c.agent}`}
         >
+          {woke ? (
+            <span className="crew-wake-frames lived"><SpriteAvatar crew={c} pose="idle" size={56} alive /></span>
+          ) : (
           <span
             className={`crew-wake-frames${missing[`${c.sprite}-sleep`] ? ' no-sleep' : ''}${missing[`${c.sprite}-blink`] ? ' no-blink' : ''}`}
             style={{ animationDelay: `${i * 220}ms` }}
@@ -1251,6 +1324,7 @@ function CrewWakeUp({ crew }: { crew: CrewInfo[] }) {
               />
             )}
           </span>
+          )}
           <span className="crew-wake-name" style={{ color: nameColor(c.color) }}>{c.name}</span>
         </span>
       ))}
@@ -1298,6 +1372,16 @@ export function uniqueModels<T extends { id: string; resolvedModel?: string }>(m
     return true;
   });
 }
+
+/** The context meter's words for people, not for the router (2026-09-27 audit:
+ *  "dispatch: context 44% full — send read-heavy work to a subagent"). */
+const PRESSURE_WORDS: Record<string, string> = { clear: '', filling: 'filling up', degrading: 'getting crowded', critical: 'nearly full' };
+const ADVICE_WORDS: Record<string, string> = {
+  dispatch: 'Big reading jobs go to a helper now, so this chat stays sharp.',
+  compact: 'Answers get worse before this fills up — tidying it (compact) keeps them sharp.',
+  handoff: 'Nearly full — time for a fresh session that picks up from here.',
+};
+const STRENGTH_WORDS: Record<string, string> = { 'cross-vendor': 'other company', 'cross-model': 'different model', 'same-model': 'fresh eyes' };
 
 export function modelName(id: string): string {
   return modelWords(id).replace(/ 1M$/, '');
@@ -1675,7 +1759,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
           <span className={`consult-phase ${item.phase}`}>{phaseLabel}</span>
           {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
           {item.reviewStrength && (
-            <span className="review-strength" title="How independent this reviewer is from the author">{item.reviewStrength}</span>
+            <span className="review-strength" title="How independent this reviewer is from the author">{STRENGTH_WORDS[item.reviewStrength] ?? item.reviewStrength}</span>
           )}
         </>
       );

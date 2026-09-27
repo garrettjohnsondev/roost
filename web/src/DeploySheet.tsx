@@ -215,7 +215,7 @@ export function DeploySheet({
               <span className="deploy-run-when">{run.endedAt ? `${fmtAgo(run.endedAt)}${run.exitCode != null ? ` · exit ${run.exitCode}` : ''}` : `started ${fmtAgo(run.startedAt)}`}</span>
             </div>
             {unreachable && running(run) && <div className="deploy-note">Roost went quiet — if this deploy restarts Roost itself, it'll be back in a few seconds.</div>}
-            {run.output && <pre className="deploy-output">{run.output.split('\n').slice(-60).join('\n')}</pre>}
+            {run.output && <pre className="deploy-output">{run.output.replace(/\x1b?\[[0-9;]*m/g, '').split('\n').slice(-60).join('\n')}</pre>}
           </div>
         )}
 

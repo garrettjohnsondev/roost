@@ -121,7 +121,13 @@ describe('the crew animates by cutting, not fading', () => {
     const c = read('web/src/ChatView.tsx');
     expect(c).toMatch(/const moving = pose === 'type' \|\| pose === 'think'/);
     expect(c).toMatch(/pose=\{item\.complete \? \(asking \? 'peek' : 'idle'\) : 'type'\}/);
-    expect(c).not.toMatch(/setInterval|setTimeout/);
+    // No timer drives a pose in the sprite itself. (A whole-file ban stopped
+    // being true on 2026-09-27: the crew line's wake-up hands over to the
+    // living idle once, by a timeout -- see "the crew, alive".)
+    const sprite = c.slice(c.indexOf('export function SpriteAvatar'), c.indexOf('const CONFETTI_COLOURS'));
+    expect(sprite).not.toMatch(/setInterval|setTimeout/);
+    // Alive is only ever the idle pose, and only where a caller asked for it.
+    expect(c).toMatch(/if \(alive && pose === 'idle'\) return <AliveSprite/);
   });
 
   it('falls back to a pool avatar rather than inventing a face', () => {
@@ -193,7 +199,7 @@ describe('the wake-up runs once, then stops', () => {
 
   it('degrades to eyes-open when a frame is missing, not to a broken image', () => {
     const c = read('web/src/ChatView.tsx');
-    const block = c.slice(c.indexOf('function CrewWakeUp'), c.indexOf('function CrewWakeUp') + 2200);
+    const block = c.slice(c.indexOf('function CrewWakeUp'), c.indexOf('function CrewWakeUp') + 3400);
     expect(block).toMatch(/onError=\{\(\) => gone\(`\$\{c\.sprite\}-sleep`\)\}/);
     expect(block).toMatch(/onError=\{\(\) => gone\(`\$\{c\.sprite\}-blink`\)\}/);
   });
@@ -274,7 +280,14 @@ describe('the only things that repeat are states that persist', () => {
     // itself is not the gate, the element's presence is.
     // .four .f0-3: the four drawings of a working pose (item 38) -- they loop
     // only while the engine is actually typing or thinking, like frame-a/b.
-    const sanctioned = [/pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
+    // .crew-sprite.alive: the crew, alive (2026-09-27, the owner's call: "motion
+    // reports state" kept the crew frozen and the app felt still). Breathing,
+    // blinking and a glance, only on crew standing around -- the home screen and
+    // a chat's crew line -- never on a message in the thread. Its cause is the
+    // crew being on screen; off under reduced motion.
+    // .seat / .crew-strip-member.sleep: the same breathing on the scene's seated
+    // crew and the sleepers in the bunks (no blink is drawn for those poses).
+    const sanctioned = [/crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -379,7 +392,7 @@ describe('chapters change what you see, never what the agents remember', () => {
 
   it('folds a job that closed live only after the celebration has been seen', () => {
     const css = read('web/src/styles.css');
-    expect(css).toMatch(/\.chapter\.folded\.folding \.chapter-body \{ animation: chapter-fold 700ms [^;]* 1\.8s both; \}/);
+    expect(css).toMatch(/\.chapter\.folded\.folding \.chapter-body \{ animation: chapter-fold 700ms [^;]* 5s both; \}/); // held 5s: at 1.8s the fold swallowed the celebration (2026-09-27 audit)
     // and replayed history arrives already folded — no performance
     expect(read('web/src/ChatView.tsx')).toMatch(/foldingNow=\{ch\.status === 'verified' && ch\.end - 1 >= session\.replayedCount\}/);
   });
@@ -1038,8 +1051,8 @@ describe('the four motions MOTION.md \u00a77 called still open', () => {
   });
 
   it('confetti is once, gated on a fresh pass, and never on a fail', () => {
-    expect(css).toMatch(/@keyframes confetti-rise \{/);
-    expect(css).not.toMatch(/confetti-rise[^;]*infinite/);
+    expect(css).toMatch(/@keyframes confetti-burst \{/);
+    expect(css).not.toMatch(/confetti-burst[^;]*infinite/);
     expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
   });
 

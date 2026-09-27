@@ -256,7 +256,7 @@ export const FIXTURES: Record<string, () => SessionState> = {
   /** Full auto already on — the persistent warning bar should be visible. */
   'full-auto': () => base(TWO_JOBS, meta({ approvals: 'full-auto' }), TWO_JOBS.length),
   /** A job two people worked, closing live: both cheer, confetti fires once. */
-  earned: () => base(EARNED, meta(), 0),
+  earned: () => base(EARNED, meta({ state: 'idle' }), 0, { status: 'idle' }),
   /** A gate fails, live: the red stamp lands, the badge reads FAILED. */
   'gate-failed': () => base(GATE_FAILED, meta(), 0, { status: 'idle' }),
   /** Three jobs across three days -- Week of…, Yesterday, Today. */

@@ -700,7 +700,7 @@ button {
   background: repeating-linear-gradient(90deg, var(--border) 0 3px, transparent 3px 6px);
 }
 .stop.done::before, .stop.active::before, .stop.awaiting::before, .stop.failed::before, .stop.here::before { background: var(--ok); }
-.stop.skipped::before { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--danger) 55%, transparent) 0 3px, transparent 3px 7px); }
+.stop.skipped::before { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--text-dim) 55%, transparent) 0 3px, transparent 3px 7px); }
 .stop-mark {
   position: relative; z-index: 1; width: 23px; height: 23px; display: grid; place-items: center;
   border: 2px solid var(--border); background: var(--surface); color: var(--text-dim); border-radius: 2px;
@@ -708,7 +708,7 @@ button {
 .stop.done .stop-mark { background: var(--ok); border-color: var(--ok); color: #fff; }
 .stop.active .stop-mark, .stop.awaiting .stop-mark { background: var(--accent); border-color: var(--accent); color: #1a1405; }
 .stop.failed .stop-mark { background: var(--danger); border-color: var(--danger); color: #fff; }
-.stop.skipped .stop-mark { border-style: dashed; border-color: color-mix(in srgb, var(--danger) 60%, var(--border)); color: color-mix(in srgb, var(--danger) 70%, var(--text-dim)); }
+.stop.skipped .stop-mark { border-style: dashed; border-color: var(--border); color: var(--text-dim); }
 .stop.k-done.done .stop-mark { background: var(--ok); }
 /* Handed back, not finished: the flag waits, outlined, and they say whose turn it is. */
 .stop.k-done.awaiting .stop-mark { background: var(--surface); border-color: var(--accent); color: var(--accent-ink, var(--accent)); }
@@ -716,7 +716,7 @@ button {
 .stop-label { font-size: 11px; line-height: 1.2; color: var(--text-dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stop.done .stop-label { color: var(--text); }
 .stop.here .stop-label { color: var(--text); font-weight: 700; }
-.stop.skipped .stop-label { color: color-mix(in srgb, var(--danger) 80%, var(--text)); font-weight: 700; }
+.stop.skipped .stop-label { color: var(--text-dim); font-weight: 600; }
 .stop.failed .stop-label { color: var(--danger); font-weight: 700; }
 .outcome-verified .stop.k-done .stop-label { color: var(--ok); font-weight: 700; }
 /* Them, standing above the stop where the job is. */
@@ -2570,11 +2570,16 @@ button {
    `both` and no iteration count: it celebrates and stops, like a person. */
 /* Only for a verdict arriving now. Opening a session replays every past verify,
    and a cheer for each of them would be celebrating yesterday. */
-.verify-msg.fresh .crew-sprite.pose-cheer { animation: cheer-hop 620ms cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+.verify-msg.fresh .crew-sprite.pose-cheer { animation: cheer-hop 1.2s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+.verify-msg.fresh .crew-sprite.pose-cheer:nth-child(2) { animation-delay: 90ms; }
+.verify-msg.fresh .crew-sprite.pose-cheer:nth-child(3) { animation-delay: 180ms; }
+/* Two hops, the second smaller -- a whole crew jumping, not one twitch. */
 @keyframes cheer-hop {
   0% { transform: translateY(4px); }
-  45% { transform: translateY(-7px); }
-  70% { transform: translateY(1px); }
+  22% { transform: translateY(-14px); }
+  40% { transform: translateY(1px); }
+  60% { transform: translateY(-8px); }
+  80% { transform: translateY(1px); }
   100% { transform: translateY(0); }
 }
 
@@ -2592,11 +2597,21 @@ button {
    with the weight of a verdict. Scales the TEXT badge only, never the sprite
    beside it: pixel art at a non-integer scale blurs, even for 300ms. */
 .verify-msg.pass.fresh .verify-badge,
-.verify-msg.fail.fresh .verify-badge { animation: stamp-land 420ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.verify-msg.fail.fresh .verify-badge { animation: stamp-land 560ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+/* It lands like a rubber stamp: from big and high, hard onto the page at a
+   slight tilt, with a small bounce -- then it stays put, tilted. */
 @keyframes stamp-land {
-  0% { transform: scale(1.8); opacity: 0; }
-  55% { transform: scale(0.94); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% { transform: scale(2.8) rotate(-14deg); opacity: 0; }
+  45% { transform: scale(0.9) rotate(-3deg); opacity: 1; }
+  70% { transform: scale(1.06) rotate(-5deg); }
+  100% { transform: scale(1) rotate(-4deg); opacity: 1; }
+}
+/* The verdict reads as a stamp even at rest, not a small green word. */
+.verify-msg.pass .verify-badge,
+.verify-msg.fail .verify-badge {
+  font-family: var(--font-display, inherit); font-size: 13px; letter-spacing: 0.12em;
+  padding: 4px 9px; border: 2px solid currentColor; border-radius: 3px;
+  background: color-mix(in srgb, currentColor 10%, transparent); transform: rotate(-4deg);
 }
 .verify-badge { display: inline-block; transform-origin: center; }
 
@@ -2607,20 +2622,25 @@ button {
 /* Earned delight (item 08's confetti): a handful of pixels in the crew's own
    colours, rising off the verdict and fading, once. Absolutely positioned
    over the verify head so it never pushes the badge or the gate list. */
-.confetti { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.confetti { position: absolute; left: 0; right: 0; top: 0; height: 0; pointer-events: none; overflow: visible; z-index: 5; }
+/* A burst, not a trickle (2026-09-27 audit): thrown up and out from the
+   verdict along its own --x/--y/--r, then falling back past where it started.
+   Square, unblurred pixels -- the house style -- in the crew's colours. */
 .confetti-piece {
-  position: absolute; left: calc(14px + var(--i) * 13px); top: 4px;
-  width: 5px; height: 6px; border-radius: 1px;
-  animation: confetti-rise 1.4s cubic-bezier(0.15, 0.7, 0.3, 1) both;
-  animation-delay: calc(var(--i) * 70ms);
+  position: absolute; left: 50%; top: 12px;
+  animation: confetti-burst 2.1s cubic-bezier(0.15, 0.75, 0.35, 1) both;
+  animation-delay: var(--d, 0ms);
 }
 .confetti-piece.lamp { background: var(--accent); }
 .confetti-piece.claude { background: var(--claude); }
 .confetti-piece.codex { background: var(--codex); }
-@keyframes confetti-rise {
-  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-  15% { opacity: 1; }
-  100% { transform: translateY(-26px) rotate(50deg); opacity: 0; }
+.confetti-piece.pass { background: #22c55e; }
+.confetti-piece.paper { background: var(--text); }
+@keyframes confetti-burst {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.4); opacity: 0; }
+  8% { opacity: 1; }
+  42% { transform: translate(var(--x), var(--y)) rotate(var(--r)) scale(1); opacity: 1; }
+  100% { transform: translate(calc(var(--x) * 1.25), calc(var(--y) + 170px)) rotate(calc(var(--r) * 2)) scale(1); opacity: 0; }
 }
 
 /* Commands type themselves (item 05's caret): blinks only while the call is
@@ -3082,9 +3102,10 @@ details.ledger .card { border: 0; box-shadow: none; background: transparent; pad
 .chapter.folded .chapter-body { grid-template-rows: 0fr; }
 .chapter.folded .chapter-inner { padding-top: 0; }
 /* The Effects board's eighth demo: a job that closes live folds itself — once,
-   after 1.8s, so the stamp and the cheer are seen first. */
-.chapter.folded.folding .chapter-body { animation: chapter-fold 700ms cubic-bezier(0.6, 0, 0.3, 1) 1.8s both; }
-.chapter.folded.folding .chapter-inner { animation: chapter-fold-pad 700ms cubic-bezier(0.6, 0, 0.3, 1) 1.8s both; }
+   after 5s (was 1.8s: the fold swallowed the celebration before anyone saw it,
+   2026-09-27 audit), so the stamp, the burst and the cheer are seen first. */
+.chapter.folded.folding .chapter-body { animation: chapter-fold 700ms cubic-bezier(0.6, 0, 0.3, 1) 5s both; }
+.chapter.folded.folding .chapter-inner { animation: chapter-fold-pad 700ms cubic-bezier(0.6, 0, 0.3, 1) 5s both; }
 @keyframes chapter-fold { from { grid-template-rows: 1fr; } to { grid-template-rows: 0fr; } }
 @keyframes chapter-fold-pad { from { padding-top: 10px; } to { padding-top: 0; } }
 @media (prefers-reduced-motion: reduce) {
@@ -3556,3 +3577,46 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .deploy-where { margin: -4px 0 12px; font-size: 12.5px; color: var(--text-dim); overflow-wrap: anywhere; }
 .deploy-where code { font-size: 12px; }
 .deploy-found button.deploy-link { display: block; margin: 10px auto 0; }
+
+/* ---- The crew, alive (2026-09-27) ----------------------------------------
+   The one rule was loosened on purpose: "motion reports state" kept the crew
+   frozen between tasks, and the app felt still. Standing-around crew now
+   breathe (a 1-2px rise, stepped so pixel art never blurs), blink, and glance
+   aside once a cycle -- each on their own --cycle and --offset. Only where they
+   stand around; a message in the thread never does this. */
+.crew-sprite.alive { position: relative; display: inline-block; animation: alive-breath var(--breath, 3.4s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
+.crew-sprite.alive img { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.crew-sprite.alive .alive-idle { animation: alive-idle var(--cycle, 14s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
+.crew-sprite.alive .alive-blink { opacity: 0; animation: alive-blink var(--cycle, 14s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
+.crew-sprite.alive .alive-side { opacity: 0; animation: alive-side var(--cycle, 14s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
+.crew-sprite.alive.no-blink .alive-idle { animation-name: alive-idle-noblink; }
+.crew-sprite.alive.no-side .alive-idle { animation-name: alive-idle-noside; }
+.crew-sprite.alive.no-blink.no-side .alive-idle { animation: none; }
+@keyframes alive-breath { 0% { transform: translateY(0); } 50% { transform: translateY(calc(var(--lift, 1px) * -1)); } }
+/* One cycle: blink, blink, a glance aside, blink. Idle hides exactly when another frame shows. */
+@keyframes alive-idle {
+  0% { opacity: 1; } 25% { opacity: 0; } 26% { opacity: 1; } 55% { opacity: 0; } 56% { opacity: 1; }
+  74% { opacity: 0; } 83% { opacity: 1; } 93% { opacity: 0; } 94% { opacity: 1; }
+}
+@keyframes alive-blink { 0% { opacity: 0; } 25% { opacity: 1; } 26% { opacity: 0; } 55% { opacity: 1; } 56% { opacity: 0; } 93% { opacity: 1; } 94% { opacity: 0; } }
+@keyframes alive-side { 0% { opacity: 0; } 74% { opacity: 1; } 83% { opacity: 0; } }
+@keyframes alive-idle-noblink { 0% { opacity: 1; } 74% { opacity: 0; } 83% { opacity: 1; } }
+@keyframes alive-idle-noside { 0% { opacity: 1; } 25% { opacity: 0; } 26% { opacity: 1; } 55% { opacity: 0; } 56% { opacity: 1; } 93% { opacity: 0; } 94% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .crew-sprite.alive, .crew-sprite.alive img { animation: none !important; }
+  .crew-sprite.alive .alive-blink, .crew-sprite.alive .alive-side { opacity: 0; }
+  .crew-sprite.alive .alive-idle { opacity: 1; }
+}
+
+/* Four icons with no words (2026-09-27 audit): each says what it opens. */
+.chat-header > .ghost { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 3px; min-width: 44px; }
+.hdr-label { font-size: 9px; line-height: 1; letter-spacing: 0.02em; color: var(--text-dim); font-weight: 600; }
+.fuel-out { margin-top: 6px; font-size: 12px; color: var(--text-dim); }
+/* The scene's crew breathe too (their seated poses have no blink drawn), and
+   sleepers in the bunks breathe slower. Working members already move. */
+.seat:not(.working) { animation: alive-breath var(--breath, 3.4s) steps(1, end) infinite; animation-delay: var(--offset, 0s); --lift: 1px; }
+.crew-strip-member.sleep .crew-sprite { animation: alive-breath 4.6s steps(1, end) infinite; --lift: 1px; }
+.crew-strip-member.sleep:nth-child(2n) .crew-sprite { animation-delay: -1.7s; }
+.crew-strip-member.sleep:nth-child(3n) .crew-sprite { animation-delay: -3.1s; }
+@media (prefers-reduced-motion: reduce) { .seat, .crew-strip-member.sleep .crew-sprite { animation: none !important; } }
+.live-empty { margin: 4px 0 6px; font-size: 15px; font-weight: 600; line-height: 1.35; }

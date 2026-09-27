@@ -113,7 +113,7 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
                   {'text' in bubble ? bubble.text : <Icon name={bubble.icon} />}
                 </span>
               )}
-              <SpriteAvatar crew={c} pose={pose} size={58} />
+              <SpriteAvatar crew={c} pose={pose} size={58} alive />
               <span className="crew-strip-name" style={{ color: pose === 'sleep' ? undefined : nameColor(c.color) }}>{c.name}</span>
             </div>
           );
@@ -153,7 +153,7 @@ function ChangesBadge({ summary, onOpen }: { summary?: GitSummary; onOpen: () =>
   if (!summary || (summary.files === 0 && summary.ahead === 0)) return null;
   return (
     <button className="changes-badge" onClick={onOpen}>
-      {summary.files > 0 ? `±${summary.files}` : `↑${summary.ahead}`}
+      {summary.files > 0 ? `${summary.files} changed` : `${summary.ahead} to push`}
     </button>
   );
 }

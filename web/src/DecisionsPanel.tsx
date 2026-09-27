@@ -59,10 +59,11 @@ export function DecisionsLine() {
     api.decisions().then((r) => setSummary(r.summary)).catch(() => {});
   }, []);
   if (!summary || !summary.total) return null;
+  // Plain words (2026-09-27 audit: "3 routes · 8 reviews · 2 dispatches").
   const parts = [
-    plural(summary.routes, 'route'),
-    summary.reviews.total ? plural(summary.reviews.total, 'review') : '',
-    summary.dispatches.total ? `${plural(summary.dispatches.total, 'dispatch', 'dispatches')}${summary.dispatches.failed ? ` (${summary.dispatches.failed} failed)` : ''}` : '',
+    summary.routes ? `Pip picked who works ${plural(summary.routes, 'time')}` : '',
+    summary.reviews.total ? `${plural(summary.reviews.total, 'plan')} reviewed` : '',
+    summary.dispatches.total ? `${plural(summary.dispatches.total, 'job')} sent to helpers${summary.dispatches.failed ? ` (${summary.dispatches.failed} failed)` : ''}` : '',
   ].filter(Boolean);
   return <div className="fuel-decisions">Today: {parts.join(' · ')}</div>;
 }

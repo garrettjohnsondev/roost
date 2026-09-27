@@ -1,3 +1,4 @@
+import { nameSeed } from './ChatView';
 import { useState } from 'react';
 import { nameColor } from './color';
 import { openCompanion } from './CompanionSheet';
@@ -49,7 +50,9 @@ function Seated({ placed: { member, seat, working } }: { placed: Placed }) {
   // 512×256 space -> percentages, so the scene scales with the card.
   const pct = (v: number, of: number) => `${(v / of) * 100}%`;
   // Lower on the ground draws in front: depth from y, not from seat order.
-  const style = { left: pct(seat.x - seat.size / 2, 512), top: pct(seat.y - seat.size / 2, 256), width: pct(seat.size, 512), height: pct(seat.size, 256), zIndex: Math.round(seat.y) };
+  // Alive (2026-09-27): each member breathes on their own rhythm, prop and all.
+  const seed = nameSeed(member.name);
+  const style = { left: pct(seat.x - seat.size / 2, 512), top: pct(seat.y - seat.size / 2, 256), width: pct(seat.size, 512), height: pct(seat.size, 256), zIndex: Math.round(seat.y), '--breath': `${3 + seed * 1.4}s`, '--offset': `${-seed * 18}s` } as React.CSSProperties;
   const [ox, oy] = seat.propOffset ?? [0, 0];
   return (
     <span className={`seat${flip ? ' flip' : ''}${working ? ' working' : ''}`} style={style} title={`${member.name}${working ? ' — working' : ''} · tap for their card`} onClick={() => openCompanion(member)}>

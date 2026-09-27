@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { plain } from './claudeAuth.js';
 
 /** One Deploy button, any project (2026-09-25).
  *
@@ -262,8 +263,10 @@ export async function startDeploy(dataDir: string, cwd: string, recipe: DeployRe
   if (isRunning(cwd)) throw new Error('a deploy is already running for this project');
   const r: DeployRun = { phase: recipe.check ? 'check' : 'deploy', command: recipe.command, check: recipe.check, startedAt: Date.now(), endedAt: null, exitCode: null, output: '' };
   live.set(cwd, { run: r, child: null });
+  // Build tools colour their output; the phone showed the raw escape codes
+  // ("[2mdist/ [22m…", 2026-09-27 audit). Plain text in, plain text shown.
   const out = (s: string) => {
-    r.output = (r.output + s).slice(-MAX_OUTPUT);
+    r.output = (r.output + plain(s)).slice(-MAX_OUTPUT);
   };
   const finish = (phase: DeployPhase, code: number) => {
     r.phase = phase;

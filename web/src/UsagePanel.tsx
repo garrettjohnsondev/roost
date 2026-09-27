@@ -125,6 +125,13 @@ function FuelSummary({ usage, prev, onExpand }: { usage: UsageSnapshot; prev: Us
               ))}
             </div>
           )}
+          {/* A solid red bar with nothing to do about it (2026-09-27 audit).
+              Pip already routes around a vendor at its limit; say so. */}
+          {tight && tight.usedPercent != null && tight.usedPercent >= 100 && (
+            <div className="fuel-out">
+              {agent === 'codex' ? 'Codex' : 'Claude'} is used up{tight.resetsAt ? ` (${fmtCountdown(tight.resetsAt)})` : ' for now'} — the {agent === 'codex' ? 'Claude' : 'Codex'} crew picks up the work meanwhile.
+            </div>
+          )}
         </div>
       ))}
       <DecisionsLine />
