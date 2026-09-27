@@ -296,7 +296,10 @@ export class Session {
       if (this.transcript.length) {
         setTimeout(() => {
           this.notice(deploy
-            ? `Roost restarted at ${at} — that was this turn's own deploy going live: ${deploy.commit} — ${deploy.subject}${deploy.smoke === 'passed' ? ' (smoke passed).' : '.'} The turn was cut off right after, before it could say so; say "continue" to pick it back up.`
+            // 2026-09-27: "it reads like I need to come back and say continue
+            // each deployment." A deploy is almost always a turn's last step,
+            // so lead with what went live and keep "continue" as the exception.
+            ? `Deployed at ${at}: ${deploy.subject} (${deploy.commit})${deploy.smoke === 'passed' ? ' — checks passed, it\'s live.' : '.'} Roost restarted to put it live, which ended the turn; nothing was lost. If there was more to do, just say so.`
             : cut
               ? `Roost restarted at ${at} — the turn that was running was cut off. The thread above is what happened before; say "continue" to pick it back up.`
               : `Roost restarted at ${at}. The thread above is what happened before.`);

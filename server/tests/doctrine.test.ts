@@ -1630,7 +1630,8 @@ describe('bugs from the phone, 2026-09-26', () => {
     // old release must never be reported as the cause of an unrelated restart
     expect(s).toMatch(/Date\.parse\(meta\.at\) <= since\) return null;/);
     expect(s).toMatch(/const deploy = cut \? recentDeploy\(this\.updatedAt\) : null;/);
-    expect(s).toMatch(/that was this turn's own deploy going live/);
+    expect(s).toMatch(/`Deployed at \$\{at\}: \$\{deploy\.subject\}/);
+    expect(s).not.toMatch(/Deployed at[^`]*say "continue"/); // a finished deploy is not a chore to come back for
     // the old line survives as the fallback when the restart was NOT a deploy
     expect(s).toMatch(/Roost restarted at \$\{at\} — the turn that was running was cut off/);
   });
