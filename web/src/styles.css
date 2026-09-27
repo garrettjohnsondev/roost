@@ -3620,3 +3620,17 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .crew-strip-member.sleep:nth-child(3n) .crew-sprite { animation-delay: -3.1s; }
 @media (prefers-reduced-motion: reduce) { .seat, .crew-strip-member.sleep .crew-sprite { animation: none !important; } }
 .live-empty { margin: 4px 0 6px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+
+/* Session settings: one choice, a switch, the rest folded (2026-09-27). */
+.presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.preset { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px; text-align: left; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); min-height: 76px; }
+.preset.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--surface)); box-shadow: var(--shadow-hard, none); }
+.preset-name { font-family: var(--font-display, inherit); font-size: 13px; letter-spacing: 0.06em; font-weight: 700; }
+.preset-says { font-size: 12px; color: var(--text-dim); line-height: 1.3; }
+.field label.switch-row { display: flex; gap: 10px; align-items: flex-start; font-weight: 600; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.switch-row input { width: 20px; height: 20px; margin-top: 1px; accent-color: var(--accent); flex-shrink: 0; }
+.field label.switch-row { font-size: 15px; color: var(--text); }
+.field label.switch-row .field-hint { display: block; font-weight: 400; margin-top: 2px; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text-dim); }
+.settings-sticky { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 3px; font-size: 13px; }
+.fine-tune { margin: 6px 0 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+.fine-tune > summary { cursor: pointer; font-weight: 700; font-size: 13px; color: var(--text-dim); padding: 4px 0 10px; }

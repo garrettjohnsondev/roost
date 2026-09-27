@@ -68,3 +68,15 @@ describe('the model picker', () => {
     expect(ids).toEqual(['default', 'sonnet', 'haiku']);
   });
 });
+
+describe('session settings presets', () => {
+  it('names the preset the session is on, and says custom when it matches none', async () => {
+    const { presetOf } = await import('./ChatView');
+    expect(presetOf({ mode: 'auto', ask: 'quick', effort: '' })).toBe('normal');
+    expect(presetOf({})).toBe('normal'); // the defaults are Normal
+    expect(presetOf({ mode: 'chat', ask: 'off', effort: '' })).toBe('quick');
+    expect(presetOf({ mode: 'build', ask: 'talk', effort: 'high' })).toBe('careful');
+    expect(presetOf({ mode: 'plan', ask: 'quick', effort: '' })).toBe('custom');
+    expect(presetOf({ mode: 'auto', ask: 'quick', effort: 'max' })).toBe('custom');
+  });
+});

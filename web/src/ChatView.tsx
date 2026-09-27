@@ -694,6 +694,49 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         <div className="sheet-backdrop" onClick={() => setShowSettings(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h3>Session settings</h3>
+            {/* 2026-09-27: eight rows and ~30 buttons, where mode, "before
+                building" and effort all answered one question -- how careful
+                should the crew be? One choice now; the full set is in Fine-tune. */}
+            {session.meta.sticky && (
+              <div className="settings-sticky">
+                <span>You're talking straight to <b>{session.meta.sticky}</b>, so the choice below waits until you hand back.</span>
+                <button className="chip" onClick={() => session.send({ type: 'set_sticky', name: null })}>Hand back to Pip</button>
+              </div>
+            )}
+            <div className="field">
+              <label>How should the crew work?</label>
+              <div className="presets">
+                {PRESETS.map((p) => {
+                  const active = presetOf(session.meta!) === p.key;
+                  return (
+                    <button key={p.key} className={`preset${active ? ' active' : ''}`} onClick={() => applyPreset(p, session.send)}>
+                      <span className="preset-name">{p.name}</span>
+                      <span className="preset-says">{p.says}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {presetOf(session.meta) === 'custom' && <div className="field-hint">Custom — you've changed things in Fine-tune. Pick one above to go back to a preset.</div>}
+            </div>
+            <div className="field">
+              <label className="switch-row">
+                <input
+                  type="checkbox"
+                  checked={session.meta.approvals === 'ask'}
+                  onChange={(e) => session.send({ type: 'set_approvals', approvals: e.target.checked ? 'ask' : 'auto-edits' })}
+                />
+                <span>
+                  Ask before changing files
+                  <span className="field-hint">
+                    {session.meta.approvals === 'ask' ? 'They ask in the chat before editing files or running commands.'
+                      : session.meta.approvals === 'full-auto' ? 'Full auto is on (in Fine-tune): nothing asks.'
+                      : 'File edits go ahead; commands still ask first.'}
+                  </span>
+                </span>
+              </label>
+            </div>
+            <details className="fine-tune">
+              <summary>Fine-tune</summary>
             <div className="field">
               <label>Mode</label>
               <div className="chips">
@@ -840,12 +883,13 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                     : 'They ask in the chat before running commands or changing files.'}
               </div>
             </div>
+            </details>
             <div className="field">
               <label>Session name</label>
               <RenameField current={session.meta.title} onRename={(title) => session.send({ type: 'set_title', title })} />
             </div>
             <div className="field">
-              <label>Working directory</label>
+              <label>Project folder</label>
               <div className="mono-note">{session.meta.cwd}</div>
             </div>
             <div className="sheet-actions">
@@ -2015,6 +2059,24 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
       )}
     </div>
   );
+}
+
+/** Session settings' one choice (2026-09-27). Each is a bundle of the finer
+ *  controls; anything else is "custom", said plainly rather than pretended. */
+type Preset = { key: 'quick' | 'normal' | 'careful'; name: string; says: string; mode: SessionMode; ask: AskLevel; effort: string };
+const PRESETS: Preset[] = [
+  { key: 'quick', name: 'Quick', says: 'Just chat and do it.', mode: 'chat', ask: 'off', effort: '' },
+  { key: 'normal', name: 'Normal', says: 'Pip picks who, and how hard.', mode: 'auto', ask: 'quick', effort: '' },
+  { key: 'careful', name: 'Careful', says: 'Plan first, a second opinion, then build.', mode: 'build', ask: 'talk', effort: 'high' },
+];
+export function presetOf(meta: { mode?: SessionMode; ask?: AskLevel; effort?: string }): Preset['key'] | 'custom' {
+  const hit = PRESETS.find((p) => (meta.mode ?? 'auto') === p.mode && (meta.ask ?? 'quick') === p.ask && (meta.effort ?? '') === p.effort);
+  return hit?.key ?? 'custom';
+}
+function applyPreset(p: Preset, send: (m: any) => unknown) {
+  send({ type: 'set_mode', mode: p.mode });
+  send({ type: 'set_ask', ask: p.ask });
+  send({ type: 'set_effort', effort: p.effort });
 }
 
 const ASK_CHOICES: Array<[AskLevel, string, string]> = [
