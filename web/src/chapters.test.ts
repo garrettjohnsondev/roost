@@ -148,3 +148,22 @@ describe('where a job ends (item 31)', () => {
     expect(chaptersOf([u('Fix the header', 0), u('and the footer', 1), a('Both fixed.', 2)])).toHaveLength(1);
   });
 });
+
+describe('what comes after a passing check', () => {
+  it('a note after the pass is the closed job\'s tail, not an empty new job', () => {
+    const t = 1;
+    const items: ChatItem[] = [
+      { kind: 'user', text: 'Ship the settings sheet', imageCount: 0, ts: t },
+      { kind: 'assistant', text: 'Done, and here is what changed.', complete: true, ts: t },
+      { kind: 'verify', report: { passed: true, gates: [], summary: 'ok' } as any, ts: t },
+      { kind: 'notice', text: 'Deployed at 11:34 AM: …', ts: t },
+    ];
+    const ch = chaptersOf(items);
+    expect(ch).toHaveLength(1);
+    expect(ch[0]).toMatchObject({ start: 0, end: 4, tail: 3, status: 'verified' });
+    // a real new message still starts a new job
+    const more = chaptersOf([...items, { kind: 'user', text: 'Next, the map', imageCount: 0, ts: t + 999_999 }, { kind: 'assistant', text: 'On it.', complete: true, ts: t + 999_999 }]);
+    expect(more).toHaveLength(2);
+    expect(more[1].start).toBe(4);
+  });
+});

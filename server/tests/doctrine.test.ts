@@ -394,7 +394,9 @@ describe('chapters change what you see, never what the agents remember', () => {
     const css = read('web/src/styles.css');
     expect(css).toMatch(/\.chapter\.folded\.folding \.chapter-body \{ animation: chapter-fold 700ms [^;]* 5s both; \}/); // held 5s: at 1.8s the fold swallowed the celebration (2026-09-27 audit)
     // and replayed history arrives already folded — no performance
-    expect(read('web/src/ChatView.tsx')).toMatch(/foldingNow=\{ch\.status === 'verified' && ch\.end - 1 >= session\.replayedCount\}/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/foldingNow=\{ch\.status === 'verified' && bodyEnd - 1 >= session\.replayedCount\}/);
+    // the crew's last word outlives the fold, shown only once the fold is done
+    expect(read('web/src/ChatView.tsx')).toMatch(/\{folded && lastWord && <div className="chapter-last-word">/);
   });
 
   it('folds with a grid track, never a pixel height a font can outgrow', () => {
@@ -686,7 +688,8 @@ describe('tool calls fold into words, and folding hides no state', () => {
     expect(t).not.toMatch(/fetch\(|send\(|WebSocket|setTimeout/);
     // The work stream (2026-09-25) supersedes one row per piece: a stretch of
     // work is ONE card, grouped by the same pure module.
-    expect(read('web/src/ChatView.tsx')).toMatch(/workSegments\(session\.items, ch\.start, ch\.end, liveTail\)\.map/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/workSegments\(session\.items, from, to, live\)\.map/);
+    expect(read('web/src/ChatView.tsx')).toMatch(/const rows = segmentRows\(ch\.start, bodyEnd, liveTail\);/);
     expect(t).not.toMatch(/Date\.now/);
   });
   it('the work card hides nothing: the latest line, the call running now, and the whole timeline on a tap', () => {

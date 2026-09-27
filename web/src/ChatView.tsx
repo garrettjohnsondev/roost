@@ -560,7 +560,8 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             // crew said on the way and the calls between them, behind their
             // latest line. The live tail stays in the card until the turn ends.
             const liveTail = ci === chapters.length - 1 && session.status === 'working';
-            const rows = workSegments(session.items, ch.start, ch.end, liveTail).map((seg) =>
+            const bodyEnd = ch.tail ?? ch.end;
+            const segmentRows = (from: number, to: number, live: boolean) => workSegments(session.items, from, to, live).map((seg) =>
               seg.kind === 'work' ? (
                 <Contained key={`work-${seg.start}`} what="This work">
                   <WorkStream items={session.items} start={seg.start} end={seg.end} crew={session.meta?.crew} live={liveTail && seg.end === ch.end} replayedCount={session.replayedCount} />
@@ -575,19 +576,38 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 </Contained>
               ),
             );
+            const rows = segmentRows(ch.start, bodyEnd, liveTail);
+            const tailRows = ch.tail != null ? segmentRows(ch.tail, ch.end, false) : null;
+            // When the job folds, the crew's last word stays out (2026-09-27:
+            // "you aren't including a final message" -- it was written, then
+            // folded away with the job the passing check had just closed).
+            let lastWordAt = -1;
+            for (let i = bodyEnd - 1; i >= ch.start; i--) {
+              const it = session.items[i];
+              if (it.kind === 'assistant' && it.complete && it.text.trim()) { lastWordAt = i; break; }
+              if (it.kind === 'user') break;
+            }
+            const lastWord = lastWordAt >= 0 ? (
+              <Contained what="This message" retryOn={session.items[lastWordAt]}>
+                <Message item={session.items[lastWordAt]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={false} />
+              </Contained>
+            ) : null;
             const last = ci === chapters.length - 1;
             const awaiting = last && (!!session.pendingApproval || !!session.meta?.consultPending);
-            if (ch.status !== 'verified' && !many) return <React.Fragment key={ch.start}>{rows}</React.Fragment>;
+            if (ch.status !== 'verified' && !many) return <React.Fragment key={ch.start}>{rows}{tailRows}</React.Fragment>;
             return (
-              <ChapterFold
-                key={ch.start}
-                chapter={ch}
-                awaiting={awaiting}
-                // it closed LIVE, so it folds visibly — after the celebration
-                foldingNow={ch.status === 'verified' && ch.end - 1 >= session.replayedCount}
-              >
-                {rows}
-              </ChapterFold>
+              <React.Fragment key={ch.start}>
+                <ChapterFold
+                  chapter={ch}
+                  awaiting={awaiting}
+                  // it closed LIVE, so it folds visibly — after the celebration
+                  foldingNow={ch.status === 'verified' && bodyEnd - 1 >= session.replayedCount}
+                  lastWord={lastWord}
+                >
+                  {rows}
+                </ChapterFold>
+                {tailRows}
+              </React.Fragment>
             );
           }
         }}</Contained>
@@ -2392,7 +2412,7 @@ export function crewAsking(title: string, crew?: CrewInfo | null): string {
  *  before you opened the session is simply folded; replayed history does not
  *  perform. Tapping the row opens or closes it, and that choice wins over the
  *  default. Nothing here touches what the agents remember. */
-function ChapterFold({ chapter, awaiting, foldingNow, children }: { chapter: Chapter; awaiting: boolean; foldingNow: boolean; children: React.ReactNode }) {
+function ChapterFold({ chapter, awaiting, foldingNow, lastWord, children }: { chapter: Chapter; awaiting: boolean; foldingNow: boolean; lastWord?: React.ReactNode; children: React.ReactNode }) {
   const [choice, setChoice] = useState<boolean | null>(null); // true = open, false = folded
   const verified = chapter.status === 'verified';
   const folded = choice === null ? verified : !choice;
@@ -2417,6 +2437,9 @@ function ChapterFold({ chapter, awaiting, foldingNow, children }: { chapter: Cha
       <div className="chapter-body">
         <div className="chapter-inner">{children}</div>
       </div>
+      {/* The answer outlives the fold: the working steps tuck away, the last
+          thing the crew said stays readable under the row. */}
+      {folded && lastWord && <div className="chapter-last-word">{lastWord}</div>}
     </div>
   );
 }

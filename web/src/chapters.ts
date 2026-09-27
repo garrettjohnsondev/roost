@@ -22,7 +22,14 @@ export interface Chapter {
   status: ChapterStatus;
   /** ts of the chapter's first item -- for day/week grouping below. */
   startedAt: number;
+  /** Where the job's own items end and its trailing notes begin ("Deployed
+   *  at…", a milestone) -- items that arrived after the passing check. They
+   *  belong to this job but are shown outside its fold (2026-09-27: a note
+   *  after a pass used to open an empty "Untitled job · You · 0 turns"). */
+  tail?: number;
 }
+
+const TAIL_KINDS = new Set<ChatItem['kind']>(['notice', 'milestone', 'error']);
 
 export function chaptersOf(items: ChatItem[]): Chapter[] {
   const out: Chapter[] = [];
@@ -39,6 +46,15 @@ export function chaptersOf(items: ChatItem[]): Chapter[] {
         start = cut;
         spoke = false;
       }
+    }
+    // A note after a passing check (a notice, a milestone, an error) is the
+    // closed job's tail, not the start of a job nobody asked for.
+    const prev = out[out.length - 1];
+    if (prev && start === i && prev.end === i && prev.status === 'verified' && TAIL_KINDS.has(it.kind)) {
+      prev.tail ??= i;
+      prev.end = i + 1;
+      start = i + 1;
+      continue;
     }
     if (it.kind === 'assistant' || it.kind === 'consult') spoke = true;
     if (it.kind === 'verify' && it.report.passed) {
