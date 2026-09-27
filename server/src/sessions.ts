@@ -7,6 +7,7 @@ import { verifyTask, gatesFrom, gateFingerprint } from './verify.js';
 import { loadProjectKnowledge } from './projectFile.js';
 import { detectCheck } from './deploy.js';
 import { getGitStatus, gitCommit } from './git.js';
+import { TurnTally, recordTurn } from './turnStats.js';
 import { quotaStore } from './quota.js';
 import { refreshUsageSoon } from './usage.js';
 import { companionFor, noteLife, readLedgerRows, readLife } from './companions.js';
@@ -145,6 +146,7 @@ export class Session {
    *  once, then asked again the very next turn, because the restart that turn
    *  triggered reset the in-memory grant with nothing to restore it from. */
   sessionAllowedTools: string[];
+  private turnTally = new TurnTally();
   /** Crew turns in the open job, and the crew's first line about it -- the
    *  name when the ask itself names nothing. */
   private jobTurns = 0;
@@ -638,6 +640,12 @@ export class Session {
     if (event.type === 'tool_start' && /edit|write|patch|create|delete|rename|notebook/i.test(event.name)) this.editedThisTurn = true;
     const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
     if (turnEnded) this.proceeding = false;
+    // Did the code map earn its keep? One row per finished turn (turnStats.ts).
+    this.turnTally.observe(event);
+    if (turnEnded) {
+      const row = this.turnTally.finish({ at: now(), sessionId: this.id, agent: this.agent, model: this.speakingModel() || undefined, mapped: true, source: 'live' });
+      if (row) recordTurn(row);
+    }
     if (turnEnded && !this.checking && !(this.executing && this.pendingVerify)) {
       // Did this turn change the project? Git says, however the files were
       // written; the edit-tool flag is the fallback outside a repository.

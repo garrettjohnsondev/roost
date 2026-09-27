@@ -18,7 +18,8 @@
     "service:status": "node scripts/service.mjs status",
     "roadmap": "node scripts/roadmap-stats.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "service:rollback": "node scripts/service.mjs rollback"
+    "service:rollback": "node scripts/service.mjs rollback",
+    "codemap:report": "tsx server/src/turnReport.ts"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
