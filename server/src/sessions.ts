@@ -49,18 +49,21 @@ import { composeCriticPrompt, composePlannerPrompt, composeProceedPrompt, startC
 
 const TRANSCRIPT_CAP = 5000;
 
-/** A restart that happens to land right after a fresh release is a deploy,
- *  not a crash -- distinguished by the release timestamp landing after this
- *  session was last saved, never by guessing at which bash command an agent
- *  ran. Used to turn "the turn that was running was cut off" (true, but
- *  reads like something broke) into what actually happened (2026-09-26: a
- *  deploy this same turn triggered killed its own turn before it could say
- *  it finished). */
-function recentDeploy(since: number): { commit: string; subject: string; smoke: string } | null {
+/** When this server process started. */
+const BOOT = Date.now();
+
+/** Why this process booted, if it was a deploy: finish-deploy (scripts/
+ *  service.mjs) writes releases/restart.json right before it restarts Roost.
+ *  A marker written moments before THIS boot means the restart was that
+ *  deploy -- not a crash, and not an older release. (It replaced guessing
+ *  from release timestamps, which stopped working once deploys learned to
+ *  wait for the turn to finish first, 2026-09-27.) */
+export function deployRestart(boot = BOOT, dir = dataDir()): { commit: string; subject: string; smoke: string } | null {
   try {
-    const meta = JSON.parse(readFileSync(join(dataDir(), 'releases', 'current', 'meta.json'), 'utf8'));
-    if (typeof meta?.at !== 'string' || Date.parse(meta.at) <= since) return null;
-    return { commit: String(meta.commit ?? ''), subject: String(meta.subject ?? ''), smoke: String(meta.smoke ?? '') };
+    const m = JSON.parse(readFileSync(join(dir, 'releases', 'restart.json'), 'utf8'));
+    const gap = boot - Date.parse(m?.at);
+    if (!(gap >= 0 && gap < 3 * 60_000)) return null;
+    return { commit: String(m.commit ?? ''), subject: String(m.subject ?? ''), smoke: String(m.smoke ?? '') };
   } catch {
     return null;
   }
@@ -292,14 +295,13 @@ export class Session {
       this.transcript = readTranscript(this.id, TRANSCRIPT_CAP);
       const cut = lastState(this.transcript) === 'working';
       const at = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      const deploy = cut ? recentDeploy(this.updatedAt) : null;
+      const deploy = deployRestart();
       if (this.transcript.length) {
         setTimeout(() => {
           this.notice(deploy
-            // 2026-09-27: "it reads like I need to come back and say continue
-            // each deployment." A deploy is almost always a turn's last step,
-            // so lead with what went live and keep "continue" as the exception.
-            ? `Deployed at ${at}: ${deploy.subject} (${deploy.commit})${deploy.smoke === 'passed' ? ' — checks passed, it\'s live.' : '.'} Roost restarted to put it live, which ended the turn; nothing was lost. If there was more to do, just say so.`
+            // The deploy now waits for the turn to finish, so the crew's own
+            // reply already said what shipped; this just confirms it's live.
+            ? `Deployed at ${at}: ${deploy.subject} (${deploy.commit})${deploy.smoke === 'passed' ? ' — checks passed, it\'s live.' : ' — it\'s live.'}${cut ? ' The turn that was still running was ended by the restart; if there was more to do, just say so.' : ''}`
             : cut
               ? `Roost restarted at ${at} — the turn that was running was cut off. The thread above is what happened before; say "continue" to pick it back up.`
               : `Roost restarted at ${at}. The thread above is what happened before.`);

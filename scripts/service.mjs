@@ -122,6 +122,31 @@ const livePort = (() => {
 async function isUp(port, ms = 2000) {
   try { await fetch(`http://127.0.0.1:${port}/api/config`, { signal: AbortSignal.timeout(ms) }); return true; } catch { return false; }
 }
+/** True once no session has been mid-turn for two readings in a row (a turn's
+ *  own checks can start a beat after it goes idle); false if `maxMs` ran out.
+ *  No live server, or one that won't answer: nothing to wait for. */
+async function waitForQuiet(maxMs) {
+  const token = process.env.ROOST_TOKEN ?? process.env.POCKET_TOKEN;
+  const headers = token ? { authorization: `Bearer ${token}` } : {};
+  const deadline = Date.now() + maxMs;
+  let quiet = 0;
+  while (Date.now() < deadline) {
+    let busy = false;
+    try {
+      const res = await fetch(`http://127.0.0.1:${livePort}/api/sessions`, { headers, signal: AbortSignal.timeout(3000) });
+      if (!res.ok) return true;
+      const body = await res.json();
+      const list = Array.isArray(body) ? body : body.sessions ?? [];
+      busy = list.some((s) => s.state === 'working');
+    } catch {
+      return true;
+    }
+    quiet = busy ? 0 : quiet + 1;
+    if (quiet >= 2) return true;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return false;
+}
 async function waitUp(port, seconds) {
   for (let i = 0; i < seconds * 2; i++) { if (await isUp(port, 1000)) return true; execSync('sleep 0.5'); }
   return false;
@@ -196,6 +221,18 @@ switch (command) {
   }
   case 'finish-deploy': {
     const meta = readMeta('current');
+    // 2026-09-27: "What happened to your message back to me?" -- a deploy run
+    // by the crew restarted Roost mid-turn, every time, so the reply that
+    // should have followed it was never written. Wait until no session is
+    // mid-turn (this one included, and any other project's), then restart.
+    // Capped, so a turn that never ends can't hold a release back forever.
+    console.log('4/5  waiting for the crew to finish talking');
+    const quietFor = await waitForQuiet(10 * 60_000);
+    console.log(quietFor ? `     quiet — restarting` : `     still busy after 10 minutes — restarting anyway`);
+    // Tell the next boot WHY it booted, so the thread says "deployed", not "cut off".
+    try {
+      writeFileSync(join(repoRoot, '.roost-data', 'releases', 'restart.json'), JSON.stringify({ commit: meta?.commit, subject: meta?.subject, smoke: meta?.smoke, at: new Date().toISOString(), waited: !quietFor }));
+    } catch { /* the notice is a nicety; the restart is not */ }
     console.log('4/5  restarting');
     try { start(); } catch (e) { console.error(String(e.message ?? e)); process.exit(1); }
 

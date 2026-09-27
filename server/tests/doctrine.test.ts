@@ -1624,16 +1624,22 @@ describe('forty scenes, one a day (item 39)', () => {
 describe('bugs from the phone, 2026-09-26', () => {
   const s = read('server/src/sessions.ts');
 
-  it('a restart right after a fresh release says what shipped, not just "cut off"', () => {
-    expect(s).toMatch(/function recentDeploy\(since: number\)/);
-    // gated on the release landing AFTER this session was last saved -- an
-    // old release must never be reported as the cause of an unrelated restart
-    expect(s).toMatch(/Date\.parse\(meta\.at\) <= since\) return null;/);
-    expect(s).toMatch(/const deploy = cut \? recentDeploy\(this\.updatedAt\) : null;/);
+  it('a deploy says what shipped -- read from the marker the deploy wrote, not guessed from timestamps', () => {
+    expect(s).toMatch(/export function deployRestart\(/);
+    expect(s).toMatch(/const deploy = deployRestart\(\);/);
     expect(s).toMatch(/`Deployed at \$\{at\}: \$\{deploy\.subject\}/);
     expect(s).not.toMatch(/Deployed at[^`]*say "continue"/); // a finished deploy is not a chore to come back for
     // the old line survives as the fallback when the restart was NOT a deploy
     expect(s).toMatch(/Roost restarted at \$\{at\} — the turn that was running was cut off/);
+  });
+
+  it('a deploy from inside Roost waits for the crew to finish talking before it restarts', () => {
+    const svc = read('scripts/service.mjs');
+    const finish = svc.slice(svc.indexOf("case 'finish-deploy': {"), svc.indexOf("case 'rollback': {"));
+    expect(finish.indexOf('await waitForQuiet(')).toBeGreaterThan(-1);
+    expect(finish.indexOf('await waitForQuiet(')).toBeLessThan(finish.indexOf('start();'));
+    expect(finish).toMatch(/restart\.json/);
+    expect(svc).toMatch(/busy = list\.some\(\(s\) => s\.state === 'working'\)/);
   });
 
   it('"don\'t ask again" survives a restart instead of resetting silently', () => {
