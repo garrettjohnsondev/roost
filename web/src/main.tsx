@@ -43,11 +43,20 @@ document.addEventListener('focusin', () => {
 // against, so the composer is above the keyboard from the first tap, not by
 // luck.
 function setVisibleHeight() {
-  const h = window.visualViewport?.height ?? window.innerHeight;
-  document.documentElement.style.setProperty('--vvh', `${h}px`);
+  const vv = window.visualViewport;
+  document.documentElement.style.setProperty('--vvh', `${vv?.height ?? window.innerHeight}px`);
+  // 2026-09-27, the jump on first tap, again: iOS SLIDES the visible area
+  // down to reveal the focused box (visualViewport.offsetTop > 0) -- a pan of
+  // the visible window, not a document scroll, so scrollY stays 0 and body
+  // (pinned at the top of the layout) was left behind above it: the composer
+  // at the very top, blank page under it. body follows the pan now.
+  document.documentElement.style.setProperty('--vvt', `${Math.max(0, vv?.offsetTop ?? 0)}px`);
 }
 setVisibleHeight();
 window.visualViewport?.addEventListener('resize', () => requestAnimationFrame(setVisibleHeight));
+// The pan arrives as a visualViewport SCROLL, not a resize -- the event the
+// earlier fixes never listened to.
+window.visualViewport?.addEventListener('scroll', () => requestAnimationFrame(setVisibleHeight));
 window.addEventListener('resize', () => requestAnimationFrame(setVisibleHeight));
 
 createRoot(document.getElementById('root')!).render(

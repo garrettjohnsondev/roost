@@ -55,3 +55,16 @@ describe('model names are the model and its version', () => {
     expect(contextWords('claude-sonnet-5')).toBeNull();
   });
 });
+
+describe('the model picker', () => {
+  it('shows each real model once, keeping Default', async () => {
+    const { uniqueModels } = await import('./ChatView');
+    const ids = uniqueModels([
+      { id: 'default', resolvedModel: 'claude-opus-5-5[1m]' },
+      { id: 'opus[1m]', resolvedModel: 'claude-opus-5-5[1m]' },
+      { id: 'sonnet', resolvedModel: 'claude-sonnet-5' },
+      { id: 'haiku' },
+    ]).map((m) => m.id);
+    expect(ids).toEqual(['default', 'sonnet', 'haiku']);
+  });
+});

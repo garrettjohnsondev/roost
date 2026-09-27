@@ -763,7 +763,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 >
                   <Icon name="bolt" /> Auto
                 </button>
-                {agentConfig.models.map((m) => (
+                {uniqueModels(agentConfig.models).map((m) => (
                   <button
                     key={m.id}
                     title={m.label}
@@ -1285,6 +1285,20 @@ function HandoffPass({ from, to, fresh }: { from: CrewInfo; to: CrewInfo; fresh:
 /** The model and its version, and nothing else (2026-09-25): "Opus 5.5",
  *  not "claude-opus-5-5[1m] · Chat". The context size is a setting's detail;
  *  it lives with the model picker (contextWords). */
+/** One tile per real model (2026-09-27: "two Claude Opus 5.5 tiles, both
+ *  highlighted" -- "Default" and "Opus (1M context)" resolve to the very same
+ *  model on that Mac). The first entry wins, so "Default" stays: it follows
+ *  the CLI if its default ever moves. */
+export function uniqueModels<T extends { id: string; resolvedModel?: string }>(models: T[]): T[] {
+  const seen = new Set<string>();
+  return models.filter((m) => {
+    const key = m.resolvedModel ?? m.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function modelName(id: string): string {
   return modelWords(id).replace(/ 1M$/, '');
 }

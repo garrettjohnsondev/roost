@@ -87,7 +87,10 @@ body,
    there, same as body's did before. */
 body {
   position: fixed;
-  inset: 0;
+  /* Follows iOS's pan of the visible area (--vvt, main.tsx), not just its height. */
+  top: var(--vvt, 0px);
+  left: 0;
+  right: 0;
   height: var(--vvh, 100dvh);
   overflow: hidden;
   background: var(--bg);
