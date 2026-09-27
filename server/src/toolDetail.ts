@@ -30,6 +30,10 @@ export function toolDetail(name: string, input: unknown): string {
     case 'Task':
     case 'Agent':
       return s('description') || s('prompt').slice(0, 120) || fallback(i);
+    case 'mcp__roost__code_explore':
+      return s('query') ? `code map: ${s('query')}` : fallback(i);
+    case 'mcp__roost__code_impact':
+      return s('symbol') ? `what depends on ${s('symbol')}` : fallback(i);
     case 'TodoWrite':
       return Array.isArray(i.todos) ? `${i.todos.length} todo${i.todos.length === 1 ? '' : 's'}` : fallback(i);
     default:

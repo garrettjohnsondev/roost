@@ -8,6 +8,7 @@ import { fromClaudeContextUsage, isContextOverflow, withAdvice } from '../contex
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 import { toolDetail } from '../toolDetail.js';
+import { CODEMAP_SERVER, codemapServer, isCodemapTool } from '../codemapTool.js';
 
 const EXPAND_SNIPPET = 4000;
 
@@ -87,6 +88,9 @@ export class ClaudeAdapter implements AgentAdapter {
       resume: this.opts.resume,
       // Load the same settings the interactive CLI uses (CLAUDE.md, skills, MCP servers).
       settingSources: ['user', 'project', 'local'],
+      // Roost's own code map (codemap.ts), in-process: one lookup instead of a
+      // grep/read loop, for every install with no setup (2026-09-27).
+      mcpServers: { [CODEMAP_SERVER]: codemapServer(this.opts.cwd) },
       effort: this.opts.effort || undefined,
       canUseTool: async (toolName: string, toolInput: Record<string, unknown>, _extra: unknown) => {
         // A question is not a permission (2026-09-25). Claude's AskUserQuestion
@@ -100,6 +104,9 @@ export class ClaudeAdapter implements AgentAdapter {
           return { behavior: 'allow', updatedInput: { ...toolInput, answers } };
         }
         if (this.sessionAllowedTools.has(toolName)) return { behavior: 'allow', updatedInput: toolInput };
+        // The code map only reads an index Roost built itself -- a permission
+        // prompt for it would cost the very back-and-forth it exists to save.
+        if (isCodemapTool(toolName)) return { behavior: 'allow', updatedInput: toolInput };
         const decision = await this.requestApproval(toolName, toolInput);
         // Remember the TOOL. Switching the session to bypassPermissions here
         // silently widened every later permission the user never saw.
