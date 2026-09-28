@@ -185,6 +185,73 @@ function run(args, cwd, label) {
   });
 }
 
+// Shop and arcade items: game logos, hats, held props, crates, currency.
+const ITEMS = {
+  logos: {
+    frame: 'A bold ICONIC EMBLEM like an arcade cabinet badge: one simple, high-contrast symbol with a few strong colours, big readable shapes that stay recognisable when shrunk to 64 pixels, centred, filling about 80 percent of the frame. No border text, no banner with words.',
+    list: {
+      snake: 'a winding pixel snake-trail made of a conga line of golden seeds and small feathers, curling in an S shape, with a seed at the head',
+      minesweeper: 'a shovel stuck diagonally into a brown dirt mound with a small red triangular flag planted on top',
+      battleship: 'a round twig nest floating on a small blue pond, with a red target crosshair over it',
+      solitaire: 'three playing cards fanned out (card backs and simple red and black suit pips, no letters or numbers) with a white feather laid across them',
+      memory: 'two face-down playing cards with a patterned back, the right one mid-flip, tilted, showing a sliver of its bright face',
+      hatch: 'a cream egg cracking open with a zigzag crack, sitting on a rounded square sliding-puzzle tile in warm orange, with small tile corners peeking behind it',
+      wordle: 'a 3 by 3 grid of rounded square tiles coloured green, yellow and grey, all blank with no letters',
+      stack: 'a tall tower of wooden planks stacked slightly offset from one another, the top plank sliding in',
+      flappy: 'a single feathered wing flapping upward between two vertical tree branches, one from the top and one from the bottom, like pipes',
+      breakout: 'a white egg used as a ball flying upward toward a row of colourful bricks, a paddle below',
+      fieldgoal: 'a brown american football spinning through yellow goal-post uprights',
+      baseball: 'a wooden baseball bat hitting a white baseball with a bright yellow impact spark',
+      soccer: 'a black and white soccer ball hitting a goal net, the net bulging',
+      basketball: 'an orange basketball swishing through a red hoop with a white net',
+      roostbirds: 'a wooden Y slingshot with a round bird-shaped stone in the pouch and a small green beetle beside it',
+      bugsiege: 'a stone shield-shaped tower with a small flag, with three little beetles marching toward it in a line',
+      crewkart: 'a small red go-kart seen from the front three-quarter view, with a black and white checkered racing flag behind it',
+    },
+  },
+  hats: {
+    frame: 'A HAT ALONE, no head, no character, FRONT VIEW, centred horizontally, and placed at the BOTTOM of the frame: the brim/base sits about 10 percent above the bottom edge, with empty transparent space above the hat. The hat fills about 70 percent of the width.',
+    list: {
+      beanie: 'a knitted teal beanie with a folded cuff and a pompom', cap: 'a red baseball cap with a curved brim facing front',
+      tophat: 'a black top hat with a red band', crown: 'a golden royal crown with red and blue gems',
+      beret: 'a red french beret tilted slightly', cowboy: 'a brown cowboy hat with a wide curled brim',
+      wizard: 'a tall blue pointed wizard hat with yellow stars and a wide brim', party: 'a striped cone party hat with a pompom on top',
+      chef: 'a tall white puffy chef toque', pirate: 'a black pirate tricorn hat with a white skull-and-crossbones patch',
+      viking: 'a grey metal viking helmet with two white horns', halo: 'a glowing golden halo ring floating level, seen slightly from above',
+      flowerwreath: 'a wreath of pink, white and yellow flowers with green leaves, seen from the front', hardhat: 'a yellow construction hard hat',
+      headphones: 'a pair of chunky over-ear headphones with a headband arching over, the ear cups at the bottom', propeller: 'a propeller beanie cap in primary colour segments with a small propeller on top',
+      santa: 'a red santa hat with white fur trim and a white pompom flopping to the side', pumpkin: 'a hollowed orange pumpkin worn as a hat with a green stem, no face',
+      bunnyears: 'a headband with two tall white-and-pink bunny ears', sombrero: 'a wide straw sombrero with colourful embroidered band',
+    },
+  },
+  props: {
+    frame: 'A SINGLE OBJECT ALONE, upright, centred, filling about 65 percent of the frame.',
+    list: {
+      coffee: 'a coffee mug with steam', laptop: 'an open laptop seen from the front three-quarter view',
+      guitar: 'an acoustic guitar standing upright', wand: 'a magic wand with a star tip and sparkles',
+      sword: 'a short knight sword pointing up', balloon: 'a red balloon on a string',
+      umbrella: 'an open blue umbrella with a curved handle', trophy: 'a golden trophy cup with two handles',
+      rubberduck: 'a yellow rubber duck', lantern: 'a glowing oil lantern with a handle',
+      fishingrod: 'a fishing rod standing upright with a line and a red-and-white bobber', flag: 'a small triangular pennant flag on a pole',
+      pizza: 'a slice of pepperoni pizza, point down', bouquet: 'a bouquet of colourful flowers wrapped in paper',
+      snowglobe: 'a snow globe with a tiny pine tree inside and a wooden base', keyboard: 'a small mechanical computer keyboard tilted toward the viewer, blank keys',
+    },
+  },
+  crates: {
+    frame: 'A chunky pixel TREASURE CRATE (a sturdy loot box with metal corner brackets and a lock), front three-quarter view, closed, centred, filling about 75 percent of the frame, with a large emblem on its front.',
+    list: {
+      season1: 'teal-painted crate with gold trim and a white feather emblem', season2: 'orange-painted crate with dark trim and a cream egg emblem',
+      spooky: 'purple crate with orange trim and a glowing jack-o-lantern pumpkin emblem', frosty: 'icy pale-blue crate with frost on the edges and a white snowflake emblem',
+      bloom: 'pink crate with green vine trim and a flower emblem', free: 'plain natural wooden crate tied with a red ribbon bow',
+      'open-burst': 'NOT a crate: a radial burst of golden-white light rays spreading out from the centre with a few sparkle pixels, like a treasure-opening flash, rays fading to transparent at the ends',
+    },
+  },
+  currency: {
+    frame: 'A SINGLE small game currency ICON, centred, filling about 80 percent of the frame, very bold and simple so it reads at 32 pixels.',
+    list: { coin: 'a round gold coin, front view, with a feather stamped in the middle', key: 'a golden old-fashioned key, diagonal' },
+  },
+};
+
 async function draw(cwd, file, prompt, label, image) {
   mkdirSync(cwd, { recursive: true });
   if (existsSync(join(cwd, file))) { console.log(`${label}: already done`); return; }
@@ -283,6 +350,18 @@ if (mode === 'poses') {
     const file = `${id}.png`;
     const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\nCRITICAL: genuinely TRANSPARENT background (alpha channel). CRITICAL: save the image into the CURRENT WORKING DIRECTORY under the exact filename given.\nCRITICAL: literal retro PIXEL ART -- a 16-bit game item sprite -- LOW RESOLUTION with large VISIBLE SQUARE PIXEL BLOCKS, hard aliased edges, flat blocks of colour, a crisp dark one-pixel outline, no gradients, no anti-aliasing, no drop shadow, no text. A SINGLE OBJECT, no character, no hands, centered, filling about 60 percent of the frame.\n\nObject: ${desc}. -> save as ${file}\n\nUse the image_gen tool directly; do not write code.`;
     await draw(join(RAW, 'props'), file, prompt, `prop/${id}`);
+  }
+} else if (mode === 'items') {
+  // Shop/arcade items (2026-09-28): `items <cat> [id...]`, cat = logos|hats|props|crates|currency.
+  const [cat, ...ids] = names;
+  const set = ITEMS[cat];
+  if (!set) { console.error(`unknown category ${cat}`); process.exit(2); }
+  for (const id of (ids.length ? ids : Object.keys(set.list))) {
+    const desc = set.list[id];
+    if (!desc) { console.log(`${cat}/${id}: unknown`); continue; }
+    const file = `${id}.png`;
+    const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\nCRITICAL: genuinely TRANSPARENT background (alpha channel, nothing behind the object). CRITICAL: save the image into the CURRENT WORKING DIRECTORY under the exact filename given.\nCRITICAL: literal retro PIXEL ART -- a 16-bit console game item sprite -- LOW RESOLUTION with large VISIBLE SQUARE PIXEL BLOCKS, hard aliased edges, flat blocks of colour, a crisp dark one-pixel outline, no gradients, no anti-aliasing, no drop shadow. ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO WORDS anywhere. No characters, no creatures, no hands unless described.\n\n${set.frame}\n\nSubject: ${desc}. -> save as ${file}\n\nUse the image_gen tool directly; do not write code.`;
+    await draw(join(RAW, 'items', cat), file, prompt, `${cat}/${id}`);
   }
 } else {
   console.error('usage: gen.mjs poses <name...> | scene <id...> | props <id...> | relight <id...|all>');

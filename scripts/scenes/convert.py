@@ -343,6 +343,61 @@ def outfitsheet(names):
     print('outfitsheet: /tmp/outfits-sheet.png')
 
 
+ITEM_OUT = {'logos': ('games/logos', 256), 'hats': ('items/hats', 128), 'props': ('items/props', 128),
+            'crates': ('items/crates', 256), 'currency': ('items', 64)}
+
+
+def items(args):
+    """Shop/arcade items: `items <cat> [id...]`. Trimmed to the drawing's
+    bbox, fitted (hats: sat on the bottom, 10% margin; others centred), then
+    NEAREST-scaled to the target size so the pixels stay hard."""
+    cat, *ids = args
+    sub, size = ITEM_OUT[cat]
+    src_dir = RAW / 'items' / cat
+    dest = REPO / 'web' / 'public' / sub
+    dest.mkdir(parents=True, exist_ok=True)
+    for src in sorted(src_dir.glob('*.png')):
+        if ids and src.stem not in ids:
+            continue
+        big = Image.open(src).convert('RGBA')
+        bb = _bbox(big)
+        if not bb:
+            print(f'{cat}/{src.stem}: empty'); continue
+        part = big.crop(bb)
+        full = src.stem == 'open-burst'
+        box = size if full else round(size * (0.8 if cat == 'hats' else 0.88))
+        k = box / max(part.size)
+        part = part.resize((max(1, round(part.width * k)), max(1, round(part.height * k))), Image.Resampling.LANCZOS if k < 0.5 else Image.Resampling.NEAREST)
+        # hard alpha so edges stay pixel-crisp
+        a = part.getchannel('A').point(lambda v: 255 if v > 110 else 0)
+        part.putalpha(a)
+        out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        x = (size - part.width) // 2
+        y = size - round(size * 0.1) - part.height if cat == 'hats' else (size - part.height) // 2
+        out.paste(part, (x, y), part)
+        o = dest / f'{src.stem}.webp'
+        out.save(o, 'WEBP', lossless=True)
+        print(f'{cat}/{src.stem}: transparent={transparent(big)} -> {o.relative_to(REPO)}')
+
+
+def itemsheet(args):
+    cat, *_ = args
+    sub, size = ITEM_OUT[cat]
+    files = sorted((REPO / 'web' / 'public' / sub).glob('*.webp'))
+    if cat == 'currency':
+        files = [f for f in files if f.stem in ('coin', 'key')]
+    cell, cols = 192, 6
+    rows = (len(files) + cols - 1) // cols
+    out = Image.new('RGBA', (cell * cols, cell * rows), (13, 20, 36, 255))
+    for i, f in enumerate(files):
+        im = Image.open(f).convert('RGBA').resize((160, 160), Image.Resampling.NEAREST)
+        x, y = cell * (i % cols), cell * (i // cols)
+        out.paste(Image.new('RGBA', (160, 160), (40, 52, 80, 255)), (x + 16, y + 16))
+        out.paste(im, (x + 16, y + 16), im)
+    out.save(f'/tmp/items-{cat}.png')
+    print(f'/tmp/items-{cat}.png')
+
+
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet, 'outfits': outfits, 'outfitsheet': outfitsheet}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet, 'outfits': outfits, 'outfitsheet': outfitsheet, 'items': items, 'itemsheet': itemsheet}[mode](rest)
