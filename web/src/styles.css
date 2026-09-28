@@ -3687,8 +3687,16 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
   .msg.assistant.grow-in, .msg-row.user.arrive { animation: none; }
 }
 
-/* Who's in this chat (#43): faces right of the context meter, overlapping a little. */
-.strip-crew { display: inline-flex; align-items: center; margin-left: auto; }
-.strip-crew > * + * { margin-left: -6px; }
+/* Who's in this chat (#43): faces right of the context meter; a ring marks who you're locked to. */
+.status-strip-row { position: relative; display: flex; align-items: center; gap: 6px; }
+.status-strip-row > .status-strip { flex: 1; min-width: 0; }
+.strip-crew { display: inline-flex; align-items: center; background: transparent; border: 0; padding: 2px 8px 2px 4px; flex-shrink: 0; }
+.strip-face { display: inline-flex; border-radius: 50%; }
+.strip-face + .strip-face { margin-left: -6px; }
+.strip-face.locked { box-shadow: 0 0 0 2px var(--accent, #c9803a); margin-right: 4px; }
 .strip-crew-more { font-size: 11px; margin-left: 2px; opacity: 0.7; }
-.strip-crew + .strip-more { margin-left: 6px; }
+.crew-card { position: absolute; right: 8px; top: 100%; z-index: 30; width: min(280px, calc(100vw - 16px)); background: var(--surface, #fff); border: 1px solid var(--border, #ccc); border-radius: 2px; padding: 10px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.crew-card-title { font-size: 14px; margin-bottom: 4px; }
+.crew-card-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+.crew-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.crew-card-pick { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; }

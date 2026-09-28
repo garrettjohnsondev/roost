@@ -673,7 +673,10 @@ describe('the thread follows the work only while you are at the bottom', () => {
   // jumps me down when there's something new."
   const c = read('web/src/ChatView.tsx');
   it('auto-scrolls only when pinned, and counts what arrives otherwise', () => {
-    expect(c).toMatch(/if \(pinned\.current\) \{[\s\S]{0,260}el\.scrollTo\(\{ top: el\.scrollHeight, behavior: 'smooth' \}\)[\s\S]{0,60}else el\.scrollTop = el\.scrollHeight;/); // glides after the first placement (2026-09-28)
+    expect(c).toMatch(/if \(pinned\.current\) \{[\s\S]{0,260}el\.scrollTo\(\{ top: el\.scrollHeight, behavior: 'smooth' \}\)[\s\S]{0,260}else el\.scrollTop = el\.scrollHeight;/); // glides after the first placement (2026-09-28)
+    // Our own glide can't unpin you, and sending re-pins (2026-09-28).
+    expect(c).toMatch(/if \(!atBottom && Date\.now\(\) < glidingUntil\.current\) return;/);
+    expect(c).toMatch(/pinned\.current = true;\s*if \(pendingQ && text\.trim\(\)\)/);
     expect(c).toMatch(/const atBottom = el\.scrollHeight - el\.scrollTop - el\.clientHeight < 80;/);
     expect(c).toMatch(/\{unseen > 0 && \(\s*<button className="new-below" onClick=\{jumpDown\}>/);
   });

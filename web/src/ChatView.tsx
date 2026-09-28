@@ -210,13 +210,22 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // The first placement of a thread is instant; after that, new messages
   // glide into view instead of jumping (2026-09-28: "smoother").
   const placed = useRef(false);
+  // 2026-09-28: "when I send a message it's not moving down to the bottom".
+  // A smooth glide fires scroll events on its way down; if the typing bubble
+  // grew the thread meanwhile, a mid-glide tick read as "you scrolled up" and
+  // unpinned, leaving the pill. While our own glide runs, it can't unpin you.
+  const glidingUntil = useRef(0);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (pinned.current) {
       const smooth = placed.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-      else el.scrollTop = el.scrollHeight;
+      if (smooth) {
+        glidingUntil.current = Date.now() + 700;
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        // Land exactly on the bottom even if the thread grew during the glide.
+        setTimeout(() => { if (pinned.current) el.scrollTop = el.scrollHeight; }, 720);
+      } else el.scrollTop = el.scrollHeight;
       if (session.items.length) placed.current = true;
       seenCount.current = session.items.length;
       if (unseen) setUnseen(0);
@@ -245,6 +254,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     const el = scrollRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (!atBottom && Date.now() < glidingUntil.current) return;
     pinned.current = atBottom;
     if (atBottom && unseen) {
       seenCount.current = session.items.length;
@@ -417,7 +427,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           full auto, a raw token line, the context bar and the tracker stacked
           until the conversation started 40% down the screen. The line carries
           what matters at a glance; a tap opens the detail that was always there. */}
-      <StatusStrip session={session} open={stripOpen} onToggle={() => setStripOpen(!stripOpen)} />
+      <StatusStrip session={session} open={stripOpen} onToggle={() => setStripOpen(!stripOpen)} crew={crewNames} />
       {stripOpen && (
         <div className="status-detail">
         {session.meta?.surplus && !session.meta.boost && <SpendIt surplus={session.meta.surplus} onBoost={() => session.send({ type: 'set_boost', on: true })} />}
@@ -694,22 +704,14 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       ) : (
         <>
-        {session.meta?.sticky && (
-          <div className="sticky-chip-row">
-            <span className="sticky-chip">
-              With <b>{session.meta.sticky}</b> — messages go to them until you clear this
-              <button className="sticky-clear" aria-label="Clear: send to Pip again" onClick={() => session.send({ type: 'set_sticky', name: null })}>
-                ✕
-              </button>
-            </span>
-          </div>
-        )}
         <Composer
           disabled={!session.connected}
           working={session.status === 'working'}
           onInterrupt={() => session.send({ type: 'interrupt' })}
           onSend={(text, images) => {
             // A question waiting on you: what you text back is the answer.
+            // Sending is talking: you go to the bottom, where they'll answer.
+            pinned.current = true;
             if (pendingQ && text.trim()) return answerQuestion(text.trim());
             if (consultMode && text.trim() && !images?.length && session.status !== 'working') return session.send({ type: 'consult', text: text.trim() });
             return session.send({ type: 'user_message', text, images });
@@ -1510,15 +1512,28 @@ export function crewInChat(items: ChatItem[]): CrewInfo[] {
   return [...seen.values()];
 }
 
-function StatusStrip({ session, open, onToggle }: { session: SessionState; open: boolean; onToggle: () => void }) {
-  const inChat = React.useMemo(() => crewInChat(session.items), [session.items]);
+function StatusStrip({ session, open, onToggle, crew = [] }: { session: SessionState; open: boolean; onToggle: () => void; crew?: MentionTarget[] }) {
+  const sticky = session.meta?.sticky ?? null;
+  const inChat = React.useMemo(() => {
+    const list = crewInChat(session.items);
+    if (!sticky || list.some((c) => c.name === sticky)) return list;
+    // Locked to someone who hasn't spoken yet: they still get a face.
+    const t = crew.find((c) => c.name === sticky);
+    const face: CrewInfo = { name: sticky, color: t?.color ?? '#888', sprite: t?.sprite, agent: t?.suite ?? 'claude', initial: sticky[0], role: 'chat', roleLabel: '', tier: t?.tier ?? 'worker', model: t?.model ?? '' };
+    return [face, ...list];
+  }, [session.items, sticky, crew]);
+  const [card, setCard] = useState(false);
+  const [picking, setPicking] = useState(false);
   const ctx = session.context;
   const surplus = session.meta?.boost ? null : session.meta?.surplus;
   const now = useMinute(!!surplus);
   const minutes = surplus ? (surplus.resetsAt ? Math.max(0, Math.round((surplus.resetsAt - now) / 60_000)) : surplus.minutesLeft) : null;
   const pct = ctx?.overLimit?.kind === 'hard_limit' ? 100 : ctx?.percent ?? null;
   if (!ctx && !surplus && !session.meta?.boost && session.meta?.approvals !== 'full-auto' && !inChat.length) return null;
+  const setSticky = (name: string | null) => { session.send({ type: 'set_sticky', name }); setCard(false); setPicking(false); };
+  const ordered = sticky ? [...inChat].sort((a, b) => (b.name === sticky ? 1 : 0) - (a.name === sticky ? 1 : 0)) : inChat;
   return (
+    <div className="status-strip-row">
     <button className={`status-strip${open ? ' open' : ''}`} onClick={onToggle} aria-expanded={open}>
       {ctx && (
         <span className={`strip-ctx ${ctx.pressure}`} title="Context">
@@ -1541,14 +1556,40 @@ function StatusStrip({ session, open, onToggle }: { session: SessionState; open:
       {session.meta?.approvals === 'full-auto' && (
         <span className="strip-word lamp"><Icon name="bolt" /> Full auto</span>
       )}
-      {inChat.length > 0 && (
-        <span className="strip-crew" title={`In this chat: ${inChat.map((c) => c.name).join(', ')}`}>
-          {inChat.slice(0, 4).map((c) => <SpriteAvatar key={c.name} crew={c} pose="idle" size={20} />)}
-          {inChat.length > 4 && <span className="strip-crew-more">+{inChat.length - 4}</span>}
-        </span>
-      )}
       <span className="strip-more" aria-hidden="true">{open ? '▴' : '▾'}</span>
     </button>
+    {/* Who's in this chat (#43), and who you're locked to: the ring replaced
+        the "With Ollie — messages go to them" line above the box (2026-09-28). */}
+    {inChat.length > 0 && (
+      <button className="strip-crew" aria-label={sticky ? `Talking to ${sticky}` : `In this chat: ${inChat.map((c) => c.name).join(', ')}`} onClick={() => { setCard(!card); setPicking(false); }}>
+        {ordered.slice(0, 4).map((c) => (
+          <span key={c.name} className={`strip-face${c.name === sticky ? ' locked' : ''}`}><SpriteAvatar crew={c} pose="idle" size={20} /></span>
+        ))}
+        {ordered.length > 4 && <span className="strip-crew-more">+{ordered.length - 4}</span>}
+      </button>
+    )}
+    {card && (
+      <div className="crew-card" role="dialog">
+        <div className="crew-card-title">{sticky ? <>Talking to <b>{sticky}</b></> : 'Pip picks who takes each message'}</div>
+        {!sticky && <div className="crew-card-hint">In this chat: {inChat.map((c) => c.name).join(', ')}</div>}
+        {!picking ? (
+          <div className="crew-card-actions">
+            {sticky && <button className="chip" onClick={() => setSticky(null)}>Back to Pip</button>}
+            <button className="chip" onClick={() => setPicking(true)}>{sticky ? 'Pick someone else' : 'Pick someone yourself'}</button>
+          </div>
+        ) : (
+          <div className="crew-card-pick">
+            {crew.filter((c) => c.name !== sticky).map((c) => (
+              <button key={c.name} className="mention-opt" onClick={() => setSticky(c.name)}>
+                {c.sprite && <SpriteAvatar crew={{ name: c.name, color: c.color, sprite: c.sprite, agent: c.suite, initial: c.name[0], role: '', roleLabel: '', tier: c.tier, model: '' }} pose="idle" size={22} />}
+                <span className="mention-text"><span style={{ color: nameColor(c.color) }}>{c.name}</span><span className="mention-model">{c.model ?? c.suite}</span></span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+    </div>
   );
 }
 
