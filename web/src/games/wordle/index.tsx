@@ -20,6 +20,7 @@ export const meta: GameMeta = {
     { id: 'streak-3', name: 'Habit', says: 'Solve three days in a row.' },
     { id: 'streak-7', name: 'Every day this week', says: 'Solve seven days in a row.' },
   ],
+  inProgress: (s: { day?: number; done?: boolean; guesses?: string[] }) => s?.day === dayNumber() && !s.done && (s.guesses?.length ?? 0) > 0,
 };
 
 const KEYS = ['qwertyuiop', 'asdfghjkl', '>zxcvbnm<'];
