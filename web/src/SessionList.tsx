@@ -232,6 +232,7 @@ export function SessionList(props: {
   onOpen: (id: string) => void;
   theme: Theme;
   onThemeChange: (t: Theme) => void;
+  onArcade?: () => void;
 }) {
   const { config, onOpen, theme, onThemeChange } = props;
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -352,6 +353,11 @@ export function SessionList(props: {
             </div>
           </div>
           <div className="page-header-actions">
+            {props.onArcade && (
+              <button className="ghost" onClick={props.onArcade} aria-label="Arcade">
+                <Icon name="gamepad" size={24} title="Arcade" />
+              </button>
+            )}
             <button className="ghost" onClick={() => setShowSettings(true)}>
               <Icon name="gear" size={24} title="Settings" />
             </button>

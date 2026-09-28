@@ -176,6 +176,8 @@ export class Session {
   ask: AskLevel = 'quick';
   /** A question from the crew waiting on your reply, if any. */
   private pendingQuestion?: { requestId: string; questions: AskQuestion[] };
+  /** The approval being asked right now, for meta().needsYou. */
+  private pendingApprovalId?: string;
   /** Armed offer awaiting a tap, and the pressure level we last asked at, so the
    *  card appears once per escalation instead of after every turn. */
   private contextOffer?: { reason: string; percent: number | null };
@@ -404,6 +406,7 @@ export class Session {
       crew: crewMember(this.agent, this.speakingModel(), this.currentRole),
       routedModel: this.routedModel,
       consultPending: this.pendingConsult ? true : undefined,
+      needsYou: this.pendingApprovalId || this.pendingQuestion || this.pendingConsult ? true : undefined,
       mode: this.mode,
       modeExplicit: this.modeExplicit || undefined,
       planPath: this.pendingConsult?.planPath,
@@ -636,6 +639,9 @@ export class Session {
       // Asked in the thread as a text from whoever wants it (2026-09-25).
       event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };
     }
+    if (event.type === 'approval_request') this.pendingApprovalId = event.requestId;
+    if (event.type === 'approval_resolved' && this.pendingApprovalId === event.requestId) this.pendingApprovalId = undefined;
+    if (event.type === 'status' && event.state === 'idle') this.pendingApprovalId = undefined;
     if (event.type === 'question') {
       if (!event.crew) event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };
       this.pendingQuestion = { requestId: event.requestId, questions: event.questions };

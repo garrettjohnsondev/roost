@@ -2,6 +2,7 @@ import { CompanionHost } from './CompanionSheet';
 import { useEffect, useState } from 'react';
 import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
+import { Arcade } from './games/Arcade';
 import { FIXTURES } from './fixtures';
 import { api } from './api';
 import { useTheme } from './theme';
@@ -22,6 +23,20 @@ export function App() {
   };
   useEffect(() => {
     const onPop = () => setActiveSessionState(readSessionParam());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  // The arcade (#55) is its own screen, in the URL like a session is.
+  const [arcade, setArcadeState] = useState(() => new URLSearchParams(location.search).has('arcade'));
+  const setArcade = (on: boolean) => {
+    setArcadeState(on);
+    const url = new URL(window.location.href);
+    if (on) url.searchParams.set('arcade', '1');
+    else { url.searchParams.delete('arcade'); url.searchParams.delete('game'); }
+    window.history.pushState({ arcade: on }, '', url);
+  };
+  useEffect(() => {
+    const onPop = () => setArcadeState(new URLSearchParams(location.search).has('arcade'));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
@@ -52,7 +67,9 @@ export function App() {
 
   return (
     <>
-      {activeSession ? (
+      {arcade && !activeSession ? (
+        <Arcade onBack={() => setArcade(false)} onOpenSession={(id) => { setArcadeState(false); setActiveSession(id); }} />
+      ) : activeSession ? (
         <ChatView
           sessionId={activeSession}
           config={config}
@@ -60,7 +77,7 @@ export function App() {
           onSwitch={setActiveSession}
         />
       ) : (
-        <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} />
+        <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} onArcade={() => setArcade(true)} />
       )}
       {/* A crew member's card, from any face you tap (item 40). */}
       <CompanionHost />

@@ -165,6 +165,8 @@ export interface SessionMeta {
   routedModel?: string;
   /** True while a completed consult awaits the user's Proceed/Dismiss decision. */
   consultPending?: boolean;
+  /** Something is waiting on you: an approval, a question or a consult (the arcade's banner). */
+  needsYou?: boolean;
   mode: SessionMode;
   /** The person picked the mode; otherwise it is the configured default. */
   modeExplicit?: boolean;

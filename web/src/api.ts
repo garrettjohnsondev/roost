@@ -99,6 +99,11 @@ export const api = {
     }),
   testNotification: () => request<{ sent: boolean }>('/api/notifications/test', { method: 'POST' }),
   gitSummaries: () => request<{ summaries: Record<string, { files: number; ahead: number }> }>('/api/git/summaries'),
+  games: () => request<import('./games/types').GameStoreView>('/api/games'),
+  gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
+  gameScore: (id: string, score: number, lowerIsBetter = false) =>
+    request<{ best: number; isBest: boolean }>(`/api/games/${id}/score`, { method: 'POST', body: JSON.stringify({ score, lowerIsBetter }) }),
+  gameAchieve: (id: string) => request<{ earned: boolean }>('/api/games/achievement', { method: 'POST', body: JSON.stringify({ id }) }),
   gitHistory: (cwd: string, limit = 80) =>
     request<{ entries: ShippedEntry[] }>(`/api/git/history?cwd=${encodeURIComponent(cwd)}&limit=${limit}`),
   gitStatus: (cwd: string) => request<{ git: GitStatusResult }>(`/api/git?cwd=${encodeURIComponent(cwd)}`),

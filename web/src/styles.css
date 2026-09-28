@@ -3700,3 +3700,37 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .crew-card-hint { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
 .crew-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .crew-card-pick { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; }
+
+/* ---------- arcade (#55) ---------- */
+.arcade { min-height: 100%; display: flex; flex-direction: column; padding: 0 12px calc(16px + env(safe-area-inset-bottom)); }
+.arcade-head { display: flex; align-items: center; gap: 8px; padding: calc(8px + env(safe-area-inset-top)) 0 8px; position: sticky; top: 0; background: var(--bg); z-index: 5; }
+.arcade-head h1 { font-family: 'Silkscreen', monospace; font-size: 18px; margin: 0; flex: 1; }
+.arcade-head .ghost { font-size: 24px; width: 36px; }
+.arcade-trophies, .arcade-best { font-size: 13px; color: var(--text-dim); }
+.arcade-pack { font-family: 'Silkscreen', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin: 16px 0 8px; }
+.arcade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.arcade-card { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface, transparent); color: var(--text); }
+.arcade-card:active { transform: scale(.98); }
+.arcade-host { width: 44px; height: 44px; image-rendering: pixelated; }
+.arcade-name { font-family: 'Silkscreen', monospace; font-size: 14px; }
+.arcade-blurb { font-size: 12px; color: var(--text-dim); line-height: 1.3; }
+.arcade-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.arcade-banner { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 4px 0 8px; border: 1px solid var(--accent, #c9803a); border-radius: 2px; background: var(--surface, #fff); animation: arcade-banner-in 300ms ease-out both; font-size: 13px; }
+.arcade-banner img { width: 28px; height: 28px; image-rendering: pixelated; }
+.arcade-banner span { flex: 1; }
+@keyframes arcade-banner-in { from { transform: translateY(-12px); opacity: 0; } }
+.game-stage { flex: 1; display: flex; flex-direction: column; align-items: center; touch-action: none; user-select: none; -webkit-user-select: none; }
+.game-stage.paused { filter: grayscale(.4) brightness(.9); pointer-events: none; }
+.arcade-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 2px; font-size: 14px; z-index: 40; animation: arcade-banner-in 250ms ease-out both; }
+.game-score { font-size: 14px; margin: 6px 0 8px; color: var(--text-dim); }
+.game-score b { color: var(--text); font-size: 18px; }
+.game-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: color-mix(in srgb, var(--bg) 82%, transparent); text-align: center; padding: 16px; z-index: 3; }
+.game-overlay img { width: 72px; height: 72px; image-rendering: pixelated; }
+.game-overlay p { margin: 0; font-size: 15px; }
+.snake-board { position: relative; background: repeating-conic-gradient(color-mix(in srgb, var(--text) 5%, transparent) 0 25%, transparent 0 50%) 0 0 / 56px 56px; border: 2px solid var(--border); }
+.snake-part { position: absolute; image-rendering: pixelated; transition: left 80ms linear, top 80ms linear; }
+.snake-seed-dot { position: absolute; background: #e8b04a; border-radius: 50%; box-shadow: 0 0 0 2px #7a4f12; animation: seed-bob 900ms ease-in-out infinite alternate; }
+@keyframes seed-bob { to { transform: translateY(-2px) scale(1.1); } }
+.dpad { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 14px; }
+.dpad > div { display: flex; gap: 52px; }
+.dpad button { width: 56px; height: 48px; font-size: 18px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface, transparent); color: var(--text); }

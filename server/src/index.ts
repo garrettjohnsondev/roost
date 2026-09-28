@@ -34,6 +34,7 @@ import { readRoadmap } from './roadmap.js';
 import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, lastRun, saveRecipe, startDeploy } from './deploy.js';
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
+import { Games } from './games.js';
 
 // Every log line gets a time. The log had none, so on the day every session
 // crashed there was no way to say when anything happened.
@@ -314,6 +315,19 @@ app.get('/api/git', async (req, res) => {
     res.status(500).json({ error: String(err?.message ?? err) });
   }
 });
+
+// The arcade (#55): saves, bests and achievements, kept on the Mac.
+const games = new Games();
+app.get('/api/games', (_req, res) => { res.json(games.all()); });
+app.put('/api/games/:id/save', (req, res) => {
+  res.status(games.save(req.params.id, req.body?.state ?? null) ? 200 : 400).json({ ok: true });
+});
+app.post('/api/games/:id/score', (req, res) => {
+  const r = games.score(req.params.id, Number(req.body?.score), !!req.body?.lowerIsBetter);
+  if (!r) return void res.status(400).json({ error: 'bad score' });
+  res.json(r);
+});
+app.post('/api/games/achievement', (req, res) => { res.json({ earned: games.achieve(String(req.body?.id ?? '')) }); });
 
 // The project's history as crew-shaped entries: the Map, per project (2026-09-27).
 app.get('/api/git/history', async (req, res) => {

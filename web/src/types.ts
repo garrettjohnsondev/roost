@@ -147,6 +147,8 @@ export interface SessionMeta {
   escalation?: { reason: string; planner: string; reviewer: string };
   routedModel?: string;
   consultPending?: boolean;
+  /** Something is waiting on you: an approval, a question or a consult (the arcade's banner). */
+  needsYou?: boolean;
   mode: SessionMode;
   /** The person picked the mode; otherwise it is the configured default. */
   modeExplicit?: boolean;
