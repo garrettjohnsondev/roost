@@ -295,6 +295,54 @@ def worksheet(names):
     print(f'worksheet: {dest}')
 
 
+TIERS = ['tier1', 'tier2', 'tier3', 'tier4']
+
+
+def outfits(names):
+    """Level-up outfits: the idle pose in four cumulative accessory tiers,
+    drawn by `gen.mjs outfits` into sprite-raw/outfits/<name>/. 1024 -> 256
+    by BOX, set on the idle frame's foot line (a hat or staff makes the
+    drawing taller on purpose, so no rescale). Hue is checked against idle;
+    the accessories shift it a little, so the DRIFT line is 20 degrees."""
+    for name in names:
+        idle = CREW / f'{name}-idle.webp'
+        rb = _bbox(Image.open(idle).convert('RGBA')) if idle.exists() else None
+        rp = SPRITE_RAW / f'{name}-idle.png'
+        ref_hue = mean_hue(Image.open(rp)) if rp.exists() else None
+        for t in TIERS:
+            src = SPRITE_RAW / 'outfits' / name / f'{name}-{t}.png'
+            if not src.exists():
+                print(f'{name}/{t}: missing')
+                continue
+            big = Image.open(src).convert('RGBA')
+            hue = mean_hue(big)
+            gap = hue_gap(hue, ref_hue) if hue is not None and ref_hue is not None else None
+            im = big.resize((256, 256), Image.Resampling.BOX)
+            nb = _bbox(im)
+            if nb and rb:
+                part = im.crop(nb)
+                out_im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+                out_im.paste(part, (nb[0], rb[3] - part.height), part)
+                im = out_im
+            im.save(CREW / f'{name}-{t}.webp', 'WEBP', lossless=True)
+            flag = ' DRIFT' if gap is not None and gap > 20 else ''
+            print(f'{name}/{t}: hue_gap={None if gap is None else round(gap, 1)}{flag} transparent={transparent(big)}')
+
+
+def outfitsheet(names):
+    """idle + four tiers per row -> /tmp/outfits-sheet.png."""
+    cols = ['idle'] + TIERS
+    out = Image.new('RGBA', (200 * len(cols), 200 * len(names)), (13, 20, 36, 255))
+    for r, name in enumerate(names):
+        for c, pose in enumerate(cols):
+            f = CREW / f'{name}-{pose}.webp'
+            if f.exists():
+                im = Image.open(f).convert('RGBA').resize((200, 200), Image.Resampling.NEAREST)
+                out.paste(im, (200 * c, 200 * r), im)
+    out.save('/tmp/outfits-sheet.png')
+    print('outfitsheet: /tmp/outfits-sheet.png')
+
+
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet, 'outfits': outfits, 'outfitsheet': outfitsheet}[mode](rest)

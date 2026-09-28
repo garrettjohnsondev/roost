@@ -138,6 +138,33 @@ const PROPS = {
   sandwich: 'a small sandwich on a plate',
 };
 
+
+// Each crew member's level-up hat (tier 2 onward) and sash colour.
+const OUTFIT = {
+  pip: ['a small red baseball cap', 'red'],
+  ollie: ['a small dark-blue scholar mortarboard cap with a gold tassel', 'gold'],
+  bram: ['a small green feathered hunter hat with a red feather', 'green'],
+  wren: ['a small pink beret', 'pink'],
+  moss: ['a small straw sun hat with a band of tiny flowers', 'leaf-green'],
+  fig: ['a small wreath of tiny pink and white flowers worn as a flower hat', 'pink'],
+  nell: ['a small navy sailor captain cap with a white top', 'navy-blue'],
+  juno: ['a small black top hat with a red band', 'red'],
+  rue: ['a small purple witchy pointed hat with a floppy brim', 'purple'],
+  bly: ['a small yellow-and-black striped beanie', 'black'],
+  tuck: ['a small yellow construction hard hat', 'orange'],
+  otto: ['a small blue knitted fisherman beanie', 'blue'],
+};
+function outfitKit(name, tier) {
+  const [hat, col] = OUTFIT[name];
+  const sash = `a ${col} sash running diagonally across the body from one shoulder to the opposite hip`;
+  const shades = 'small black pixel sunglasses over the eyes (with a single white glint pixel)';
+  const medal = 'a gold chain necklace with a round gold medallion resting on the chest';
+  if (tier === 1) return sash;
+  if (tier === 2) return `${sash}; ${hat} on top of the head`;
+  if (tier === 3) return `${sash}; ${hat} on top of the head; ${shades}; ${medal}`;
+  return `FULL WIZARD REGALIA: a deep purple wizard cape/robe with gold star trim draped over the shoulders and back (body colour still visible at the front); a small gold crown with red gems on top of the head; one paw holding a tall wooden wizard staff topped with a glowing blue gem, the staff standing upright beside the body; a small glowing lavender crystal ball on a tiny gold stand on the ground at its feet; ${shades}; ${medal}. Keep the eyes, pose and body colours exactly as attached`;
+}
+
 const BACKDROP_STYLE = [
   'CRITICAL: this MUST be literal retro PIXEL ART -- a 16-bit game background -- LOW RESOLUTION with large',
   'VISIBLE SQUARE PIXEL BLOCKS and hard aliased edges, flat blocks of colour, crisp one-pixel dark outlines',
@@ -231,6 +258,23 @@ if (mode === 'poses') {
     const file = `${id}.png`;
     const prompt = `Use your built-in image_gen tool to EDIT the attached image into ONE 1536x1024 landscape image.\n\nThe attached image is a retro pixel-art game backdrop at NIGHT/EVENING: ${desc}.\n\nRedraw the EXACT SAME picture as a bright, sunny MORNING in daylight. CRITICAL -- THE COMPOSITION IS LOCKED: identical camera, framing and aspect; the horizon line, ground line, floor, walls, windows and every object stay at EXACTLY the same position, size and shape, pixel for pixel; add NO new objects and remove NONE (characters will be placed at fixed coordinates on this image). Change ONLY the lighting and time of day: outdoor skies become a soft light-blue morning sky with a few small white pixel clouds and (if the sky is visible) a sun instead of the moon and stars; windows show daylight instead of night; lamps, lanterns, string lights, torches and neon are switched off or faint; fires may become a thin wisp of smoke or low embers in the SAME spot; shadows are short daytime shadows; colours are brighter and warmer. Indoor scenes with no window stay the same room with brighter, cheerful daytime lighting.\n\nCRITICAL: literal retro PIXEL ART matching the attached image -- LOW RESOLUTION with large VISIBLE SQUARE PIXEL BLOCKS, hard aliased edges, flat blocks of colour, crisp one-pixel dark outlines, no gradients, no anti-aliasing, no airbrush shading. NO characters, NO people, NO animals, NO text.\nCRITICAL: save the image into the CURRENT WORKING DIRECTORY under the exact filename ${file}.\n\nUse the image_gen tool directly with the attached image as the reference; do not write code.`;
     await draw(join(RAW, 'scenes-alt'), file, prompt, `relight/${id}`, ref);
+  }
+} else if (mode === 'outfits') {
+  // Level-up outfits: the IDLE pose, four cumulative tiers of accessories.
+  //   node scripts/scenes/gen.mjs outfits ollie pip   (or: outfits ollie:4 pip:1,2)
+  for (const arg of names) {
+    const [name, only] = arg.split(':');
+    const r = ROSTER[name];
+    if (!r) { console.log(`${name}: not in roster.json`); continue; }
+    const ref = join(SPRITE_RAW, `${name}-idle.png`);
+    const cwd = join(SPRITE_RAW, 'outfits', name);
+    const tiers = only ? only.split(',').map(Number) : [1, 2, 3, 4];
+    for (const tier of tiers) {
+      const file = `${name}-tier${tier}.png`;
+      const kit = outfitKit(name, tier);
+      const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character in the SAME idle pose -- identical body shape, colours, outline weight, eye style, proportions, features, position and size in the frame -- and ADD ONLY these accessories, drawn in the same chunky pixel-art style with the same dark one-pixel outline: ${kit}. The accessories are the ONLY difference from the attached frame; the body colour stays exactly as attached.\n\n${r.desc}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; it must share EXACTLY the same colours and features as the attached frame. Use the image_gen tool directly with the attached image as the reference; do not write code.`;
+      await draw(cwd, file, prompt, `${name}/tier${tier}`, existsSync(ref) ? ref : undefined);
+    }
   }
 } else if (mode === 'props') {
   for (const id of names) {
