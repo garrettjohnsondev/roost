@@ -31,7 +31,7 @@ function DevModeSetting() {
 
 /** Your plan (#44): how Pip hands out work, in plain words, with his advice
  *  from how your week is going (the owner's idea: "be the smart advisor"). */
-function PlanSettings() {
+export function PlanSettings() {
   type P = '20' | '100' | '200';
   const [data, setData] = useState<Awaited<ReturnType<typeof api.plan>> | null>(null);
   const [busy, setBusy] = useState(false);

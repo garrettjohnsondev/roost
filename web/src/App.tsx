@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
 import { Arcade } from './games/Arcade';
+import { Welcome, useWelcome } from './Welcome';
 import { FIXTURES } from './fixtures';
 import { api } from './api';
 import { useTheme } from './theme';
@@ -40,6 +41,7 @@ export function App() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+  const [welcome, doneWelcome] = useWelcome();
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useTheme();
 
@@ -79,6 +81,7 @@ export function App() {
       ) : (
         <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} onArcade={() => setArcade(true)} />
       )}
+      {welcome && <Welcome onDone={doneWelcome} />}
       {/* A crew member's card, from any face you tap (item 40). */}
       <CompanionHost />
     </>

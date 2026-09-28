@@ -5,6 +5,25 @@ Mac and gives you a clean, mobile-first chat UI for **Claude Code** (via the Cla
 and **Codex** (via `codex app-server`) — both operating on the same local repos your editor uses.
 Reach it from your phone anywhere over [Tailscale](https://tailscale.com).
 
+## Install
+
+**Mac or Linux** (in Terminal):
+
+```
+curl -fsSL https://raw.githubusercontent.com/gjohnsonmb1-afk/remote/main/scripts/install.sh | bash
+```
+
+**Windows** (in PowerShell):
+
+```
+irm https://raw.githubusercontent.com/gjohnsonmb1-afk/remote/main/scripts/install.ps1 | iex
+```
+
+The installer checks for Node, git, Claude Code / Codex and Tailscale, and walks you through
+whatever's missing. It builds Roost, starts it in the background (it comes back after a
+reboot), and ends on a QR code: scan it with your phone, then add Roost to your home screen.
+Already cloned? Run `node scripts/setup.mjs` (or `--check` to only see what's missing).
+
 ## Features
 
 - Chat UI with streaming responses, thinking indicators, and tool-activity chips

@@ -3774,3 +3774,15 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 @keyframes streak-pop { from { transform: scale(.4); opacity: 0; } }
 .new-project-steps { font-size: 14px; line-height: 1.6; padding-left: 18px; }
 .dev-line { font-family: ui-monospace, monospace; font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+/* First run (#56) */
+.welcome-sheet { text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.welcome-sheet h2 { font-family: 'Silkscreen', monospace; font-size: 18px; margin: 4px 0; }
+.welcome-sheet p { font-size: 15px; line-height: 1.45; margin: 0; }
+.welcome-art { width: 100%; image-rendering: pixelated; }
+.welcome-pip { width: 96px; height: 96px; margin: 0 auto; image-rendering: pixelated; }
+.welcome-dots { display: flex; gap: 6px; justify-content: center; }
+.welcome-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+.welcome-dots span.on { background: var(--accent, #c9803a); }
+.welcome-skip { align-self: center; }
+.welcome-sheet .field { text-align: left; }
