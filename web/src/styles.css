@@ -587,7 +587,6 @@ button {
 
 /* ---------- consult ---------- */
 
-.consult-btn { display: inline-flex; align-items: center; justify-content: center; }
 
 .consult-msg {
   align-self: stretch;
@@ -2044,7 +2043,6 @@ button {
 }
 
 .composer-field .send { position: absolute; right: 4px; bottom: 4px; }
-.composer-field .consult-btn { position: absolute; right: 40px; bottom: 4px; width: 32px; height: 32px; padding: 0; }
 
 .send {
   width: 32px;

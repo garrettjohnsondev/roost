@@ -140,6 +140,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // Tapping Proceed answers on the spot -- the button says so and stops taking
   // taps -- until the server's meta confirms the plan has left the bar.
   const [proceeding, setProceeding] = useState(false);
+  // "Plan first, get a second opinion": was a scales icon beside Send, easy to
+  // hit by accident (2026-09-28). Now a switch in settings, kept per chat.
+  const consultKey = `roost:consult:${sessionId}`;
+  const [consultMode, setConsultModeState] = useState(() => { try { return localStorage.getItem(consultKey) === '1'; } catch { return false; } });
+  const setConsultMode = (on: boolean) => { setConsultModeState(on); try { on ? localStorage.setItem(consultKey, '1') : localStorage.removeItem(consultKey); } catch { /* private mode */ } };
   useEffect(() => {
     if (!session.meta?.consultPending) setProceeding(false);
   }, [session.meta?.consultPending]);
@@ -706,10 +711,10 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           onSend={(text, images) => {
             // A question waiting on you: what you text back is the answer.
             if (pendingQ && text.trim()) return answerQuestion(text.trim());
+            if (consultMode && text.trim() && !images?.length && session.status !== 'working') return session.send({ type: 'consult', text: text.trim() });
             return session.send({ type: 'user_message', text, images });
           }}
-          placeholder={pendingQ ? `Reply to ${pendingQ.crew?.name ?? session.meta?.crew?.name ?? 'the crew'}…` : undefined}
-          onConsult={(text) => session.send({ type: 'consult', text })}
+          placeholder={pendingQ ? `Reply to ${pendingQ.crew?.name ?? session.meta?.crew?.name ?? 'the crew'}…` : consultMode ? 'Plan first — what should they plan?' : undefined}
           crew={crewNames}
         />
         </>
@@ -758,6 +763,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                     {session.meta.approvals === 'ask' ? 'They ask in the chat before editing files or running commands.'
                       : session.meta.approvals === 'full-auto' ? 'Full auto is on (in Fine-tune): nothing asks.'
                       : 'File edits go ahead; commands still ask first.'}
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div className="field">
+              <label className="switch-row">
+                <input type="checkbox" checked={consultMode} onChange={(e) => setConsultMode(e.target.checked)} />
+                <span>
+                  Plan first, get a second opinion
+                  <span className="field-hint">
+                    {consultMode ? 'Your next messages get a plan first; the other vendor reviews it, and nothing is built until you say go.'
+                      : 'Off: the crew just gets to work.'}
                   </span>
                 </span>
               </label>
@@ -2267,7 +2284,6 @@ function Composer(props: {
   working: boolean;
   onInterrupt: () => void;
   onSend: (text: string, images?: UserImage[]) => boolean;
-  onConsult: (text: string) => void;
   crew?: MentionTarget[];
   placeholder?: string;
 }) {
@@ -2384,19 +2400,6 @@ function Composer(props: {
               }
             }}
           />
-          {text.trim() && !props.working && (
-            <button
-              className="ghost consult-btn"
-              title="Consult: plan first, second agent reviews, you approve"
-              disabled={props.disabled}
-              onClick={() => {
-                props.onConsult(text.trim());
-                setText('');
-              }}
-            >
-              <Icon name="scales" size={18} />
-            </button>
-          )}
           <button className="primary send" disabled={props.disabled} onClick={send}>
             ↑
           </button>
