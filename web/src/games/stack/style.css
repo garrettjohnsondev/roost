@@ -1,11 +1,56 @@
 .game-stack-wrap { display: flex; flex-direction: column; align-items: center; }
-.game-stack-stage { position: relative; overflow: hidden; border: 2px solid var(--border); border-radius: 4px; background: linear-gradient(to top, color-mix(in srgb, #6fa8d8 22%, var(--bg)), var(--bg)); cursor: pointer; }
-.game-stack-sky { position: absolute; inset: 0; background: linear-gradient(to top, transparent, color-mix(in srgb, #2b2f5a 45%, var(--bg))); pointer-events: none; }
-.game-stack-ground { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, #5b8a3a 55%, var(--bg)); border-top: 2px solid #3f6a26; }
-.game-stack-block { position: absolute; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .28); border-radius: 2px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .22); }
-.game-stack-moving { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), 0 3px 0 rgba(0, 0, 0, .12); }
+.game-stack-buffs { display: flex; gap: 6px; min-height: 20px; margin: -4px 0 6px; }
+.game-stack-buff { font-family: 'Silkscreen', monospace; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #3f6a8a; color: #fff; box-shadow: 0 2px 0 #24445c; }
+.game-stack-wind { background: #6aa0b8; animation: game-stack-gust 1.2s ease-in-out infinite alternate; }
+@keyframes game-stack-gust { from { transform: translateX(-2px) skewX(-6deg); } to { transform: translateX(2px) skewX(6deg); } }
+
+.game-stack-stage { position: relative; overflow: hidden; border: 2px solid var(--border); border-radius: 4px; background: #0b0d1f; cursor: pointer; touch-action: manipulation; user-select: none; }
+/* The sky: four stacked layers the height cross-fades between. */
+.game-stack-layer { position: absolute; inset: 0; pointer-events: none; transition: opacity 600ms; }
+.game-stack-day { background: linear-gradient(to top, #cfe8f7, #7fb6e0 70%, #5d9bd1); }
+.game-stack-dusk { background: linear-gradient(to top, #f7c07a, #e0776a 45%, #6b4a8a); }
+.game-stack-night { background: linear-gradient(to top, #2b3566, #151a3a 60%, #0b0d24); }
+.game-stack-space { background: radial-gradient(circle at 70% 20%, #2a1f4a 0, transparent 40%), #05060f; }
+.game-stack-star { position: absolute; width: 2px; height: 2px; background: #fff; pointer-events: none; animation: game-stack-twinkle 1.8s ease-in-out infinite alternate; }
+.game-stack-big { width: 3px; height: 3px; box-shadow: 0 0 4px #fff; }
+@keyframes game-stack-twinkle { from { filter: brightness(.5); } to { filter: brightness(1.2); } }
+.game-stack-sun { position: absolute; right: 18%; width: 34px; height: 34px; border-radius: 50%; box-shadow: 0 0 18px currentColor, 0 0 0 4px rgba(255, 255, 255, .15); color: #ffd36b; pointer-events: none; }
+.game-stack-cloud { position: absolute; height: 16px; background: #fff; border-radius: 4px; pointer-events: none; box-shadow: 14px -8px 0 -2px #fff, 34px -4px 0 0 #fff, 0 4px 0 rgba(0, 0, 0, .08); animation: game-stack-drift 9s ease-in-out infinite alternate; }
+@keyframes game-stack-drift { from { transform: translateX(-10px); } to { transform: translateX(14px); } }
+.game-stack-ground { position: absolute; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(90deg, #5b8a3a 0 8px, #52803a 8px 16px); border-top: 3px solid #3f6a26; }
+
+.game-stack-tower { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.game-stack-block { position: absolute; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .3); border-radius: 2px;
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .25), inset 0 -3px 0 rgba(0, 0, 0, .12);
+  background-image: repeating-linear-gradient(90deg, transparent 0 18px, rgba(0, 0, 0, .1) 18px 20px) !important; background-blend-mode: multiply; }
+.game-stack-land { animation: game-stack-land 220ms ease-out; transform-origin: 50% 100%; }
+@keyframes game-stack-land { 0% { transform: scale(1.06, .7); } 60% { transform: scale(.98, 1.08); } 100% { transform: none; } }
+.game-stack-moving { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), 0 4px 0 rgba(0, 0, 0, .15); }
+.game-stack-power { display: flex; align-items: center; justify-content: center; border-color: #fff3b0; box-shadow: 0 0 10px #fff3b0, inset 0 3px 0 rgba(255, 255, 255, .4); animation: game-stack-pulse 600ms ease-in-out infinite alternate; }
+.game-stack-power span { font-family: 'Silkscreen', monospace; font-size: 10px; color: #fff; text-shadow: 1px 1px 0 rgba(0, 0, 0, .5); white-space: nowrap; overflow: hidden; }
+.game-stack-p-grow { background-color: #4f9a4a; }
+.game-stack-p-slow { background-color: #3f7ab8; }
+.game-stack-p-magnet { background-color: #c0443a; }
+@keyframes game-stack-pulse { from { filter: brightness(1); } to { filter: brightness(1.25); } }
 .game-stack-cut { position: absolute; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .28); border-radius: 2px; animation: game-stack-fall 700ms ease-in forwards; }
 @keyframes game-stack-fall { to { transform: translateY(260px) rotate(18deg); opacity: 0; } }
 .game-stack-flash { position: absolute; border: 3px solid #fff3b0; border-radius: 4px; box-shadow: 0 0 14px #f2c230; animation: game-stack-flash 450ms ease-out forwards; pointer-events: none; }
 @keyframes game-stack-flash { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.12); } }
+.game-stack-spark { position: absolute; width: 4px; height: 4px; background: #fff3b0; box-shadow: 0 0 4px #f2c230; pointer-events: none; animation: game-stack-spark 600ms ease-out forwards; }
+@keyframes game-stack-spark { from { transform: none; opacity: 1; } to { transform: translate(var(--dx), var(--dy)); opacity: 0; } }
 .game-stack-rider { position: absolute; width: 36px; height: 36px; image-rendering: pixelated; pointer-events: none; transition: left 120ms ease-out; }
+.game-stack-callout { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); font-family: 'Silkscreen', monospace; font-size: 16px; color: #fff; white-space: nowrap; text-shadow: 2px 2px 0 rgba(0, 0, 0, .5); pointer-events: none; animation: game-stack-callout 1s ease-out forwards; }
+@keyframes game-stack-callout { 0% { opacity: 0; margin-top: 10px; } 15% { opacity: 1; margin-top: 0; } 100% { opacity: 0; margin-top: -24px; } }
+
+/* The ghost: a see-through line at their height with their face on it. */
+.game-stack-ghost { position: absolute; left: 0; right: 0; height: 0; pointer-events: none; z-index: 2; }
+.game-stack-ghost-line { position: absolute; left: 0; right: 0; top: 0; border-top: 2px dashed rgba(255, 255, 255, .7); box-shadow: 0 0 6px #fff; opacity: .6; }
+.game-stack-ghost img { position: absolute; left: 6px; bottom: 2px; width: 30px; height: 30px; image-rendering: pixelated; opacity: .4; filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 2px #fff); animation: game-stack-float 1.8s ease-in-out infinite alternate; }
+@keyframes game-stack-float { from { transform: translateY(2px); } to { transform: translateY(-3px); } }
+.game-stack-ghost-tag { position: absolute; left: 40px; bottom: 6px; font-family: 'Silkscreen', monospace; font-size: 10px; color: #fff; opacity: .75; text-shadow: 1px 1px 0 rgba(0, 0, 0, .5); white-space: nowrap; }
+.game-stack-passed { opacity: .5; }
+.game-stack-verdict { font-size: 13px !important; color: var(--text-dim); max-width: 280px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-stack-land, .game-stack-cloud, .game-stack-star, .game-stack-wind, .game-stack-power, .game-stack-ghost img { animation: none; }
+}

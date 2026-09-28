@@ -1,17 +1,59 @@
 .game-hatch-wrap { display: flex; flex-direction: column; align-items: center; }
-.game-hatch-board { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; box-sizing: border-box; background: color-mix(in srgb, var(--text) 8%, var(--bg)); border: 2px solid var(--border); border-radius: 4px; }
-.game-hatch-cell { position: relative; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
+.game-hatch-top { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.game-hatch-chain { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 2px 6px; border-radius: 4px; background: #e0773a; color: #fff; box-shadow: 0 2px 0 #9c4a1c; animation: game-hatch-chain 260ms ease-out; }
+@keyframes game-hatch-chain { 0% { transform: scale(1.4) rotate(-6deg); } 100% { transform: none; } }
+
+/* The nest: woven straw border, soft down in the slots. */
+.game-hatch-board { position: relative; box-sizing: border-box; border-radius: 6px; touch-action: none; user-select: none;
+  background:
+    repeating-linear-gradient(45deg, rgba(122, 79, 18, .12) 0 3px, transparent 3px 7px),
+    repeating-linear-gradient(-45deg, rgba(122, 79, 18, .10) 0 3px, transparent 3px 7px),
+    color-mix(in srgb, #b8864a 30%, var(--bg));
+  border: 3px solid #7a4f12; box-shadow: inset 0 0 0 2px #c79a55, 0 4px 0 #5a3a0e; }
+.game-hatch-slot { position: absolute; border-radius: 4px; background: color-mix(in srgb, #f4ecd8 26%, var(--bg)); box-shadow: inset 0 3px 0 rgba(0, 0, 0, .12); }
+.game-hatch-tile { position: absolute; left: 0; top: 0; z-index: 2; transition: transform 110ms ease-out; will-change: transform; }
+.game-hatch-dead { z-index: 1; }
+.game-hatch-born { animation: game-hatch-born 180ms 90ms ease-out both; }
+@keyframes game-hatch-born { 0% { opacity: 0; scale: .3; } 100% { opacity: 1; scale: 1; } }
+.game-hatch-cell { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 4px; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .18); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .28), inset 0 -3px 0 rgba(0, 0, 0, .12); }
 .game-hatch-cell img { width: 78%; height: 78%; image-rendering: pixelated; }
 .game-hatch-num { position: absolute; right: 4px; bottom: 2px; font-family: 'Silkscreen', monospace; font-size: 10px; color: var(--text-dim); }
-.game-hatch-egg { width: 42%; height: 54%; border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%; background: #f4ecd8; box-shadow: inset -4px -4px 0 #d9c9a3, 0 0 0 2px #8a7650; }
-.game-hatch-cracked { background: linear-gradient(170deg, #f4ecd8 44%, #8a7650 45% 49%, #f4ecd8 50%); transform: rotate(-8deg); }
+.game-hatch-n5 .game-hatch-num { font-size: 8px; right: 3px; bottom: 1px; }
+.game-hatch-egg { width: 42%; height: 54%; border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%; background: #f4ecd8; box-shadow: inset -4px -4px 0 #d9c9a3, 0 0 0 2px #8a7650; animation: game-hatch-wobble 2.4s ease-in-out infinite; }
+.game-hatch-cracked { background: linear-gradient(170deg, #f4ecd8 44%, #8a7650 45% 49%, #f4ecd8 50%); rotate: -8deg; animation-duration: 1.1s; }
+@keyframes game-hatch-wobble { 0%, 80%, 100% { transform: none; } 86% { transform: rotate(-7deg); } 93% { transform: rotate(6deg); } }
 .game-hatch-t1, .game-hatch-t2 { background: color-mix(in srgb, #e8b04a 14%, var(--surface, var(--bg))); }
 .game-hatch-t3, .game-hatch-t4, .game-hatch-t5 { background: color-mix(in srgb, #e8b04a 26%, var(--surface, var(--bg))); }
 .game-hatch-t6, .game-hatch-t7, .game-hatch-t8 { background: color-mix(in srgb, #e0773a 30%, var(--surface, var(--bg))); }
 .game-hatch-t9, .game-hatch-t10 { background: color-mix(in srgb, #d9523a 36%, var(--surface, var(--bg))); }
 .game-hatch-t11, .game-hatch-t12 { background: color-mix(in srgb, #f2c230 55%, var(--surface, var(--bg))); box-shadow: 0 0 12px #f2c230; }
-.game-hatch-pop { animation: game-hatch-pop 280ms ease-out; }
-@keyframes game-hatch-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } }
-.game-hatch-bar { display: flex; gap: 10px; margin-top: 12px; }
-.game-hatch-bar .chip { min-height: 44px; min-width: 110px; }
-.game-hatch-hint { font-size: 12px; color: var(--text-dim); margin: 10px 0 0; }
+/* Golden eggs: a gold shell with a travelling glint. */
+.game-hatch-golden { background: linear-gradient(115deg, #e8b04a 30%, #fff3b0 45%, #e8b04a 60%) 0 0 / 300% 100%; border-color: #9c6b12; animation: game-hatch-glint 1.6s linear infinite; }
+.game-hatch-golden .game-hatch-egg { background: #f2c230; box-shadow: inset -4px -4px 0 #c9901a, 0 0 0 2px #7a4f12, 0 0 8px #fff3b0; }
+@keyframes game-hatch-glint { from { background-position: 100% 0; } to { background-position: -50% 0; } }
+.game-hatch-pop { animation: game-hatch-pop 220ms ease-out; }
+@keyframes game-hatch-pop { 0% { transform: scale(.8, 1.2); } 45% { transform: scale(1.18, .88); } 75% { transform: scale(.96, 1.04); } 100% { transform: none; } }
+.game-hatch-bit { position: absolute; z-index: 4; width: 5px; height: 5px; margin: -2px 0 0 -2px; pointer-events: none; animation: game-hatch-bit 560ms ease-out forwards; }
+@keyframes game-hatch-bit { 0% { transform: translate(0, 0) rotate(0); opacity: 1; } 100% { transform: translate(var(--dx), calc(var(--dy) + 14px)) rotate(200deg); opacity: 0; } }
+.game-hatch-callout { position: absolute; z-index: 5; left: 50%; top: 42%; transform: translateX(-50%); font-family: 'Silkscreen', monospace; font-size: 16px; color: #fff; white-space: nowrap; text-shadow: 2px 2px 0 #7a4f12, -1px -1px 0 #7a4f12; pointer-events: none; animation: game-hatch-callout 900ms ease-out forwards; }
+@keyframes game-hatch-callout { 0% { opacity: 0; margin-top: 10px; } 20% { opacity: 1; margin-top: 0; } 100% { opacity: 0; margin-top: -30px; } }
+
+/* The ghost: see-through crew face racing your score. */
+.game-hatch-ghost { display: flex; align-items: center; gap: 8px; width: min(380px, calc(100vw - 24px)); margin-bottom: 8px; }
+.game-hatch-ghost-img { width: 30px; height: 30px; image-rendering: pixelated; opacity: .4; filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 2px #fff); animation: game-hatch-float 1.8s ease-in-out infinite alternate; }
+@keyframes game-hatch-float { from { transform: translateY(2px); } to { transform: translateY(-3px); } }
+.game-hatch-ghost-track { position: relative; flex: 1; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--text) 10%, var(--bg)); }
+.game-hatch-ghost-fill { height: 100%; border-radius: 4px; background: rgba(255, 255, 255, .55); box-shadow: 0 0 6px #fff; opacity: .7; transition: width 200ms; }
+.game-hatch-you { position: absolute; top: -3px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: #e0773a; transition: left 200ms; }
+.game-hatch-ghost-num { font-family: 'Silkscreen', monospace; font-size: 11px; color: var(--text-dim); min-width: 88px; text-align: right; }
+.game-hatch-ghost-num small { opacity: .6; }
+.game-hatch-verdict { font-size: 13px !important; color: var(--text-dim); }
+
+.game-hatch-bar { display: flex; gap: 8px; margin-top: 12px; }
+.game-hatch-bar .chip { min-height: 44px; min-width: 90px; }
+.game-hatch-hint { font-size: 12px; color: var(--text-dim); margin: 10px 16px 0; text-align: center; max-width: 360px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-hatch-tile { transition: none; }
+  .game-hatch-egg, .game-hatch-golden, .game-hatch-ghost-img, .game-hatch-pop, .game-hatch-born, .game-hatch-chain { animation: none; }
+}
