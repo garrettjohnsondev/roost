@@ -37,9 +37,16 @@ export function apply(items: ChatItem[], event: ServerEvent): ChatItem[] {
   const next = [...items];
   const last = next[next.length - 1];
   switch (event.type) {
-    case 'user_message':
-      next.push({ kind: 'user', text: event.text, imageCount: event.imageCount, ts: event.ts });
+    case 'user_message': {
+      // Your message was already on screen, pending, from the moment you sent
+      // it; the Mac's copy confirms it in place rather than appearing again.
+      // Matched by text, else the oldest pending one (the server may reword).
+      const i = next.findIndex((x) => x.kind === 'user' && x.pending && x.text === event.text);
+      const j = i >= 0 ? i : next.findIndex((x) => x.kind === 'user' && x.pending);
+      if (j >= 0) next[j] = { kind: 'user', text: event.text, imageCount: event.imageCount, ts: event.ts };
+      else next.push({ kind: 'user', text: event.text, imageCount: event.imageCount, ts: event.ts });
       break;
+    }
     case 'assistant_delta':
       if (last?.kind === 'assistant' && !last.complete) {
         next[next.length - 1] = { ...last, text: last.text + event.delta };
@@ -264,6 +271,11 @@ export function useSession(sessionId: string | null): SessionState {
     openedAt: core.openedAt,
     send: (msg) => {
       const sent = socketRef.current?.send(msg) ?? false;
+      // "A slight delay, then boom, my message goes" (2026-09-28): it shows the
+      // instant it's sent, dimmed until the Mac's copy confirms it.
+      if (sent && msg.type === 'user_message' && typeof msg.text === 'string' && msg.text.trim()) {
+        setCore((prev) => ({ ...prev, items: [...prev.items, { kind: 'user', text: msg.text, imageCount: Array.isArray(msg.images) ? msg.images.length : 0, ts: Date.now(), pending: true }] }));
+      }
       // Only a message that actually went out starts a triage; a send while
       // disconnected keeps the draft and must not put Pip on stage for nothing.
       if (sent && msg.type === 'user_message' && core.meta?.mode === 'auto') setTriaging(true);

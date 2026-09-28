@@ -202,11 +202,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const seenCount = useRef(0);
   const [unseen, setUnseen] = useState(0);
 
+  // The first placement of a thread is instant; after that, new messages
+  // glide into view instead of jumping (2026-09-28: "smoother").
+  const placed = useRef(false);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (pinned.current) {
-      el.scrollTop = el.scrollHeight;
+      const smooth = placed.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if (smooth) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      else el.scrollTop = el.scrollHeight;
+      if (session.items.length) placed.current = true;
       seenCount.current = session.items.length;
       if (unseen) setUnseen(0);
     } else {
@@ -251,6 +257,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   useEffect(() => {
     setRecap(null); // switching sessions — don't show the previous chat's recap
     pinned.current = true;
+    placed.current = false;
     seenCount.current = 0;
     setUnseen(0);
   }, [sessionId]);
@@ -1659,7 +1666,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
       // The crew had faces and names from the first commit and you had neither,
       // which is a strange way to build a group chat you are supposed to be IN.
       return (
-        <div className="msg-row user">
+        <div className={`msg-row user${fresh ? ' arrive' : ''}${item.pending ? ' pending' : ''}`}>
           <div className="msg user">
             {item.imageCount > 0 && <div className="img-note"><Icon name="camera" /> {item.imageCount} image{item.imageCount > 1 ? 's' : ''}</div>}
             {item.text}
@@ -1704,7 +1711,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
       return (
         item.crew ? (
           <CrewRow crew={item.crew} pose={item.complete ? (asking ? 'peek' : 'idle') : 'type'}>
-            <div className={`msg assistant${asking ? ' ask-pulse' : ''}`}>
+            <div className={`msg assistant${asking ? ' ask-pulse' : ''}${fresh ? ' grow-in' : ''}`}>
               <Markdown text={item.text} />
             </div>
           </CrewRow>
@@ -2037,46 +2044,54 @@ function WorkStream({ items, start, end, crew, live, replayedCount }: { items: C
   const pose: Pose = live ? (s.running || (latest && !latest.complete) ? 'type' : 'think') : 'idle';
   const mins = Math.round((slice[slice.length - 1].ts - slice[0].ts) / 60_000);
   const tally = [lines.length ? `${lines.length} update${lines.length === 1 ? '' : 's'}` : '', s.text, !live && mins >= 1 ? `${mins}m` : ''].filter(Boolean).join(' · ');
+  // 2026-09-28: "I'm missing the first response as if I'm chatting to
+  // Ollie" -- the latest line sat inside a bordered box. It is a message now:
+  // their face, name and speech bubble, exactly like a finished reply, with
+  // the work (tally, what's running, the timeline) as a slim strip under it.
   return (
     <div className={`work-stream${live ? ' live' : ''}${open ? ' open' : ''}${s.failed ? ' failed' : ''}`}>
-      <button className="work-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        {who && <SpriteAvatar crew={who} pose={pose} size={live ? 40 : 28} />}
-        <span className="work-head-text">
-          {who && <span className="work-who" style={{ color: nameColor(who.color) }}>{who.name}</span>}
-          <span className="work-tally">{tally}{s.failed ? <span className="tool-run-failed"> · {s.failed} failed</span> : null}</span>
-        </span>
-        <span className="tool-expand-hint">{open ? '▴' : '▾'}</span>
-      </button>
-      {!open && latest && (
-        <div className={`work-latest${live ? '' : ' folded'}`}>
-          <Markdown text={latest.text} />
+      <CrewRow crew={who ?? PIP} pose={pose}>
+        {latest ? (
+          <div key={done.length} className={`msg assistant work-bubble${live ? ' grow-in' : ''}`}>
+            <Markdown text={latest.text} />
+          </div>
+        ) : live ? (
+          <div className="msg assistant typing-bubble" aria-label="typing">
+            <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>
+          </div>
+        ) : null}
+        <div className="work-strip">
+          <button className="work-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            <span className="work-tally">{tally}{s.failed ? <span className="tool-run-failed"> · {s.failed} failed</span> : null}</span>
+            <span className="tool-expand-hint">{open ? '▴' : '▾'}</span>
+          </button>
+          {!open && live && (
+            <div className="work-now">
+              {s.running ? (
+                <>
+                  <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
+                  <span className="tool-caret" aria-hidden="true" />
+                </>
+              ) : writing ? (
+                <span className="work-thinking">{who?.name ?? 'They'} is typing <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span></span>
+              ) : thinking ? (
+                <span className="work-thinking">thinking…</span>
+              ) : null}
+            </div>
+          )}
+          {open && (
+            <div className="work-timeline">
+              {segmentsOf(items, start, end).map((seg) => {
+                if (seg.kind === 'run') return <ToolRun key={`r${seg.start}`} items={items} start={seg.start} end={seg.end} replayedCount={replayedCount} />;
+                const it = items[seg.index];
+                if (it.kind === 'assistant') return it.text.trim() && it.complete ? <div key={seg.index} className="work-line"><Markdown text={it.text} /></div> : null;
+                if (it.kind === 'thinking') return <ThinkingBlock key={seg.index} text={it.text} open={it.open} />;
+                return null;
+              })}
+            </div>
+          )}
         </div>
-      )}
-      {!open && live && (
-        <div className="work-now">
-          {s.running ? (
-            <>
-              <span className="tool-name">{s.running.name}</span> <span className="tool-detail">{s.running.detail}</span>
-              <span className="tool-caret" aria-hidden="true" />
-            </>
-          ) : writing ? (
-            <span className="work-thinking">{who?.name ?? 'They'} is typing <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span></span>
-          ) : thinking ? (
-            <span className="work-thinking">thinking…</span>
-          ) : null}
-        </div>
-      )}
-      {open && (
-        <div className="work-timeline">
-          {segmentsOf(items, start, end).map((seg) => {
-            if (seg.kind === 'run') return <ToolRun key={`r${seg.start}`} items={items} start={seg.start} end={seg.end} replayedCount={replayedCount} />;
-            const it = items[seg.index];
-            if (it.kind === 'assistant') return it.text.trim() && it.complete ? <div key={seg.index} className="work-line"><Markdown text={it.text} /></div> : null;
-            if (it.kind === 'thinking') return <ThinkingBlock key={seg.index} text={it.text} open={it.open} />;
-            return null;
-          })}
-        </div>
-      )}
+      </CrewRow>
     </div>
   );
 }

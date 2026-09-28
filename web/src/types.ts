@@ -407,7 +407,7 @@ export interface GitStatusResult {
 }
 
 export type ChatItem =
-  | { kind: 'user'; text: string; imageCount: number; ts: number }
+  | { kind: 'user'; text: string; imageCount: number; ts: number; /** Shown the moment you tap send, before the Mac confirms it (2026-09-28). */ pending?: boolean }
   | { kind: 'assistant'; text: string; complete: boolean; ts: number; crew?: CrewInfo }
   | { kind: 'verify'; report: VerifyReport; ts: number }
   | { kind: 'thinking'; text: string; open: boolean; ts: number }

@@ -86,3 +86,21 @@ describe('Pip holds the stage until routing is actually over', () => {
     expect(endsTriage({ type: 'status', state: 'error', message: 'boom', ts })).toBe(true);
   });
 });
+
+describe('your message shows the instant you send it', () => {
+  it('the Mac\'s copy confirms the pending one in place, never a second copy', () => {
+    let items: ChatItem[] = [{ kind: 'user', text: 'Go', imageCount: 0, ts: 1, pending: true }];
+    items = apply(items, { type: 'user_message', text: 'Go', imageCount: 0, ts: 2 });
+    expect(items).toEqual([{ kind: 'user', text: 'Go', imageCount: 0, ts: 2 }]);
+  });
+  it('a reworded copy still confirms the oldest pending one', () => {
+    let items: ChatItem[] = [{ kind: 'user', text: '@Ollie go', imageCount: 0, ts: 1, pending: true }];
+    items = apply(items, { type: 'user_message', text: 'go', imageCount: 0, ts: 2 });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ text: 'go' });
+    expect((items[0] as any).pending).toBeUndefined();
+  });
+  it('a message nobody sent from this phone still arrives normally', () => {
+    expect(apply([], { type: 'user_message', text: 'from the Mac', imageCount: 0, ts: 1 })).toHaveLength(1);
+  });
+});
