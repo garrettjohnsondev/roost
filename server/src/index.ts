@@ -37,6 +37,7 @@ import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
 import { readOnDeck } from './onDeck.js';
 import { visit } from './visits.js';
+import { createProject } from './newProject.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
 
@@ -191,6 +192,22 @@ app.post('/api/projects', (req, res) => {
       config.projects = next;
     }
     res.json({ projects: config.projects });
+  } catch (err: any) {
+    res.status(400).json({ error: String(err?.message ?? err) });
+  }
+});
+
+// A new project from the phone (#45): folder, first commit, optional GitHub repo.
+app.post('/api/projects/new', async (req, res) => {
+  const { name, visibility, blurb } = req.body ?? {};
+  const parent = String(req.body?.parent || '') || (config.projects[0] ? dirname(config.projects[0]) : primaryVolume() ?? homedir());
+  const vis = visibility === 'public' || visibility === 'private' ? visibility : 'none';
+  try {
+    const r = await createProject(parent, String(name ?? ''), vis, String(blurb ?? ''));
+    const next = [...config.projects, r.path];
+    saveConfig({ ...config, projects: next });
+    config.projects = next;
+    res.json({ ...r, projects: config.projects });
   } catch (err: any) {
     res.status(400).json({ error: String(err?.message ?? err) });
   }
