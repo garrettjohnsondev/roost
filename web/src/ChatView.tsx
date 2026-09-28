@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOutfitTier } from './outfits';
+import { useDevMode } from './devMode';
 import { buzz } from './haptics';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
@@ -1798,6 +1799,7 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
 
 function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean }) {
   const deploy = React.useContext(DeployContext);
+  const dev = useDevMode();
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1851,6 +1853,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
             <div className={`msg assistant${asking ? ' ask-pulse' : ''}${fresh ? ' grow-in' : ''}`}>
               <Markdown text={item.text} />
             </div>
+            {dev && item.crew.model && <div className="dev-line">{item.crew.agent} · {item.crew.model} · {new Date(item.ts).toLocaleTimeString()}</div>}
           </CrewRow>
         ) : (
           <div className="msg assistant">
@@ -2107,7 +2110,8 @@ function ToolChip({ item, fresh = false }: { item: Extract<ChatItem, { kind: 'to
  *  the line names the call in progress, so folding hides no state -- the
  *  same rule as everywhere else: what is happening is always on screen. */
 function ToolRun({ items, start, end, crew, replayedCount }: { items: ChatItem[]; start: number; end: number; crew?: CrewInfo; replayedCount: number }) {
-  const [open, setOpen] = useState(false);
+  const dev = useDevMode();
+  const [open, setOpen] = useState(dev);
   const tools = items.slice(start, end) as Array<Extract<ChatItem, { kind: 'tool' }>>;
   const s = summarizeRun(tools);
   return (
@@ -2167,7 +2171,8 @@ function liveWorkCard(items: ChatItem[], status: string): boolean {
  *  running now. Done: one line -- how much they did and the last thing they
  *  said. A tap opens the whole timeline: every line, every call, in order. */
 function WorkStream({ items, start, end, crew, live, replayedCount }: { items: ChatItem[]; start: number; end: number; crew?: CrewInfo; live: boolean; replayedCount: number }) {
-  const [open, setOpen] = useState(false);
+  const dev = useDevMode();
+  const [open, setOpen] = useState(dev);
   const slice = items.slice(start, end);
   const tools = slice.filter((x): x is Extract<ChatItem, { kind: 'tool' }> => x.kind === 'tool');
   const lines = slice.filter((x): x is Extract<ChatItem, { kind: 'assistant' }> => x.kind === 'assistant' && !!x.text.trim());
@@ -2561,7 +2566,8 @@ function ChapterFold({ chapter, awaiting, foldingNow, lastWord, children }: { ch
   const [choice, setChoice] = useState<boolean | null>(null); // true = open, false = folded
   const [foldDone, setFoldDone] = useState(false);
   const verified = chapter.status === 'verified';
-  const folded = choice === null ? verified : !choice;
+  const dev = useDevMode();
+  const folded = choice === null ? verified && !dev : !choice;
   const status = verified ? 'Verified' : chapter.status === 'needs-work' ? 'Needs work' : awaiting ? 'Awaiting you' : 'In progress';
   return (
     <div className={`chapter ${folded ? 'folded' : 'open'}${foldingNow && choice === null ? ' folding' : ''}`}>

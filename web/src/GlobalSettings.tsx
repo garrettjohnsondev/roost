@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { setDevMode, useDevMode } from './devMode';
 import { CrewEditor } from './CrewEditor';
 import { api } from './api';
 import type { Theme } from './theme';
@@ -10,6 +11,22 @@ function randomTopic(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return 'roost-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Dev mode (#52): show the machinery instead of folding it away. */
+function DevModeSetting() {
+  const on = useDevMode();
+  return (
+    <div className="field">
+      <label className="switch-row">
+        <input type="checkbox" checked={on} onChange={(e) => setDevMode(e.target.checked)} />
+        <span>
+          Dev mode
+          <span className="field-hint">{on ? 'Tool calls and work open in place, finished jobs stay unfolded, and each reply names its exact model.' : 'Off: the work folds into a tidy summary you can tap open.'}</span>
+        </span>
+      </label>
+    </div>
+  );
 }
 
 /** Your plan (#44): how Pip hands out work, in plain words, with his advice
@@ -170,6 +187,8 @@ export function GlobalSettings(props: {
         <ClaudeAccountSettings />
 
         <PlanSettings />
+
+        <DevModeSetting />
 
         <div className="field">
           <label>Appearance</label>
