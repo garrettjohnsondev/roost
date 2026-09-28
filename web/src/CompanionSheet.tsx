@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { earned, nextUnlock } from './outfits';
 import { api } from './api';
 import { SpriteAvatar, contextWords, modelName } from './ChatView';
 import { nameColor } from './color';
@@ -52,6 +53,15 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
                   <span className="companion-pct">{c.energy}%</span>
                 </>
               )}
+            </div>
+
+            {/* The wardrobe (#57): what they've earned from the work, and what's next. */}
+            <div className="companion-wardrobe">
+              <span className="companion-label">Wardrobe</span>
+              <span>
+                {earned(c.level).length ? earned(c.level).join(' · ') : 'Nothing yet — plain as the day they hatched.'}
+                {nextUnlock(c.level) && <span className="companion-none"> · next: {nextUnlock(c.level)!.name} at level {nextUnlock(c.level)!.level}</span>}
+              </span>
             </div>
 
             <div className="companion-stats">

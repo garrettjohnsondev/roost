@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useOutfitTier } from './outfits';
 import { buzz } from './haptics';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
@@ -1055,6 +1056,10 @@ export function nameSeed(name: string): number {
  *  Exactly one drawing shows at a time; a missing frame just never shows. */
 function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; className?: string }) {
   const [missing, setMissing] = useState<Record<string, true>>({});
+  // Decked out (#57): the outfit is drawn on the idle frame only, so a dressed
+  // crew member breathes but doesn't blink or glance (that would undress them).
+  const tier = useOutfitTier(crew.name);
+  const dressed = tier > 0 && !missing[`tier${tier}`];
   const seed = nameSeed(crew.name);
   const base = `/crew/${crew.sprite}`;
   const style = {
@@ -1066,9 +1071,9 @@ function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; 
     '--lift': `${Math.max(1, Math.round(size / 28))}px`,
   } as React.CSSProperties;
   return (
-    <span className={`crew-sprite pose-idle alive${missing.blink ? ' no-blink' : ''}${missing.side ? ' no-side' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={style}>
-      <img className="alive-idle" src={`${base}-idle.webp`} alt="" />
-      {!missing.blink && <img className="alive-blink" src={`${base}-blink.webp`} alt="" onError={() => setMissing((m) => ({ ...m, blink: true }))} />}
+    <span className={`crew-sprite pose-idle alive${missing.blink || dressed ? ' no-blink' : ''}${missing.side || dressed ? ' no-side' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={style}>
+      <img className="alive-idle" src={dressed ? `${base}-tier${tier}.webp` : `${base}-idle.webp`} alt="" onError={() => dressed && setMissing((m) => ({ ...m, [`tier${tier}`]: true }))} />
+      {dressed ? null : !missing.blink && <img className="alive-blink" src={`${base}-blink.webp`} alt="" onError={() => setMissing((m) => ({ ...m, blink: true }))} />}
       {!missing.side && <img className="alive-side" src={`${base}-side.webp`} alt="" onError={() => setMissing((m) => ({ ...m, side: true }))} />}
     </span>
   );
@@ -1080,6 +1085,8 @@ export function SpriteAvatar({ crew, pose, size, className, alive }: { crew: Cre
   // until then -- or if one fails to load -- the original two-frame cut.
   const [short, setShort] = useState(false);
   const [noPhase, setNoPhase] = useState(false);
+  const tier = useOutfitTier(crew.name);
+  const [noTier, setNoTier] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   if (alive && pose === 'idle') return <AliveSprite crew={crew} size={size} className={className} />;
   if (PHASE_POSES.has(pose)) {
@@ -1117,7 +1124,11 @@ export function SpriteAvatar({ crew, pose, size, className, alive }: { crew: Cre
           <img className="frame-b" src={`${base}-${pose}.webp`} alt="" />
         </>
       ) : (
-        <img src={`${base}-${pose}.webp`} alt="" onError={() => setFailed(true)} />
+        <img
+          src={pose === 'idle' && tier > 0 && !noTier ? `${base}-tier${tier}.webp` : `${base}-${pose}.webp`}
+          alt=""
+          onError={() => (pose === 'idle' && tier > 0 && !noTier ? setNoTier(true) : setFailed(true))}
+        />
       )}
     </span>
   );
