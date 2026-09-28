@@ -1,0 +1,7 @@
+.game-baseball { display: flex; flex-direction: column; align-items: center; }
+.game-baseball-hud { display: flex; gap: 14px; align-items: center; }
+.game-baseball-outs { display: inline-flex; gap: 3px; }
+.game-baseball-outs i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--text-dim); }
+.game-baseball-outs i.on { background: var(--text); border-color: var(--text); }
+.game-baseball-field { position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); }
+.game-baseball-field canvas { display: block; touch-action: none; }
