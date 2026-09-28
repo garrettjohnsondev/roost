@@ -9,3 +9,8 @@ You said yes to me making design calls while you slept. Each one is here so you 
 - Your plan is set to $100 once the deploy lands (the setting didn't exist on the running server yet).
 - Arcade lives behind a new game-pad button at the top of the home screen. Game names I picked: Conga (Snake), Minesweeper (napping crew under dirt), Nests (Battleship), Crew Match (memory), Hatch (2048), Daily Word, Stack, Flap (Flappy), Brick Nest (Breakout), Roost Birds (bugs in the code instead of pigs).
 - Minesweeper's best time only counts Medium; Sudoku's best counts any solve.
+- Scenes: the morning version shows 6am–6pm your time, the night one otherwise. By day the stars, shooting stars and lamp glows are off; fires still flicker.
+- Pixel avatars: every pool face now shows its pixel redraw automatically (no one has to re-pick). The beacon keeps its old drawing, because its redraw came out as a red siren. Pip's avatar is the beacon.
+- Per-project usage counts what costs against your limit: new input, cache writes and output. Cache reads are left out because they're nearly free. "% of your week" = that project's share of your tokens × your weekly % used.
+- "Where we left off" shows the 3 most recent projects from the last week. "Next" is the crew's own "Next up…" line from their last reply in that project. Continue opens the chat (resuming if needed) and sends "Let's keep going: <next>".
+- iPhone haptics use the iOS 18 switch trick. It may be silent on older iOS, and Apple could change it.
