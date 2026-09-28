@@ -1,4 +1,5 @@
 /** Pure minesweeper rules. A board is flat arrays indexed r * cols + c. */
+import { seeded } from '../types';
 
 export type Size = 'easy' | 'medium' | 'hard';
 export const SIZES: Record<Size, { cols: number; rows: number; mines: number; label: string }> = {
@@ -15,6 +16,9 @@ export interface Board {
   mines: number[];
   open: boolean[];
   flag: boolean[];
+  /** Daily boards: the day number, and the cell everyone starts from. */
+  daily?: number;
+  start?: number;
 }
 
 export function newBoard(size: Size): Board {
@@ -103,3 +107,53 @@ export function won(b: Board): boolean {
 }
 
 export const flagsLeft = (b: Board) => SIZES[b.size].mines - b.flag.filter(Boolean).length;
+
+/** Today's board: same mines for everyone, with a marked safe start cell. */
+export function dailyBoard(day: number): Board {
+  const rand = seeded(day * 9973 + 5);
+  const b = newBoard('medium');
+  // Keep the start away from the edges so it always opens a pocket.
+  const r = 2 + Math.floor(rand() * (b.rows - 4)), c = 2 + Math.floor(rand() * (b.cols - 4));
+  const start = r * b.cols + c;
+  return { ...placeMines(b, start, rand), daily: day, start };
+}
+
+/** Smarter chord: a satisfied number digs the rest; a number whose hidden
+ *  neighbours must all be nappers flags them. */
+export function chordSmart(b: Board, i: number): DigResult & { flagged: number[] } {
+  if (!b.open[i]) return { board: b, boom: false, flagged: [] };
+  const around = neighbors(b, i);
+  const need = countAround(b, i);
+  const flags = around.filter((k) => b.flag[k]).length;
+  const hidden = around.filter((k) => !b.open[k] && !b.flag[k]);
+  if (need > 0 && hidden.length && flags + hidden.length === need) {
+    const flag = b.flag.slice();
+    for (const k of hidden) flag[k] = true;
+    return { board: { ...b, flag }, boom: false, flagged: hidden };
+  }
+  return { ...chord(b, i), flagged: [] };
+}
+
+/** Sonar: a safe hidden cell, preferring the edge of what you've dug and
+ *  cells that open a pocket. -1 when there is none. */
+export function sonar(b: Board, rand: () => number = Math.random): number {
+  if (!b.mines.length) return -1;
+  const mineSet = new Set(b.mines);
+  const safe: number[] = [];
+  for (let i = 0; i < b.open.length; i++) if (!b.open[i] && !b.flag[i] && !mineSet.has(i)) safe.push(i);
+  if (!safe.length) return -1;
+  const score = (i: number) => (neighbors(b, i).some((k) => b.open[k]) ? 2 : 0) + (countAround(b, i) === 0 ? 1 : 0);
+  const top = Math.max(...safe.map(score));
+  const pick = safe.filter((i) => score(i) === top);
+  return pick[Math.floor(rand() * pick.length)];
+}
+
+/** Cells opened between two boards (for the dig-chain animation). */
+export const newlyOpened = (a: Board, z: Board): number[] => {
+  const out: number[] = [];
+  z.open.forEach((o, i) => { if (o && !a.open[i]) out.push(i); });
+  return out;
+};
+
+/** A ghost of this strength clears Medium in this many seconds. */
+export const ghostScore = (strength: number) => Math.round(330 - 290 * Math.pow(strength, 0.9));

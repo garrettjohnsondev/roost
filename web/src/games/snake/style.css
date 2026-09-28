@@ -1,0 +1,71 @@
+.game-snake-wrap { display: flex; flex-direction: column; align-items: center; user-select: none; -webkit-user-select: none; }
+.game-snake-combo { color: #e8a23a; font-weight: 700; }
+
+.game-snake-board {
+  position: relative; overflow: hidden; touch-action: none;
+  background:
+    repeating-conic-gradient(#5b8a3c 0 25%, #64953f 0 50%) 0 0 / calc(var(--cell) * 2) calc(var(--cell) * 2);
+  border: 3px solid #3d5e27; box-shadow: 0 0 0 2px #2a4119, inset 0 0 0 2px #7fb153;
+  transition: filter 300ms;
+}
+.game-snake-board.wrap { border-style: dashed; }
+.game-snake-board.pw-slow { filter: saturate(.75) hue-rotate(-20deg); }
+.game-snake-board.pw-double { box-shadow: 0 0 0 2px #2a4119, inset 0 0 0 2px #f2c14e, 0 0 14px #f2c14e88; }
+.game-snake-board.pw-phase { box-shadow: 0 0 0 2px #2a4119, inset 0 0 0 2px #c9b6ff, 0 0 14px #c9b6ff88; }
+
+.game-snake-part { position: absolute; image-rendering: pixelated; transition: left 80ms linear, top 80ms linear; filter: drop-shadow(0 2px 0 #0004); }
+.game-snake-part.head { filter: drop-shadow(0 2px 0 #0004) drop-shadow(0 0 2px #fff8); }
+.game-snake-part.hop { animation: game-snake-hop 420ms cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes game-snake-hop {
+  0% { translate: 0 0; scale: .4 .4; }
+  40% { translate: 0 -45%; scale: .9 1.2; }
+  70% { translate: 0 0; scale: 1.2 .8; }
+  100% { translate: 0 0; scale: 1 1; }
+}
+
+.game-snake-seed, .game-snake-pseed { position: absolute; display: flex; align-items: center; justify-content: center; }
+.game-snake-seed i { width: 44%; height: 52%; background: #e8b04a; border-radius: 50%; box-shadow: 0 0 0 2px #7a4f12, inset -2px -2px 0 #b97a1f, inset 2px 2px 0 #ffe29a; animation: game-snake-bob 900ms ease-in-out infinite alternate; }
+.game-snake-pseed i { width: 56%; height: 56%; background: var(--pc); border-radius: 2px; rotate: 45deg; box-shadow: 0 0 0 2px #0006, 0 0 10px var(--pc), 0 0 18px var(--pc); animation: game-snake-glow 700ms ease-in-out infinite alternate; }
+.game-snake-pseed.fading { animation: game-snake-blink 220ms steps(2) infinite; }
+@keyframes game-snake-bob { from { translate: 0 -8%; } to { translate: 0 8%; } }
+@keyframes game-snake-glow { from { scale: .85; } to { scale: 1.1; } }
+@keyframes game-snake-blink { 50% { opacity: .2; } }
+
+.game-snake-burst { position: absolute; width: 0; height: 0; z-index: 50; pointer-events: none; }
+.game-snake-burst i { position: absolute; width: 5px; height: 5px; left: -2px; top: -2px; animation: game-snake-pop 600ms ease-out forwards; }
+@keyframes game-snake-pop { to { transform: translate(var(--dx), var(--dy)); opacity: 0; scale: .3; } }
+
+.game-snake-flash { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-weight: 800; font-size: 22px; color: #fff; text-shadow: 2px 2px 0 #2a4119, -1px -1px 0 #2a4119; z-index: 60; pointer-events: none; animation: game-snake-flash 800ms ease-out forwards; }
+@keyframes game-snake-flash { 0% { scale: .5; opacity: 0; } 20% { scale: 1.15; opacity: 1; } 70% { scale: 1; opacity: 1; } 100% { translate: 0 -20px; opacity: 0; } }
+
+.game-snake-power { display: flex; align-items: center; gap: 8px; height: 18px; font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.game-snake-power-bar { flex: 1; height: 6px; background: color-mix(in srgb, var(--text) 12%, transparent); border-radius: 2px; overflow: hidden; }
+.game-snake-power-bar span { display: block; height: 100%; transition: width 150ms linear; }
+
+.game-snake-legend { display: flex; gap: 12px; font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+.game-snake-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.game-snake-legend i { width: 8px; height: 8px; rotate: 45deg; border-radius: 1px; }
+
+.game-snake-row { display: flex; gap: 8px; }
+.game-snake-dpad { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px; }
+.game-snake-dpad > div { display: flex; gap: 56px; }
+.game-snake-dpad button { width: 58px; height: 50px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--border); border-radius: 4px; background: var(--surface, transparent); color: var(--text); box-shadow: 0 3px 0 var(--border); touch-action: manipulation; }
+.game-snake-dpad button:active { translate: 0 2px; box-shadow: 0 1px 0 var(--border); }
+
+.game-snake-race { position: relative; height: 34px; margin-bottom: 4px; border-bottom: 2px dotted color-mix(in srgb, var(--text) 25%, transparent); }
+.game-snake-race-line { position: absolute; bottom: -4px; width: 2px; height: 14px; background: #fff; box-shadow: 0 0 6px #fff; opacity: .7; }
+.game-snake-race-you, .game-snake-race-ghost { position: absolute; bottom: 0; translate: -50% 0; transition: left 300ms ease-out; }
+.game-snake-race-you img { width: 24px; height: 24px; image-rendering: pixelated; display: block; }
+.game-snake-race-ghost { display: flex; align-items: flex-end; gap: 2px; animation: game-snake-float 1.6s ease-in-out infinite alternate; }
+.game-snake-race-ghost img { width: 26px; height: 26px; image-rendering: pixelated; opacity: .4; filter: brightness(1.5) drop-shadow(0 0 4px #fff) drop-shadow(0 0 2px #fff); }
+.game-snake-race-ghost b { font-size: 11px; opacity: .6; }
+.game-snake-race-label { position: absolute; right: 0; top: 0; font-size: 11px; color: var(--text-dim); }
+@keyframes game-snake-float { from { translate: -50% 0; } to { translate: -50% -5px; } }
+
+.game-snake-shake { animation: game-snake-shake 400ms linear; }
+@keyframes game-snake-shake { 20% { translate: -5px 2px; } 40% { translate: 4px -3px; } 60% { translate: -3px 1px; } 80% { translate: 2px 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-snake-shake, .game-snake-part.hop, .game-snake-race-ghost, .game-snake-seed i, .game-snake-pseed i, .game-snake-flash { animation: none; }
+  .game-snake-part { transition: none; }
+}
