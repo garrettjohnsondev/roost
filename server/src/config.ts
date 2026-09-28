@@ -99,6 +99,9 @@ export interface RoostConfig {
   guards: GuardsConfig;
   claude: AgentConfig;
   codex: AgentConfig;
+  /** Which subscription you pay for (#44): '20' | '100' | '200'. Unset means
+   *  the routes above were never set from a plan (older installs). */
+  plan?: '20' | '100' | '200';
 }
 
 const DEFAULTS: RoostConfig = {

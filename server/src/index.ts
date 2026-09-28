@@ -35,6 +35,7 @@ import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, las
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
+import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
 
 // Every log line gets a time. The log had none, so on the day every session
 // crashed there was no way to say when anything happened.
@@ -314,6 +315,36 @@ app.get('/api/git', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }
+});
+
+// Your plan (#44): the ladder Pip hands work down, explained and advised.
+app.get('/api/plan', (_req, res) => {
+  const plan = config.plan ?? null;
+  let weekly = null;
+  try {
+    const u: any = getCachedUsage();
+    weekly = u?.claude?.windows?.find((w: any) => w.key === 'claude:weekly_all') ?? null;
+  } catch { /* no reading */ }
+  res.json({
+    plan,
+    plans: PLANS.map((p) => ({ plan: p, words: planWords(p) })),
+    advice: advise(plan ?? '100', weekly),
+  });
+});
+app.post('/api/plan', (req, res) => {
+  const plan = req.body?.plan;
+  if (!isPlan(plan)) return void res.status(400).json({ error: 'plan must be 20, 100 or 200' });
+  const autoRoute = planRoutes(plan);
+  try {
+    saveConfig({ ...config, plan, autoRoute });
+  } catch (err: any) {
+    return void res.status(500).json({ error: `could not save config: ${err?.message ?? err}` });
+  }
+  config.plan = plan;
+  config.autoRoute = autoRoute;
+  manager.applyRoutes(autoRoute);
+  logDecision({ kind: 'gate', rule: 'plan', plan } as any);
+  res.json({ ok: true, plan, words: planWords(plan) });
 });
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.

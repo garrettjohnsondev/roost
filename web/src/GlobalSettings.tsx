@@ -12,6 +12,46 @@ function randomTopic(): string {
   return 'roost-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Your plan (#44): how Pip hands out work, in plain words, with his advice
+ *  from how your week is going (the owner's idea: "be the smart advisor"). */
+function PlanSettings() {
+  type P = '20' | '100' | '200';
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.plan>> | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.plan().then(setData).catch(() => setData(null)); }, []);
+  if (!data) return null;
+  const current = data.plan;
+  const pick = async (p: P) => {
+    setBusy(true);
+    try { await api.setPlan(p); setData(await api.plan()); } finally { setBusy(false); }
+  };
+  const words = data.plans.find((x) => x.plan === (current ?? data.advice.suggest))?.words;
+  const advice = data.advice;
+  return (
+    <div className="field">
+      <label>Your plan</label>
+      <div className="segmented">
+        {data.plans.map((p) => (
+          <button key={p.plan} disabled={busy} className={current === p.plan ? 'seg active' : 'seg'} onClick={() => pick(p.plan)}>
+            ${p.plan}
+          </button>
+        ))}
+      </div>
+      <p className="section-hint">{current ? words : 'Pick the plan you pay for, and Pip hands out work to fit it.'}</p>
+      {current && (
+        <div className={`plan-advice${advice.suggest !== current ? ' differs' : ''}`}>
+          <img src="/crew/pip-idle.webp" alt="" />
+          <span>
+            <b>Pip:</b> {advice.why}
+            {advice.suggest !== current && <> I'd use the <b>${advice.suggest}</b> setting for now.</>}
+          </span>
+          {advice.suggest !== current && <button className="chip" disabled={busy} onClick={() => pick(advice.suggest)}>Use ${advice.suggest}</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NotificationSettings(props: {
   notifications: NotificationConfig;
   onChange: (n: NotificationConfig) => void;
@@ -128,6 +168,8 @@ export function GlobalSettings(props: {
         <YouSettings />
 
         <ClaudeAccountSettings />
+
+        <PlanSettings />
 
         <div className="field">
           <label>Appearance</label>

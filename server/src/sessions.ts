@@ -389,6 +389,14 @@ export class Session {
     return id ? id.toLowerCase() : undefined;
   }
 
+  /** The plan changed (#44): new routes, and the next message is sized afresh. */
+  applyRoutes(routes: RoostConfig['autoRoute']): void {
+    this.autoRoute = routes[this.agent];
+    this.otherAutoRoute = routes[this.agent === 'claude' ? 'codex' : 'claude'];
+    this.standardModelFor = (a: AgentKind) => routes[a].standard.model;
+    this.lastTier = undefined;
+  }
+
   meta(): SessionMeta {
     return {
       id: this.id,
@@ -1995,6 +2003,11 @@ export class SessionManager {
 
   get(id: string): Session | undefined {
     return this.sessions.get(id);
+  }
+
+  /** A new plan's ladder (#44) reaches open chats too, from their next message. */
+  applyRoutes(routes: RoostConfig['autoRoute']): void {
+    for (const s of this.sessions.values()) s.applyRoutes(routes);
   }
 
   list(): SessionMeta[] {
