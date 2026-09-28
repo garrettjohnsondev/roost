@@ -468,13 +468,13 @@ Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `cod
 54. **Carried over.** The code map savings report (needs a few days of turns), more code-map languages (after #53), light/dark parity (MOTION.md §7.9), and #37 (plan mode vs a name you asked for) still undecided.
 55. **Mini games (added 2026-09-28).** Something to play while the crew works: Roost-themed Snake, Minesweeper, Battleship and Solitaire, all using the crew and scenes. Stretch goal: an Angry Birds-style launcher, Roost edition. Needs a design talk first (where the games live, whether they pause when the crew needs you).
     - Agreed: when the crew needs you mid-game, a banner slides in over the paused game; one tap answers, one tap returns.
-    - Game saves: every game resumes exactly where you left it (a phone in line gets interrupted a lot).
+    - Game saves live on the Mac with the rest of Roost (agreed). Every game resumes exactly where you left it (a phone in line gets interrupted a lot).
     - For the player: high scores, personal bests, and achievements (Roost-themed, crew hands them out).
     - Stretch: a sports pack of simple flick games: field-goal football, baseball (timing swing), soccer (penalty kicks), basketball (flick shots).
-    - More short ideas to consider: 2048, Wordle-style daily word, Flappy-style (a crew bird), Breakout, Sudoku, memory match with crew cards, Stack/tower drop. Rule: every game is playable one-handed in under two minutes.
+    - Agreed extras: 2048, Wordle-style daily word, Flappy-style (a crew bird), Breakout, Sudoku, memory match with crew cards, Stack/tower drop. Rule: every game is playable one-handed in under two minutes.
 56. **Onboarding (added 2026-09-28).** Roost has never been set up from scratch by anyone new. Two halves:
-    - Computer: one install command for Mac, Windows and Linux. It checks for Node, Claude Code / Codex logins and git, starts Roost as a background service, and shows a QR code to open on the phone.
-    - Reaching the phone: today that's Tailscale (free, but a second app plus an account on both devices). Options to weigh: guide people through Tailscale, same Wi-Fi only, or a built-in tunnel (e.g. Cloudflare Tunnel) with a login in front. Decision pending.
+    - Computer: one install command for Mac, Windows and Linux (agreed: Windows is in; the background service needs a Windows equivalent of the Mac LaunchAgent). It checks for Node, Claude Code / Codex logins and git, starts Roost as a background service, and shows a QR code to open on the phone.
+    - Reaching the phone: today that's Tailscale (free, but a second app plus an account on both devices). Options to weigh: guide people through Tailscale, same Wi-Fi only, or a built-in tunnel (e.g. Cloudflare Tunnel) with a login in front. Agreed: Tailscale, with the installer walking people through it and ending on a QR code.
     - App: first-run welcome that meets the crew, picks a plan (feeds #44), adds a first project (#45), and shows how to add Roost to the home screen.
     - Note: the "Pocket" home-screen name was the app's old name; iOS keeps the name and icon from when the shortcut was added. Remove it and add it again to get Roost.
     - Sharing: point people to the GitHub repo with a README that starts with the install command.
