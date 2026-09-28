@@ -80,3 +80,16 @@ describe('session settings presets', () => {
     expect(presetOf({ mode: 'auto', ask: 'quick', effort: 'max' })).toBe('custom');
   });
 });
+
+import { crewInChat } from './ChatView';
+describe("who's in this chat", () => {
+  const c = (name: string, role = 'chat') => ({ name, role, roleLabel: '', tier: 'worker', color: '#000', initial: name[0], agent: 'claude', model: '' }) as any;
+  it('lists everyone who spoke or got work, newest first, without Pip', () => {
+    const items = [
+      { kind: 'assistant', text: 'a', crew: c('Wren'), ts: 1 },
+      { kind: 'routed', model: '', tier: 'light', reason: '', worker: c('Ollie'), crew: c('Pip', 'dispatcher'), ts: 2 },
+      { kind: 'assistant', text: 'b', crew: c('Ollie'), ts: 3 },
+    ] as any;
+    expect(crewInChat(items).map((x) => x.name)).toEqual(['Ollie', 'Wren']);
+  });
+});

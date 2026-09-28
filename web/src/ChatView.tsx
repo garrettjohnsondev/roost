@@ -1497,13 +1497,27 @@ export function modelWords(id: string): string {
  *  mark on one line -- context as a meter, Spend-it as its expiring blocks,
  *  boost and full auto as lit words. Nothing is shown that is not live: no
  *  surplus, no Spend-it mark; approvals asked for, no full-auto mark. */
+/** Who's in this chat (roadmap #43): everyone who has spoken or been handed
+ *  work, most recent first. Pip is always there, so he is not counted. */
+export function crewInChat(items: ChatItem[]): CrewInfo[] {
+  const seen = new Map<string, CrewInfo>();
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i] as ChatItem & { crew?: CrewInfo; worker?: CrewInfo };
+    for (const c of [it.kind === 'routed' ? it.worker : undefined, it.kind === 'assistant' ? it.crew : undefined]) {
+      if (c && c.role !== 'dispatcher' && !seen.has(c.name)) seen.set(c.name, c);
+    }
+  }
+  return [...seen.values()];
+}
+
 function StatusStrip({ session, open, onToggle }: { session: SessionState; open: boolean; onToggle: () => void }) {
+  const inChat = React.useMemo(() => crewInChat(session.items), [session.items]);
   const ctx = session.context;
   const surplus = session.meta?.boost ? null : session.meta?.surplus;
   const now = useMinute(!!surplus);
   const minutes = surplus ? (surplus.resetsAt ? Math.max(0, Math.round((surplus.resetsAt - now) / 60_000)) : surplus.minutesLeft) : null;
   const pct = ctx?.overLimit?.kind === 'hard_limit' ? 100 : ctx?.percent ?? null;
-  if (!ctx && !surplus && !session.meta?.boost && session.meta?.approvals !== 'full-auto') return null;
+  if (!ctx && !surplus && !session.meta?.boost && session.meta?.approvals !== 'full-auto' && !inChat.length) return null;
   return (
     <button className={`status-strip${open ? ' open' : ''}`} onClick={onToggle} aria-expanded={open}>
       {ctx && (
@@ -1526,6 +1540,12 @@ function StatusStrip({ session, open, onToggle }: { session: SessionState; open:
       {session.meta?.boost && <span className="strip-word lamp">Boost</span>}
       {session.meta?.approvals === 'full-auto' && (
         <span className="strip-word lamp"><Icon name="bolt" /> Full auto</span>
+      )}
+      {inChat.length > 0 && (
+        <span className="strip-crew" title={`In this chat: ${inChat.map((c) => c.name).join(', ')}`}>
+          {inChat.slice(0, 4).map((c) => <SpriteAvatar key={c.name} crew={c} pose="idle" size={20} />)}
+          {inChat.length > 4 && <span className="strip-crew-more">+{inChat.length - 4}</span>}
+        </span>
       )}
       <span className="strip-more" aria-hidden="true">{open ? '▴' : '▾'}</span>
     </button>

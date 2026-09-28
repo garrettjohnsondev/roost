@@ -3681,3 +3681,9 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 @media (prefers-reduced-motion: reduce) {
   .msg.assistant.grow-in, .msg-row.user.arrive { animation: none; }
 }
+
+/* Who's in this chat (#43): faces right of the context meter, overlapping a little. */
+.strip-crew { display: inline-flex; align-items: center; margin-left: auto; }
+.strip-crew > * + * { margin-left: -6px; }
+.strip-crew-more { font-size: 11px; margin-left: 2px; opacity: 0.7; }
+.strip-crew + .strip-more { margin-left: 6px; }
