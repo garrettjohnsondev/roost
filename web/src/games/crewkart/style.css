@@ -1,13 +1,24 @@
-.game-crewkart-root { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; margin: 0 auto; }
+.game-crewkart-root { position: relative; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; margin: 0 auto; background: #000; }
 .game-crewkart-stage { position: absolute; inset: 0; touch-action: none; }
-.game-crewkart-stage canvas { display: block; image-rendering: pixelated; }
-.game-crewkart-item { position: absolute; top: 8px; width: 56px; height: 56px; border: 0; border-radius: 2px; background: transparent; }
+.game-crewkart-stage canvas { display: block; position: absolute; left: 0; top: 0; }
+.game-crewkart-view { image-rendering: pixelated; image-rendering: crisp-edges; }
+.game-crewkart-hud { pointer-events: none; }
+.game-crewkart-btn { position: absolute; border: 0; border-radius: 4px; background: transparent; touch-action: none; }
+.game-crewkart-tut { position: absolute; left: 50%; top: 22%; transform: translate(-50%, -50%); pointer-events: none; text-align: center; color: #fff; background: rgba(10, 12, 20, 0.62); padding: 12px 18px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.5); }
+.game-crewkart-tut p { margin: 6px 0 2px; font: 700 18px ui-monospace, monospace; }
+.game-crewkart-tut small { color: #cfd6e4; font-size: 12px; }
+.game-crewkart-tut-drag { position: relative; width: 140px; height: 14px; margin: 0 auto; border-radius: 4px; background: rgba(255, 255, 255, 0.2); }
+.game-crewkart-tut-drag span { position: absolute; top: -5px; left: 58px; width: 24px; height: 24px; border-radius: 50%; background: #f7e06a; animation: game-crewkart-swipe 1.6s ease-in-out infinite alternate; }
+@keyframes game-crewkart-swipe { from { transform: translateX(-55px); } to { transform: translateX(55px); } }
+@media (prefers-reduced-motion: reduce) { .game-crewkart-tut-drag span { animation: none; } }
 .game-crewkart-menu { justify-content: center; gap: 10px; overflow-y: auto; }
 .game-crewkart-menu h3 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+.game-crewkart-gap { margin-top: 10px !important; }
+.game-crewkart-on { outline: 2px solid var(--text); }
 .game-crewkart-cols { display: flex; gap: 22px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
 .game-crewkart-drivers { display: grid; grid-template-columns: repeat(6, 42px); gap: 5px; }
 .game-crewkart-driver { width: 42px; height: 42px; padding: 2px; border: 2px solid var(--border); border-radius: 2px; background: var(--surface); }
-.game-crewkart-driver img, .game-crewkart-table img { width: 100%; height: 100%; image-rendering: pixelated; }
+.game-overlay .game-crewkart-driver img, .game-overlay .game-crewkart-table img { width: 100%; height: 100%; image-rendering: pixelated; }
 .game-crewkart-driver.on { transform: translateY(-2px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25); }
 .game-crewkart-tracks { display: grid; grid-template-columns: repeat(2, 150px); gap: 5px; }
 .game-crewkart-track { display: grid; grid-template-columns: 18px 1fr; column-gap: 6px; text-align: left; padding: 5px 6px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface); color: var(--text); font-size: 13px; }
@@ -18,7 +29,7 @@
 .game-crewkart-dim { color: var(--text-dim); font-size: 12px !important; max-width: 520px; }
 .game-crewkart-table { list-style: none; margin: 0; padding: 0; min-width: 170px; text-align: left; font-size: 14px; }
 .game-crewkart-table li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 2px; }
-.game-crewkart-table li img { width: 22px; height: 22px; }
+.game-overlay .game-crewkart-table li img { width: 22px; height: 22px; }
 .game-crewkart-table li span { margin-left: auto; font-family: ui-monospace, monospace; }
 .game-crewkart-table li small { color: var(--text-dim); width: 26px; text-align: right; }
 .game-crewkart-table li.me { background: color-mix(in srgb, var(--text) 12%, transparent); font-weight: 700; }

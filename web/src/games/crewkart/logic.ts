@@ -11,6 +11,9 @@ export const N = 520; // samples per lap (10px apart)
 export const HW = 72; // half the road width
 export const KART_R = 9;
 export const COUNTDOWN = 3;
+/** Share of full grip at a standstill; generous so turns feel planted. */
+export const GRIP_MIN = 0.6;
+export const STEER_DEAD = 0.06;
 
 export type ItemKind = 'feather' | 'shell' | 'oil' | 'shield';
 export const ITEMS: ItemKind[] = ['feather', 'shell', 'oil', 'shield'];
@@ -323,7 +326,7 @@ function stepKart(r: Race, tr: Track, k: Kart, c: Input) {
       const bend = Math.abs(wrapAng(a - k.ang));
       top *= 1 - Math.min(0.25, bend * 0.3 * (1.2 - k.skill));
     }
-    if (c.steer) k.lastSteer = Math.sign(c.steer);
+    if (Math.abs(c.steer) > 0.15) k.lastSteer = Math.sign(c.steer);
     // Drift: hold both sides; charge; let go for a boost.
     if (c.drift && !k.drift && k.spd > V * 0.45) { k.drift = k.lastSteer || 1; k.charge = 0; r.events.push(`drift:${k.id}`); }
     if (!c.drift && k.drift) {
@@ -333,7 +336,7 @@ function stepKart(r: Race, tr: Track, k: Kart, c: Input) {
     }
     if (k.drift) { top *= 0.96; k.charge += DT; }
     k.spd += (top - k.spd) * (k.spd < top ? 1.3 : 3) * DT;
-    const grip = Math.min(1, 0.35 + 0.65 * (k.spd / V));
+    const grip = Math.min(1, GRIP_MIN + (1 - GRIP_MIN) * (k.spd / V));
     const turn = k.drift ? k.drift * (2.3 + 0.9 * c.steer * k.drift) : 2.7 * c.steer;
     k.ang += turn * grip * DT;
   }
@@ -348,7 +351,7 @@ function stepKart(r: Race, tr: Track, k: Kart, c: Input) {
     const t = tr.t[k.idx];
     const along = Math.atan2(t.y, t.x);
     const into = Math.abs(Math.sin(wrapAng(k.mv - along)));
-    k.spd *= 1 - Math.min(0.6, 0.15 + into * 0.9) * (k.bumpCd > 0 ? 0.15 : 1);
+    k.spd *= 1 - Math.min(0.45, 0.1 + into * 0.7) * (k.bumpCd > 0 ? 0.15 : 1);
     // Glance off: turn toward the road.
     const back = wrapAng(along - k.ang);
     if (Math.abs(back) < Math.PI / 2) k.ang += back * 0.25;
@@ -462,6 +465,20 @@ export function linePoint(tr: Track, prog: number): { x: number; y: number; ang:
 export function ghostTime(strength: number): number {
   const pace = 0.66 + 0.36 * Math.max(0, Math.min(1, strength));
   return Math.round(((LAPS * LAP_LEN) / (V * pace)) * 10) / 10;
+}
+
+/** Drag steering: the thumb's horizontal offset from where it touched down,
+ *  as a share of `span` px, with a small dead zone and a soft centre so tiny
+ *  wobbles don't twitch the kart. */
+export function steerFromDrag(dx: number, span: number): number {
+  const v = Math.max(-1, Math.min(1, dx / Math.max(1, span)));
+  const a = Math.abs(v);
+  if (a < STEER_DEAD) return 0;
+  return Math.sign(v) * Math.pow((a - STEER_DEAD) / (1 - STEER_DEAD), 1.25);
+}
+/** Tilt steering: degrees of roll, full lock at `lock` degrees. */
+export function steerFromTilt(deg: number, lock = 24): number {
+  return steerFromDrag(deg, lock);
 }
 
 /** Cup points by finishing place. */

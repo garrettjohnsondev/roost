@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DT, HW, KART_R, LAPS, N, TRACKS, buildTrack, clampToRoad, ghostTime, lateral, nearest, newRace, place, step, type Race,
+  DT, GRIP_MIN, HW, KART_R, LAPS, N, TRACKS, buildTrack, clampToRoad, ghostTime, lateral, nearest, newRace, place, step,
+  steerFromDrag, steerFromTilt, wrapAng, type Race,
 } from './logic';
+import { chaseCam, project, rowDistance, rowStart } from './mode7';
 
 const run = (r: Race, secs: number, input = { steer: 0, drift: false, use: false }) => {
   for (let i = 0; i < secs / DT && !r.done; i++) { r.events = []; step(r, input); }
@@ -138,5 +140,65 @@ describe('crewkart sim', () => {
     expect(ghostTime(0.55)).toBeGreaterThan(ghostTime(0.95));
     expect(ghostTime(0.2)).toBeGreaterThan(80);
     expect(ghostTime(0.95)).toBeLessThan(72);
+  });
+});
+
+describe('crewkart steering model', () => {
+  it('drag: dead zone, full lock at the span, symmetric and monotonic', () => {
+    expect(steerFromDrag(3, 100)).toBe(0);
+    expect(steerFromDrag(100, 100)).toBe(1);
+    expect(steerFromDrag(400, 100)).toBe(1);
+    expect(steerFromDrag(-50, 100)).toBeCloseTo(-steerFromDrag(50, 100));
+    let prev = 0;
+    for (let d = 0; d <= 100; d += 5) { const s = steerFromDrag(d, 100); expect(s).toBeGreaterThanOrEqual(prev); prev = s; }
+  });
+  it('tilt: full lock at 24 degrees', () => {
+    expect(steerFromTilt(24)).toBe(1);
+    expect(steerFromTilt(-30)).toBe(-1);
+    expect(steerFromTilt(1)).toBe(0);
+  });
+  it('turns harder with more steer and keeps grip at low speed', () => {
+    const turned = (s: number) => { const r = newRace('garden', 'pip'); run(r, 3.5); const a = r.karts[0].ang; run(r, 0.3, { steer: s, drift: false, use: false }); return Math.abs(wrapAng(r.karts[0].ang - a)); };
+    expect(turned(1)).toBeGreaterThan(turned(0.4));
+    expect(turned(0.4)).toBeGreaterThan(0.1);
+    expect(GRIP_MIN).toBeGreaterThanOrEqual(0.5);
+  });
+  it('drift follows the way you were steering and a short one gives a mini-turbo', () => {
+    const r = newRace('beach', 'pip');
+    drive(r, 6);
+    run(r, 0.1, { steer: -0.6, drift: false, use: false });
+    r.events = []; step(r, { steer: -0.6, drift: true, use: false });
+    expect(r.karts[0].drift).toBe(-1);
+    for (let i = 0; i < 0.8 / DT; i++) { r.events = []; step(r, { steer: -0.6, drift: true, use: false }); }
+    r.events = []; step(r, { steer: 0, drift: false, use: false });
+    expect(r.events).toContain('boost:0:small');
+  });
+});
+
+describe('crewkart mode 7 projection', () => {
+  const c = chaseCam(320, 180, 500, 400, 0.7);
+  it('puts the chased kart low and centred', () => {
+    const p = project(c, 500, 400);
+    expect(p.sx).toBeCloseTo(160, 5);
+    expect(p.sy).toBeCloseTo(180 * 0.88, 5);
+  });
+  it('ground rows and projection agree', () => {
+    for (const row of [80, 120, 170]) {
+      const r = rowStart(c, row);
+      for (const col of [0, 100, 250]) {
+        const p = project(c, r.x + r.dx * col, r.y + r.dy * col);
+        expect(p.sx).toBeCloseTo(col + 0.5, 4);
+        expect(p.sy).toBeCloseTo(row + 0.5, 4);
+      }
+    }
+  });
+  it('nothing on the ground is drawn above the horizon; far things are smaller', () => {
+    expect(rowDistance(c, c.hor - 1)).toBe(Infinity);
+    const a = project(c, 500 + Math.cos(0.7) * 200, 400 + Math.sin(0.7) * 200);
+    const b = project(c, 500 + Math.cos(0.7) * 800, 400 + Math.sin(0.7) * 800);
+    expect(b.s).toBeLessThan(a.s);
+    expect(b.sy).toBeGreaterThan(c.hor);
+    expect(b.sy).toBeLessThan(a.sy);
+    expect(project(c, 500 - Math.cos(0.7) * 200, 400 - Math.sin(0.7) * 200).s).toBe(0);
   });
 });
