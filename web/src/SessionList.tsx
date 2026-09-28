@@ -351,7 +351,7 @@ export function SessionList(props: {
               <h1 className="wordmark">
                 <Wordmark />
               </h1>
-              <span className="subtitle">your crew, mid-conversation</span>
+              <Greeting />
             </div>
           </div>
           <div className="page-header-actions">
@@ -687,6 +687,31 @@ function ProjectUsageCard() {
       })}
       {rows.length > 3 && <button className="link" onClick={() => setOpen(!open)}>{open ? 'Show fewer' : `Show all ${rows.length}`}</button>}
     </section>
+  );
+}
+
+/** The fun layer (#49): hello by name and time of day, and a streak of days
+ *  you've checked in on the crew -- a small reason to come back. */
+function Greeting() {
+  const [name, setName] = useState<string | null>(null);
+  const [streak, setStreak] = useState<{ streak: number; best: number; firstToday: boolean } | null>(null);
+  useEffect(() => {
+    fetch('/api/me').then((r) => (r.ok ? r.json() : null)).then((d) => setName(d?.me?.name ?? d?.name ?? null)).catch(() => {});
+    const d = new Date();
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    api.visit(day).then(setStreak).catch(() => {});
+  }, []);
+  const h = new Date().getHours();
+  const hello = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Up late';
+  return (
+    <span className="subtitle greeting">
+      {hello}{name ? `, ${name}` : ''}
+      {streak && streak.streak >= 2 && (
+        <span className={`streak-chip${streak.firstToday ? ' fresh' : ''}`} title={`Best: ${streak.best} days`}>
+          <Icon name="flame" /> {streak.streak}-day streak
+        </span>
+      )}
+    </span>
   );
 }
 

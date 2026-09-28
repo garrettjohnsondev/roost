@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { buzz } from '../haptics';
+import { Icon } from '../icons';
 import { GAMES, PACK_TITLE } from './registry';
 import { fmtScore, sprite, type GameModule, type GameStoreView } from './types';
 import type { SessionMeta } from '../types';
@@ -81,7 +82,7 @@ export function Arcade({ onBack, onOpenSession }: { onBack: () => void; onOpenSe
       <header className="arcade-head">
         <button className="ghost" onClick={onBack} aria-label="Back">‹</button>
         <h1>Arcade</h1>
-        <span className="arcade-trophies" title="Achievements">🏆 {earned}/{total}</span>
+        <span className="arcade-trophies" title="Achievements"><Icon name="trophy" /> {earned}/{total}</span>
       </header>
       {banner && (
         <div className="arcade-banner" role="alert">
@@ -105,7 +106,7 @@ export function Arcade({ onBack, onOpenSession }: { onBack: () => void; onOpenSe
                   <span className="arcade-blurb">{g.meta.blurb}</span>
                   <span className="arcade-meta">
                     {saved ? <b>Resume</b> : <>Best {fmtScore(g.meta, store.best[g.meta.id])}</>}
-                    {g.meta.achievements.length > 0 && <> · 🏆 {got}/{g.meta.achievements.length}</>}
+                    {g.meta.achievements.length > 0 && <> · <Icon name="trophy" /> {got}/{g.meta.achievements.length}</>}
                   </span>
                 </button>
               );
@@ -157,7 +158,7 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
     const a = meta.achievements.find((x) => x.id === id);
     setStore((s) => ({ ...s, achievements: { ...s.achievements, [key]: Date.now() } }));
     api.gameAchieve(key).catch(() => {});
-    if (a) { toast(`🏆 ${a.name}`); buzz('reward'); }
+    if (a) { toast(`Achievement: ${a.name}`); buzz('reward'); }
   }, [meta, setStore, store.achievements, toast]);
 
   return (

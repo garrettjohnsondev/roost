@@ -1,3 +1,4 @@
+import { Icon } from '../../icons';
 import { useEffect, useState } from 'react';
 import type { GameMeta, GameProps } from '../types';
 import { dayNumber, sprite } from '../types';
@@ -100,7 +101,7 @@ export function Game({ save, onSave, onScore, onAchieve, paused }: GameProps<Sav
       <div className="game-wordle-host">
         <img src={sprite('wren', pose)} alt="" />
         <span className="game-wordle-says">{says}</span>
-        {s.streak > 0 && <span className="game-wordle-streak">🔥 {s.streak}</span>}
+        {s.streak > 0 && <span className="game-wordle-streak"><Icon name="flame" /> {s.streak}</span>}
       </div>
       <div className="game-wordle-grid">
         {Array.from({ length: ROWS }, (_, r) => {

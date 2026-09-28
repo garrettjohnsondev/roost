@@ -94,8 +94,14 @@ function draw(ctx: CanvasRenderingContext2D, s: State) {
   ctx.fillText(`${s.score}`, 12, 26);
   ctx.textAlign = 'center';
   ctx.fillText(`Level ${s.level + 1}`, W / 2, 26);
-  ctx.textAlign = 'right';
-  ctx.fillText('🥚'.repeat(s.lives), W - 10, 26);
+  // Lives as little pixel eggs (no emoji: Roost draws its own).
+  for (let i = 0; i < s.lives; i++) {
+    const x = W - 16 - i * 14;
+    ctx.fillStyle = '#f4ecd8';
+    ctx.fillRect(x - 4, 16, 8, 10);
+    ctx.fillRect(x - 3, 14, 6, 2);
+    ctx.fillRect(x - 3, 26, 6, 1);
+  }
   const fx = [s.wide > 0 && `wide ${Math.ceil(s.wide)}`, s.slow > 0 && `slow ${Math.ceil(s.slow)}`].filter(Boolean).join(' · ');
   if (fx) { ctx.textAlign = 'center'; ctx.fillStyle = '#ffffffaa'; ctx.font = '12px ui-monospace, monospace'; ctx.fillText(fx, W / 2, 46); }
 }

@@ -1162,7 +1162,11 @@ describe('no emoji anywhere -- Roost draws its own icons', () => {
   // style, sat beside sprites drawn by hand. ⚙ and ⚖ render as glossy colour
   // pictures on iOS. icons.tsx holds ours, as 12×12 pixel glyphs.
   const { readdirSync } = require('node:fs') as typeof import('node:fs');
-  const files = readdirSync(join(root, 'web/src')).filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f));
+  // The arcade's games live in folders under web/src/games and follow the
+  // rule too -- except Daily Word's share text, which is pasted OUTSIDE Roost
+  // where the coloured squares are the universal way to share a result.
+  const files = (readdirSync(join(root, 'web/src'), { recursive: true }) as string[])
+    .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f) && f !== 'games/wordle/logic.ts');
   // The pictographic block, plus the misc-symbol code points iOS gives emoji
   // presentation (gear, scales, bolt, coffee, sparkles, star). Typographic
   // marks that take the text colour and font stay: ✓ ✗ ✕ ★ ↑ ■ …

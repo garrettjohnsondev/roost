@@ -3766,3 +3766,9 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .proj-usage-who { display: inline-flex; align-items: center; gap: 4px; }
 .proj-usage-who img { width: 20px; height: 20px; image-rendering: pixelated; }
 .companion-wardrobe { display: flex; gap: 8px; font-size: 13px; margin: 8px 0; line-height: 1.35; }
+
+/* The fun layer (#49) */
+.greeting { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.streak-chip { font-size: 11px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 2px; color: var(--text); }
+.streak-chip.fresh { animation: streak-pop 600ms cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes streak-pop { from { transform: scale(.4); opacity: 0; } }

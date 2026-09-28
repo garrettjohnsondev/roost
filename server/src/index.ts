@@ -36,6 +36,7 @@ import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './compan
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
 import { readOnDeck } from './onDeck.js';
+import { visit } from './visits.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
 
@@ -388,6 +389,13 @@ app.get('/api/usage/projects', async (_req, res) => {
       };
     }),
   });
+});
+
+// The fun layer (#49): check in, keep a streak.
+app.post('/api/visit', (req, res) => {
+  const day = String(req.body?.day ?? '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return void res.status(400).json({ error: 'day must be yyyy-mm-dd' });
+  res.json(visit(day));
 });
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.
