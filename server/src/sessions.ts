@@ -1579,7 +1579,10 @@ export class Session {
       const status = await getGitStatus(this.cwd);
       if (!status.isRepo || !status.files.length) return;
       const message = this.jobLabel();
-      const out = await gitCommit(this.cwd, message);
+      // Who did it, in the commit itself -- the project's history (the Map)
+      // shows their faces; transcripts don't outlive sessions, git does.
+      const crew = [...this.jobCrew];
+      const out = await gitCommit(this.cwd, crew.length ? `${message}\n\nRoost-Crew: ${crew.join(', ')}` : message);
       this.notice(`Committed: ${message} — ${out.split('\n')[0]}`);
     } catch (err: any) {
       this.notice(`Passed, but couldn't commit: ${String(err?.message ?? err)}`);

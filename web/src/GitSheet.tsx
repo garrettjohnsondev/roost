@@ -1,6 +1,65 @@
 import { useEffect, useState } from 'react';
 import { api } from './api';
 import type { GitFile, GitStatusResult } from './types';
+import { dayLabel } from './chapters';
+import { SpriteAvatar } from './ChatView';
+import { nameColor } from './color';
+
+/** One shipped commit, as /api/git/history returns it. */
+export interface ShippedEntry {
+  hash: string;
+  subject: string;
+  at: number;
+  author: string;
+  crew: Array<{ name: string; color: string; sprite?: string; agent: 'claude' | 'codex' }>;
+}
+
+/** What shipped (2026-09-27): the Map, moved into each project and filled
+ *  from git -- the one record of finished work that outlives sessions. Newest
+ *  first, grouped Today / Yesterday / a weekday / "Week of…". */
+function WhatShipped({ cwd }: { cwd: string }) {
+  const [entries, setEntries] = useState<ShippedEntry[] | null>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    api.gitHistory(cwd, 80).then((r) => setEntries(r.entries)).catch(() => setEntries([]));
+  }, [cwd]);
+  if (entries === null) return <div className="usage-empty">Reading the history…</div>;
+  if (!entries.length) return <div className="usage-empty">Nothing shipped here yet — the first finished job will show up here.</div>;
+  const now = Date.now();
+  const shown = more ? entries : entries.slice(0, 15);
+  let lastDay = '';
+  return (
+    <div className="shipped">
+      {shown.map((e) => {
+        const day = dayLabel(e.at, now);
+        const header = day !== lastDay ? <div className="shipped-day">{day}</div> : null;
+        lastDay = day;
+        return (
+          <div key={e.hash}>
+            {header}
+            <div className="shipped-row">
+              <span className="shipped-faces">
+                {e.crew.length
+                  ? e.crew.slice(0, 2).map((c) => (
+                      <SpriteAvatar key={c.name} crew={{ ...c, initial: c.name[0], role: '', roleLabel: '', tier: 'worker', model: '' }} pose="idle" size={26} />
+                    ))
+                  : <span className="shipped-you">{(e.author || '?')[0]}</span>}
+              </span>
+              <span className="shipped-text">
+                <span className="shipped-subject">{e.subject}</span>
+                <span className="shipped-by">
+                  {e.crew.length ? e.crew.map((c, i) => <span key={c.name} style={{ color: nameColor(c.color) }}>{i ? ', ' : ''}{c.name}</span>) : e.author}
+                  {' · '}{new Date(e.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      {!more && entries.length > 15 && <button className="chip" onClick={() => setMore(true)}>Show {entries.length - 15} more</button>}
+    </div>
+  );
+}
 
 function statusLabel(f: GitFile): string {
   if (f.untracked) return 'new';
@@ -120,7 +179,7 @@ export function GitSheet({
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <h3>Changes</h3>
+        <h3>Changes &amp; history</h3>
         {!status && !error && <div className="usage-empty">Loading…</div>}
         {error && <div className="error-note">{error}</div>}
         {notice && <div className="git-notice">{notice}</div>}
@@ -192,6 +251,9 @@ export function GitSheet({
                 </button>
               </div>
             )}
+
+            <h4 className="shipped-title">What shipped</h4>
+            <WhatShipped cwd={cwd} />
 
             <div className="sheet-actions">
               {Boolean(status.ahead) && (

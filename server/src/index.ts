@@ -19,14 +19,14 @@ import { modelRegistry, classify, auditRoutes } from './registry.js';
 import { capabilitiesFrom, reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
 import { generateAvatar, listCustom, avatarDir, AvatarGenError } from './avatars.js';
 import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
-import { getGitDiff, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
+import { getGitDiff, getGitHistory, getGitStatus, getGitSummaries, gitCommit, gitPush } from './git.js';
 import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification, sendNotificationAsync } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
 import { getClaudePreview, getCodexPreview } from './preview.js';
 import { SessionManager } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
-import { allPersonas, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
+import { allPersonas, personaFor, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
 import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import { noteLogLine, registerRescue, webRoot } from './rescue.js';
@@ -310,6 +310,26 @@ app.get('/api/git', async (req, res) => {
   if (!cwd) return;
   try {
     res.json({ git: await getGitStatus(cwd) });
+  } catch (err: any) {
+    res.status(500).json({ error: String(err?.message ?? err) });
+  }
+});
+
+// The project's history as crew-shaped entries: the Map, per project (2026-09-27).
+app.get('/api/git/history', async (req, res) => {
+  const cwd = guardProject(req, res);
+  if (!cwd) return;
+  try {
+    const entries = await getGitHistory(cwd, Number(req.query.limit) || 80);
+    res.json({
+      entries: entries.map((e) => {
+        const byName = e.crewNames.map((n) => allPersonas().find((p) => p.name === n)).filter(Boolean);
+        const byModel = byName.length ? [] : e.coAuthors.filter((c) => /claude|gpt|codex/i.test(c)).map((c) => personaFor(/claude/i.test(c) ? 'claude' : 'codex', c));
+        const crew = [...byName, ...byModel].filter((p, i, a) => p && p.name !== 'Crew' && a.findIndex((q) => q!.name === p.name) === i)
+          .map((p) => ({ name: p!.name, color: p!.color, sprite: (p as any).sprite, agent: (p as any).suite ?? 'claude' }));
+        return { hash: e.hash, subject: e.subject, at: e.at, author: e.author, crew };
+      }),
+    });
   } catch (err: any) {
     res.status(500).json({ error: String(err?.message ?? err) });
   }

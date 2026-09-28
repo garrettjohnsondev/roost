@@ -180,3 +180,44 @@ function unquoteGitPath(p: string): string {
   }
   return Buffer.from(bytes).toString('utf8');
 }
+
+export interface ShippedEntry {
+  hash: string;
+  subject: string;
+  /** ms since epoch */
+  at: number;
+  author: string;
+  /** Crew named in the commit: Roost's own "Roost-Crew:" trailer, else a model
+   *  named in "Co-Authored-By:". */
+  crewNames: string[];
+  coAuthors: string[];
+}
+
+/** The project's story, from git -- the one record of finished work that
+ *  survives sessions closing (2026-09-27: the Map moves into each project and
+ *  fills itself from what actually shipped, not from a ROADMAP.md). */
+export async function getGitHistory(cwd: string, limit = 80): Promise<ShippedEntry[]> {
+  const US = '\x1f';
+  const RS = '\x1e';
+  let out: string;
+  try {
+    out = await git(cwd, ['log', `-${Math.max(1, Math.min(500, limit))}`, `--format=%h${US}%s${US}%at${US}%an${US}%(trailers:key=Roost-Crew,valueonly,separator=|)${US}%(trailers:key=Co-Authored-By,valueonly,separator=|)${RS}`]);
+  } catch {
+    return []; // not a repo, or no commits yet
+  }
+  return out
+    .split(RS)
+    .map((r) => r.replace(/^\n+/, ''))
+    .filter((r) => r.includes(US))
+    .map((r) => {
+      const [hash, subject, at, author, crew, co] = r.split(US);
+      return {
+        hash,
+        subject,
+        at: Number(at) * 1000,
+        author,
+        crewNames: (crew ?? '').split(/[|,]/).map((s) => s.trim()).filter(Boolean),
+        coAuthors: (co ?? '').split('|').map((s) => s.replace(/<[^>]*>/, '').trim()).filter(Boolean),
+      };
+    });
+}

@@ -1487,7 +1487,11 @@ describe('the Control, Context and Roadmap boards (docs/board/), built', () => {
     const sheet = read('web/src/RoadmapSheet.tsx');
     expect(sheet).toContain("api.roadmap(cwd)");
     expect(sheet).toMatch(/n == null \? 'no data' : n/);
-    expect(read('web/src/SessionList.tsx')).toMatch(/<Icon name="flag"/);
+    // 2026-09-27: the home-screen flag is gone -- the map moved into each
+    // project's Changes sheet as "What shipped", filled from git.
+    expect(read('web/src/SessionList.tsx')).not.toMatch(/<Icon name="flag"/);
+    expect(read('web/src/GitSheet.tsx')).toMatch(/<WhatShipped cwd=\{cwd\} \/>/);
+    expect(read('server/src/index.ts')).toMatch(/app\.get\('\/api\/git\/history'[\s\S]*?guardProject\(req, res\)/);
   });
 
   it('each board has a design-review fixture', () => {

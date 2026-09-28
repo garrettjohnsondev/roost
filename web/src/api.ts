@@ -1,3 +1,4 @@
+import type { ShippedEntry } from './GitSheet';
 import type {
   RoadmapView,
   DeployState,
@@ -98,6 +99,8 @@ export const api = {
     }),
   testNotification: () => request<{ sent: boolean }>('/api/notifications/test', { method: 'POST' }),
   gitSummaries: () => request<{ summaries: Record<string, { files: number; ahead: number }> }>('/api/git/summaries'),
+  gitHistory: (cwd: string, limit = 80) =>
+    request<{ entries: ShippedEntry[] }>(`/api/git/history?cwd=${encodeURIComponent(cwd)}&limit=${limit}`),
   gitStatus: (cwd: string) => request<{ git: GitStatusResult }>(`/api/git?cwd=${encodeURIComponent(cwd)}`),
   gitDiff: (cwd: string, path: string) =>
     request<{ diff: string }>(`/api/git/diff?cwd=${encodeURIComponent(cwd)}&path=${encodeURIComponent(path)}`),

@@ -63,3 +63,32 @@ describe('git backend', () => {
     expect((await getGitStatus(repo)).files).toHaveLength(0);
   });
 });
+
+describe('what shipped: the project history the Map is built from', () => {
+  it('reads subjects, times, and the crew named in Roost-Crew or Co-Authored-By trailers', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { getGitHistory } = await import('../src/git.js');
+    const d = mkdtempSync(join(tmpdir(), 'hist-'));
+    const g = (...a: string[]) => execFileSync('git', ['-C', d, '-c', 'user.name=Garrett', '-c', 'user.email=g@x', ...a]);
+    g('init', '-q');
+    g('commit', '-q', '--allow-empty', '-m', 'Plain one');
+    g('commit', '-q', '--allow-empty', '-m', 'Crew job\n\nRoost-Crew: Ollie, Juno');
+    g('commit', '-q', '--allow-empty', '-m', 'Model job\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>');
+    const h = await getGitHistory(d);
+    expect(h.map((e) => e.subject)).toEqual(['Model job', 'Crew job', 'Plain one']);
+    expect(h[1].crewNames).toEqual(['Ollie', 'Juno']);
+    expect(h[0].coAuthors).toEqual(['Claude Opus 5.5']);
+    expect(h[2]).toMatchObject({ author: 'Garrett', crewNames: [], coAuthors: [] });
+    expect(h[0].at).toBeGreaterThan(1_600_000_000_000);
+  });
+  it('a folder that is not a repo has no history, not an error', async () => {
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { getGitHistory } = await import('../src/git.js');
+    expect(await getGitHistory(mkdtempSync(join(tmpdir(), 'nogit-')))).toEqual([]);
+  });
+});

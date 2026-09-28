@@ -5,7 +5,6 @@ import { GitSheet } from './GitSheet';
 import { GlobalSettings } from './GlobalSettings';
 import { PreviewSheet } from './PreviewSheet';
 import { UsagePanel } from './UsagePanel';
-import { RoadmapSheet } from './RoadmapSheet';
 import { AwayGreeting, openCompanion } from './CompanionSheet';
 import { SpriteAvatar, type Pose } from './ChatView';
 import { nameColor } from './color';
@@ -240,7 +239,6 @@ export function SessionList(props: {
   const [projects, setProjects] = useState<string[]>(config.projects);
   const [showBrowser, setShowBrowser] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showMap, setShowMap] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
   const [agent, setAgent] = useState<AgentKind>('claude');
   // A configured project outranks the bare external volume: first run used to
@@ -354,9 +352,6 @@ export function SessionList(props: {
             </div>
           </div>
           <div className="page-header-actions">
-            <button className="ghost" onClick={() => setShowMap(true)}>
-              <Icon name="flag" size={24} title="The map" />
-            </button>
             <button className="ghost" onClick={() => setShowSettings(true)}>
               <Icon name="gear" size={24} title="Settings" />
             </button>
@@ -543,13 +538,6 @@ export function SessionList(props: {
           notifications={notifications}
           onNotificationsChange={setNotifications}
           onClose={() => setShowSettings(false)}
-        />
-      )}
-
-      {showMap && (
-        <RoadmapSheet
-          initial={[...sessions].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))[0]?.cwd}
-          onClose={() => setShowMap(false)}
         />
       )}
 
