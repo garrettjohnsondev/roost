@@ -3887,9 +3887,9 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .locker-tabs { margin: 4px 0 8px; }
 .crate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .crate-card { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; padding: 10px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface, transparent); color: var(--text); font-size: 13px; }
-.crate-card img { width: 96px; height: 96px; image-rendering: pixelated; }
+.crate-card > img { width: 96px; height: 96px; image-rendering: pixelated; }
 .crate-card.free { flex-direction: row; text-align: left; width: 100%; margin-bottom: 10px; border-color: var(--accent, #c9803a); }
-.crate-card.free img { width: 64px; height: 64px; }
+.crate-card.free > img { width: 64px; height: 64px; }
 .crate-card.off { opacity: .5; }
 .crate-card small { color: var(--text-dim); }
 .eco-log { font-size: 13px; padding-left: 18px; line-height: 1.6; }

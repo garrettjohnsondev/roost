@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { earned, nextUnlock } from './outfits';
 import { api } from './api';
-import { SpriteAvatar, contextWords, modelName } from './ChatView';
+import { CrewTitle, SpriteAvatar, contextWords, modelName } from './ChatView';
 import { nameColor } from './color';
 import { fmtAgo } from './format';
 import type { Companion, CrewInfo } from './types';
@@ -30,6 +30,7 @@ export function CompanionSheet({ crew, onClose }: { crew: CrewInfo; onClose: () 
           <SpriteAvatar crew={crew} pose={c?.pose ?? 'idle'} size={104} />
           <div className="companion-id">
             <div className="companion-name" style={{ color: nameColor(crew.color) }}>{crew.name}</div>
+            <CrewTitle name={crew.name} />
             <div className="companion-sub">{c ? `Level ${c.level}` : ' '}{suiteWords(c?.suite ?? crew.agent ?? null)}{c?.tier ? ` · ${c.tier}` : ''}</div>
             <div className="companion-model">{(() => {
               const id = c?.model ?? crew.model ?? null;
