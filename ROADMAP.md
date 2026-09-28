@@ -448,6 +448,14 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
 
+#### Games and crew customization — agreed 2026-09-29
+Waves, one deploy at the end:
+1. Economy: coins (from game runs, achievements, ghosts, finished jobs), Roost Crates (season series + seasonal holiday items + free drops; Rare 55 / Very Rare 28 / Import 12 / Exotic 4 / Black Market 1; Painted and Certified variants; 5-for-1 trade-up), keys from the daily crew challenge and ghosts, coins buy crates, no real money ever. Deep crew customization (hats, props, paints, auras, frames, titles, celebrations) reflected everywhere the crew appears. Rare work-earned pieces (crown, robe) stay work-only.
+2. Arcade hub (overall level, achievements, bests, coins), pixel-art logos on tiles (no crew on tiles), the coding crew member in a safe corner of every game with a speech bubble for big phases (tap opens the message they just finished), rotate-your-phone prompt, landscape Roost Birds / Flap / Home Run Derby.
+3. Every game: three new things + a visual upgrade; ghosts (see-through, toggle, strength matches the model, unique rewards); quiet chiptune sound off by default; haptic patterns (iPhone: ticks only, no strength control).
+4. Two new big games: Bug Siege (tower defense) and Crew Kart (top-down racer).
+Rejected: "fits the wait" prompts. Someday: a native app for true haptic strength.
+
 #### The overnight run — 2026-09-28 (decisions logged in NIGHT-DECISIONS.md)
 Order: deploy card + rocket pulse → #44 plan setting + advisor → #46 where we left off → #47 per-project usage → #48 haptics → #50/#51 scenes + pixel avatars → #55 games (Snake, Minesweeper, Battleship, Solitaire, 2048, daily word, Flappy, Breakout, Sudoku, memory match, stack; then sports pack and Roost Birds) → #57 level-up accessories → #49 fun layer → #45 new project → #52 dev mode → #56 onboarding → #53 provider research. One deploy at the end.
 
