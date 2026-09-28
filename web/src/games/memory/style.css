@@ -1,0 +1,16 @@
+.game-memory { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text); }
+.game-memory-wrap { position: relative; min-height: 280px; }
+.game-memory-grid { display: grid; gap: 6px; }
+.game-memory-row { display: flex; gap: 10px; }
+.game-memory-card {
+  display: flex; align-items: center; justify-content: center; padding: 0;
+  border: 2px solid var(--border); border-radius: 4px; color: var(--text);
+  background:
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--text) 12%, transparent) 0 4px, transparent 4px 8px),
+    var(--surface, var(--bg));
+  transition: transform 150ms ease;
+}
+.game-memory-up { background: var(--bg); transform: rotateY(0); animation: game-memory-flip 180ms ease-out; }
+.game-memory-done { border-color: color-mix(in srgb, #e8b04a 70%, var(--border)); }
+.game-memory-card img { width: 82%; height: 82%; object-fit: contain; image-rendering: pixelated; }
+@keyframes game-memory-flip { from { transform: scaleX(0.1); } to { transform: scaleX(1); } }
