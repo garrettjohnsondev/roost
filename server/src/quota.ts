@@ -245,7 +245,11 @@ export class QuotaStore {
       }
       this.upsert('codex', `codex:${slot}`, {
         label: `${slot === 'primary' ? 'Primary' : 'Secondary'} (${formatWindow(w.windowDurationMins)})`,
-        usedPercent: normalizePct(w.usedPercent),
+        // Codex documents usedPercent as 0-100 (RateLimitWindow in its own
+        // generated schema). The fraction guess read an honest 1% -- a window
+        // just after its weekly reset -- as 100%, and Codex sat "used up" and
+        // benched for two days (2026-09-26 → 28). A documented scale is clamped.
+        usedPercent: clampPct(w.usedPercent),
         windowDurationMins: typeof w.windowDurationMins === 'number' ? w.windowDurationMins : null,
         resetsAt: typeof w.resetsAt === 'number' ? w.resetsAt * 1000 : null,
         source: opts.sparse ? 'codex-push' : 'codex-read',

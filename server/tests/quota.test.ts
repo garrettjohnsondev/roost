@@ -260,3 +260,13 @@ describe('flush on shutdown', () => {
     expect(b.windows('claude').find((w) => w.key === 'claude:session')?.usedPercent).toBe(55);
   });
 });
+
+describe('Codex reports 0-100, and 1% is 1% (2026-09-28)', () => {
+  it('a window just after its weekly reset reads 1%, not 100%', async () => {
+    const { QuotaStore } = await import('../src/quota.js');
+    const s = new (QuotaStore as any)();
+    s.noteCodexSnapshot({ primary: { usedPercent: 1, windowDurationMins: 10080, resetsAt: 1791075713 } }, { sparse: false });
+    const w = s.codex?.windows?.['codex:primary'] ?? Object.values(s.snapshot?.().codex?.windows ?? {})[0];
+    expect(w.usedPercent).toBe(1);
+  });
+});
