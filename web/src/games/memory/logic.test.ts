@@ -121,3 +121,11 @@ describe('crew match wave 3', () => {
     expect(ghostPairs(20, 8, 40)).toBe(8);
   });
 });
+
+import { ghostMovesFor } from './logic';
+describe('each board has its own ghost', () => {
+  it('bigger boards give the ghost more moves', () => {
+    expect(ghostMovesFor(0.5, 8)).toBeLessThan(ghostMovesFor(0.5, 10));
+    expect(ghostMovesFor(0.5, 15)).toBeGreaterThan(ghostMovesFor(0.5, 12));
+  });
+});

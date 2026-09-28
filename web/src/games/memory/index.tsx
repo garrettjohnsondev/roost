@@ -4,7 +4,7 @@ import { sprite } from '../types';
 import { sfx } from '../../economy/sound';
 import { buzz, ticks } from '../../haptics';
 import {
-  COMBO_FOR_PEEK, colsFor, deal, done, face, flip, ghostMoves, ghostPairs, settle, spendPeek, tick, timeUp, TIME_FOR,
+  COMBO_FOR_PEEK, colsFor, deal, done, face, flip, ghostMoves, ghostMovesFor, ghostPairs, settle, spendPeek, tick, timeUp, TIME_FOR,
   type Size, type State,
 } from './logic';
 import './style.css';
@@ -22,6 +22,7 @@ export const meta: GameMeta = {
   scoreKind: 'points',
   safeCorner: 'br',
   ghostScore: ghostMoves,
+  ghostMode: 'custom',
   achievements: [
     { id: 'first', name: 'Reunited', says: 'Clear a board.' },
     { id: 'perfect', name: 'Perfect memory', says: 'Clear 4x4 without a single miss.' },
@@ -35,7 +36,7 @@ export const meta: GameMeta = {
 
 const LABEL: Record<Size, string> = { 16: '4x4', 20: '4x5', 24: '4x6', 30: '5x6' };
 
-export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: GameProps<State>) {
+export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost: hostGhost, onGhostBeaten }: GameProps<State>) {
   const [s, setS] = useState<State | null>(save ? settle(save) : null);
   const [fresh, setFresh] = useState<number[]>([]);
   const [missed, setMissed] = useState<number[]>([]);
@@ -85,6 +86,7 @@ export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: 
     if (done(n)) {
       buzz('pass'); sfx('win');
       onScore(n.moves); onSave(null);
+      if (hostGhost && n.moves < ghostMovesFor(hostGhost.strength, n.size / 2)) onGhostBeaten?.(hostGhost.name);
       onAchieve('first');
       if (n.size === 16 && n.misses === 0) onAchieve('perfect');
       if (n.size === 16 && n.moves <= 12) onAchieve('quick16');
@@ -115,6 +117,8 @@ export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: 
   const w = Math.floor(Math.min(window.innerWidth - 32, 360) / cols) - 6;
   const h = Math.max(40, Math.min(Math.floor(w * 1.15), Math.floor((window.innerHeight - 300) / rows) - 6));
   const pairs = size / 2;
+  // Each board has its own ghost: same crew, target scaled to the board.
+  const ghost = hostGhost ? { ...hostGhost, target: ghostMovesFor(hostGhost.strength, pairs) } : null;
   const found = s ? s.matched.filter(Boolean).length / 2 : 0;
   const left = s?.left ?? 0;
 
@@ -169,7 +173,7 @@ export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: 
                 ? `All pairs in ${s!.moves} moves${s!.misses === 0 ? ', no misses!' : '.'}${(s!.bestCombo ?? 0) >= 2 ? ` Best combo x${s!.bestCombo}.` : ''}`
                 : lost ? `Out of time with ${found} of ${pairs} pairs.` : 'Flip two cards. Find the matching crew.'}
             </p>
-            {finished && ghost && s!.size === 16 && (
+            {finished && ghost && (
               <p className="game-memory-dim">{s!.moves < ghost.target ? `You beat ${ghost.name}'s ghost (${ghost.target}).` : `${ghost.name}'s ghost took ${ghost.target}.`}</p>
             )}
             <div className="game-memory-row">
@@ -178,7 +182,6 @@ export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: 
             <label className="game-memory-timed">
               <input type="checkbox" checked={timed} onChange={(e) => setTimed(e.target.checked)} /> Timed ({TIME_FOR[16]}s on 4x4, +2s a match)
             </label>
-            {ghost && <p className="game-memory-dim">{ghost.name}'s ghost races on 4x4.</p>}
           </div>
         )}
       </div>
@@ -189,10 +192,9 @@ export function Game({ save, onSave, onScore, onAchieve, paused, best, ghost }: 
 /** The ghost's pace: its pairs found by your move count, drawn see-through
  *  above your own row of pairs. Ghosts race on 4x4 only. */
 function GhostPace({ ghost, pairs, found, moves, size }: { ghost: Ghost; pairs: number; found: number; moves: number; size: Size }) {
-  if (size !== 16) return <div className="game-memory-dim">{ghost.name}'s ghost races on 4x4.</div>;
   const g = ghostPairs(ghost.target, pairs, moves);
   return (
-    <div className="game-memory-track" title={`${ghost.name}'s ghost clears 4x4 in ${ghost.target} moves`}>
+    <div className="game-memory-track" title={`${ghost.name}'s ghost clears this board in ${ghost.target} moves`}>
       {Array.from({ length: pairs }, (_, k) => (
         <span key={k} className={`game-memory-slot${k < found ? ' game-memory-mine' : ''}${k < g ? ' game-memory-theirs' : ''}`} />
       ))}

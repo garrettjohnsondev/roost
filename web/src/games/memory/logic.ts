@@ -86,6 +86,10 @@ export const done = (s: State) => s.matched.every(Boolean);
 /** Moves a ghost of this strength takes to clear 4x4 (8 pairs). Perfect
  *  memory averages ~13, a casual player well over 20. */
 export const ghostMoves = (strength: number) => Math.round(25.3 - 12.6 * strength);
+/** The same ghost on any board (2026-09-29: bigger boards were unwinnable
+ *  against the 4x4 number): memory work grows a little faster than the
+ *  number of pairs, so the target scales by (pairs/8)^1.15. */
+export const ghostMovesFor = (strength: number, pairs: number) => Math.round(ghostMoves(strength) * Math.pow(pairs / 8, 1.15));
 
 /** Where the ghost's pace puts it after `moves` of yours: pairs found. */
 export const ghostPairs = (target: number, pairs: number, moves: number) => Math.min(pairs, Math.floor((pairs * moves) / Math.max(1, target)));

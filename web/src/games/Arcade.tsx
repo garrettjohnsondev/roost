@@ -353,7 +353,7 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
       <header className="arcade-head">
         <button className="ghost" onClick={onBack} aria-label="Back to the arcade">‹</button>
         <h1>{meta.name}</h1>
-        {ghost && <span className="ghost-chip" title={`${ghost.name}'s ghost`}><img src={sprite(ghost.sprite, 'idle')} alt="" />{fmtScore(meta, ghost.target)}</span>}
+        {ghost && meta.ghostMode !== 'custom' && <span className="ghost-chip" title={`${ghost.name}'s ghost`}><img src={sprite(ghost.sprite, 'idle')} alt="" />{fmtScore(meta, ghost.target)}</span>}
         <span className="arcade-best">Best {fmtScore(meta, store.best[meta.id])}</span>
       </header>
       {banner}

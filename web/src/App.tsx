@@ -2,7 +2,10 @@ import { CompanionHost } from './CompanionSheet';
 import { useEffect, useState } from 'react';
 import { SessionList } from './SessionList';
 import { ChatView } from './ChatView';
-import { Arcade } from './games/Arcade';
+import { Suspense, lazy } from 'react';
+// The arcade and its games load only when you open it, so Roost itself
+// opens fast (2026-09-29: the games had grown the first download to 1.1 MB).
+const Arcade = lazy(() => import('./games/Arcade').then((m) => ({ default: m.Arcade })));
 import { Welcome, useWelcome } from './Welcome';
 import { FIXTURES } from './fixtures';
 import { api } from './api';
@@ -70,7 +73,9 @@ export function App() {
   return (
     <>
       {arcade && !activeSession ? (
-        <Arcade onBack={() => setArcade(false)} onOpenSession={(id) => { setArcadeState(false); setActiveSession(id); }} />
+        <Suspense fallback={<div className="center-note">Opening the arcade…</div>}>
+          <Arcade onBack={() => setArcade(false)} onOpenSession={(id) => { setArcadeState(false); setActiveSession(id); }} />
+        </Suspense>
       ) : activeSession ? (
         <ChatView
           sessionId={activeSession}
