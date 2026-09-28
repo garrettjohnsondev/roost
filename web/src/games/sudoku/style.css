@@ -1,0 +1,23 @@
+.game-sudoku { display: flex; flex-direction: column; align-items: center; gap: 10px; user-select: none; -webkit-user-select: none; }
+.game-sudoku-start { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; text-align: center; max-width: 320px; }
+.game-sudoku-start img { width: 80px; height: 80px; image-rendering: pixelated; }
+.game-sudoku-start p { margin: 0; }
+.game-sudoku-start .chip { width: 100%; }
+.game-sudoku-bar { display: flex; gap: 14px; font-size: 14px; color: var(--text-dim); }
+.game-sudoku-bar b { color: var(--text); font-variant-numeric: tabular-nums; }
+.game-sudoku-board { position: relative; display: grid; border: 2px solid var(--text); background: var(--bg); touch-action: manipulation; }
+.game-sudoku-cell { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: #3b7dd8; cursor: pointer; line-height: 1; font-variant-numeric: tabular-nums; }
+.game-sudoku-cell.br { border-right: 2px solid var(--text); }
+.game-sudoku-cell.bb { border-bottom: 2px solid var(--text); }
+.game-sudoku-cell.given { color: var(--text); font-weight: 700; }
+.game-sudoku-cell.rel { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.game-sudoku-cell.same { background: color-mix(in srgb, #3b7dd8 22%, transparent); }
+.game-sudoku-cell.sel { background: color-mix(in srgb, #3b7dd8 38%, transparent); }
+.game-sudoku-cell.wrong { color: #d0463b; background: color-mix(in srgb, #d0463b 16%, transparent); }
+.game-sudoku-notes { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; height: 100%; font-size: 9px; color: var(--text-dim); text-align: center; align-items: center; }
+.game-sudoku-pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; width: min(100%, 400px); }
+.game-sudoku-pad button, .game-sudoku-row button { height: 48px; font-size: 20px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface, transparent); color: var(--text); }
+.game-sudoku-pad button:disabled { opacity: 0.3; }
+.game-sudoku-row { display: flex; gap: 8px; }
+.game-sudoku-row button { font-size: 15px; height: 42px; padding: 0 14px; }
+.game-sudoku-row button.on { background: #3b7dd8; color: #fff; border-color: #3b7dd8; }
