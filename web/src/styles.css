@@ -3923,3 +3923,8 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 @keyframes crate-spin { to { transform: rotate(360deg); } }
 .hub-keys { display: flex; gap: 10px; align-items: center; text-align: left; padding: 8px; border: 1px solid #e2b33c; border-radius: 2px; background: transparent; color: var(--text); font-size: 13px; line-height: 1.35; }
 .hub-keys img { width: 32px; height: 32px; image-rendering: pixelated; }
+/* Worn items move with the body (2026-09-29: "we lost the animation"): the
+   breath moves to the wrapper, so hat, prop and crew rise and fall together. */
+.look-wrap.breathing { animation: alive-breath var(--breath, 3.4s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
+.look-wrap.breathing > .crew-sprite.alive { animation: none; }
+@media (prefers-reduced-motion: reduce) { .look-wrap.breathing { animation: none; } }

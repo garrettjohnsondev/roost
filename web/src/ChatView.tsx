@@ -1062,6 +1062,9 @@ function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; 
   // crew member breathes but doesn't blink or glance (that would undress them).
   const tier = useOutfitTier(crew.name);
   const dressed = tier > 0 && !missing[`tier${tier}`];
+  // A dressed crew member blinks in their outfit when that frame is drawn
+  // (2026-09-29: "since adding props we lost the animation").
+  const blinkSrc = dressed ? `/crew/${crew.sprite}-tier${tier}-blink.webp` : `/crew/${crew.sprite}-blink.webp`;
   const seed = nameSeed(crew.name);
   const base = `/crew/${crew.sprite}`;
   const style = {
@@ -1073,10 +1076,10 @@ function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; 
     '--lift': `${Math.max(1, Math.round(size / 28))}px`,
   } as React.CSSProperties;
   return (
-    <span className={`crew-sprite pose-idle alive${missing.blink || dressed ? ' no-blink' : ''}${missing.side || dressed ? ' no-side' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={style}>
+    <span className={`crew-sprite pose-idle alive${missing.blink ? ' no-blink' : ''}${missing.side || dressed ? ' no-side' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={style}>
       <img className="alive-idle" src={dressed ? `${base}-tier${tier}.webp` : `${base}-idle.webp`} alt="" onError={() => dressed && setMissing((m) => ({ ...m, [`tier${tier}`]: true }))} />
-      {dressed ? null : !missing.blink && <img className="alive-blink" src={`${base}-blink.webp`} alt="" onError={() => setMissing((m) => ({ ...m, blink: true }))} />}
-      {!missing.side && <img className="alive-side" src={`${base}-side.webp`} alt="" onError={() => setMissing((m) => ({ ...m, side: true }))} />}
+      {!missing.blink && <img key={blinkSrc} className="alive-blink" src={blinkSrc} alt="" onError={() => setMissing((m) => ({ ...m, blink: true }))} />}
+      {!dressed && !missing.side && <img className="alive-side" src={`${base}-side.webp`} alt="" onError={() => setMissing((m) => ({ ...m, side: true }))} />}
     </span>
   );
 }
@@ -1092,7 +1095,7 @@ export function SpriteAvatar(props: { crew: CrewInfo; pose: Pose; size: number; 
   const a = anchorFor(crew.sprite);
   const hatW = size * a.w;
   return (
-    <span className={`look-wrap${look.frame && size >= 28 ? ` frame-${look.frame.art}` : ''}`} style={{ width: size, height: size }}>
+    <span className={`look-wrap${props.alive && props.pose === 'idle' ? ' breathing' : ''}${look.frame && size >= 28 ? ` frame-${look.frame.art}` : ''}`} style={{ width: size, height: size, '--breath': `${3 + nameSeed(crew.name) * 1.4}s`, '--offset': `${-nameSeed(crew.name) * 18}s`, '--lift': `${Math.max(1, Math.round(size / 28))}px` } as React.CSSProperties}>
       {look.aura && <span className={`aura aura-${look.aura.art}`} style={look.aura.paint ? { filter: PAINT_FILTER[look.aura.paint] } : undefined} aria-hidden="true" />}
       {base}
       {look.hat && (
