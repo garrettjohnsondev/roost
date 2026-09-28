@@ -2429,6 +2429,7 @@ export function crewAsking(title: string, crew?: CrewInfo | null): string {
  *  default. Nothing here touches what the agents remember. */
 function ChapterFold({ chapter, awaiting, foldingNow, lastWord, children }: { chapter: Chapter; awaiting: boolean; foldingNow: boolean; lastWord?: React.ReactNode; children: React.ReactNode }) {
   const [choice, setChoice] = useState<boolean | null>(null); // true = open, false = folded
+  const [foldDone, setFoldDone] = useState(false);
   const verified = chapter.status === 'verified';
   const folded = choice === null ? verified : !choice;
   const status = verified ? 'Verified' : chapter.status === 'needs-work' ? 'Needs work' : awaiting ? 'Awaiting you' : 'In progress';
@@ -2449,12 +2450,15 @@ function ChapterFold({ chapter, awaiting, foldingNow, lastWord, children }: { ch
         <span className={`chapter-status ${chapter.status}${awaiting ? ' awaiting' : ''}`}>{status}</span>
         <span className="chapter-caret" aria-hidden="true">{folded ? '▸' : '▾'}</span>
       </button>
-      <div className="chapter-body">
+      <div className="chapter-body" onAnimationEnd={(e) => e.animationName === 'chapter-fold' && setFoldDone(true)}>
         <div className="chapter-inner">{children}</div>
       </div>
       {/* The answer outlives the fold: the working steps tuck away, the last
-          thing the crew said stays readable under the row. */}
-      {folded && lastWord && <div className="chapter-last-word">{lastWord}</div>}
+          thing the crew said stays readable under the row. Live, it appears
+          only once the fold has actually finished -- it used to hold its
+          space invisibly for 5.7s, a blank gap where the reply belonged
+          (2026-09-28). */}
+      {folded && lastWord && (!foldingNow || foldDone || choice !== null) && <div className="chapter-last-word">{lastWord}</div>}
     </div>
   );
 }

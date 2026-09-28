@@ -3638,7 +3638,7 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 /* The crew's last word under a folded job (2026-09-27). Live, it waits for
    the fold to finish (5s hold + 0.7s fold) so it never shows twice. */
 .chapter-last-word { margin-top: 8px; }
-.chapter.folding .chapter-last-word { animation: last-word-in 400ms ease-out 5.7s both; }
+.chapter.folding .chapter-last-word { animation: last-word-in 400ms ease-out both; }
 @keyframes last-word-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .chapter.folding .chapter-last-word { animation: none; } }
 

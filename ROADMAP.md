@@ -448,6 +448,25 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
 
+#### The next working order — agreed 2026-09-28
+
+Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `codemap.ts`), per-turn measurement (`turns.jsonl`, `npm run codemap:report`), the UX sweep part 1 (celebration, living crew, plain words), preset-based session settings, the crew's last word outliving the fold, "What shipped" in the Changes sheet, the chat reading like a chat (every crew line a message, optimistic send, replies growing out of the typing bubble, gliding scroll), deploys that wait for the crew to finish, and the Codex 1%→100% misread (`4ac8698`).
+
+41. **The reply that blinked out on a deploy.** After a job verified, the reply showed as a blank space, "reconnecting…", then the message two seconds later. Two causes: the last word under a folding job reserved its space invisibly for 5.7s, and a deploy waiting for "quiet" restarted Roost ~4s after the checks passed -- mid-celebration. *In progress 2026-09-28.*
+42. **Two quick fixes.** VERIFIED is stamped over Test *and* the last stop says Verified -- say it once. The scales (Consult) button beside Send: the Careful preset now covers most of it; decide whether it stays, moves, or goes.
+43. **Who's in this chat.** The crew in this conversation as faces in the top bar, right of the context meter (collapsed), separate from what the meter expands.
+44. **Pip stops handing real work to Haiku** (agreed). Haiku only for tiny chores (lookups, renames); Sonnet for normal work, Opus for big. A **crew quality** setting ("token saver" … "best") with defaults for the $20 / $100 / $200 plans turns Haiku back on for people who need it.
+45. **A new project from the phone.** Name it, public or private, Roost creates the folder, the GitHub repo (`gh` is signed in on this Mac as gjohnsonmb1-afk), the first commit, and adds it to Roost's projects.
+46. **Where we left off, on the home screen.** Each project card: the last thing done, what is left or on deck, and a Continue button -- no opening the chat to ask "what's next?". The crew writes what's left at the end of every job so it is always ready. The per-project roadmap lives here.
+47. **Per-project usage** (agreed: read from the vendors' own local logs -- `~/.claude/projects`, `~/.codex/sessions` -- so it includes terminal and VS Code work on this Mac and history from before the feature; other computers stay invisible). "yayo bay · ~30% of your Claude week · 5% of Codex", and who spent it and on what (building, reviews, Pip's routing, asking by name). Beside #46 on each card.
+48. **Haptics on iPhone.** iOS ignores `navigator.vibrate`; iOS 18+ taps when a hidden `<input type="checkbox" switch>` toggles. Pass, fail, an approval waiting, a message arriving.
+49. **The fun layer.** Builds on item 40's away greeting: the crew greets you by name, remembers streaks, celebrates work that finished while you were away, reacts to you.
+50. **Morning and evening scenes.** Each daily scene gets an AM and a PM painting ("Picnic in the park" by day and by night). Art via Codex `image_gen` (Codex has room: 1% used, resets Oct 4). *Art started in the background 2026-09-28.*
+51. **Pixel-art avatars.** The avatar pool is flat clip-art beside pixel crew; redraw it in the crew's style. *Art started in the background 2026-09-28.*
+52. **Dev mode.** For people who want to see the machinery: diffs of each edit, full commands and their output, model ids and cost per turn -- shown in place instead of folded.
+53. **More providers, more crew.** Roost drives only Claude and Codex. Research ACP (Agent Client Protocol) -- one adapter for Gemini CLI and others -- then a crew of 4-5 per new provider, drawn like the rest.
+54. **Carried over.** The code map savings report (needs a few days of turns), more code-map languages (after #53), light/dark parity (MOTION.md §7.9), and #37 (plan mode vs a name you asked for) still undecided.
+
 ### 12a. Motion — the stream with the most pull behind it
 
 **The `Effects` board was a proposal; it is now a feature.** It demonstrates eight pieces of information-carrying motion, and all eight are in the app (the table is kept as the record of what each one reports):

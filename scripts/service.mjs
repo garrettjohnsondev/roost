@@ -122,9 +122,10 @@ const livePort = (() => {
 async function isUp(port, ms = 2000) {
   try { await fetch(`http://127.0.0.1:${port}/api/config`, { signal: AbortSignal.timeout(ms) }); return true; } catch { return false; }
 }
-/** True once no session has been mid-turn for two readings in a row (a turn's
+/** True once no session has been mid-turn for QUIET_READINGS readings in a row (a turn's
  *  own checks can start a beat after it goes idle); false if `maxMs` ran out.
  *  No live server, or one that won't answer: nothing to wait for. */
+const QUIET_READINGS = 5;
 async function waitForQuiet(maxMs) {
   const token = process.env.ROOST_TOKEN ?? process.env.POCKET_TOKEN;
   const headers = token ? { authorization: `Bearer ${token}` } : {};
@@ -142,7 +143,10 @@ async function waitForQuiet(maxMs) {
       return true;
     }
     quiet = busy ? 0 : quiet + 1;
-    if (quiet >= 2) return true;
+    // ~10s of quiet, not ~4: a job that just verified is still celebrating
+    // (the burst, the 5s hold, the fold). Restarting inside that showed a
+    // blank reply and "reconnecting…" (2026-09-28).
+    if (quiet >= QUIET_READINGS) return true;
     await new Promise((r) => setTimeout(r, 2000));
   }
   return false;

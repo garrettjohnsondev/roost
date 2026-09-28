@@ -396,7 +396,9 @@ describe('chapters change what you see, never what the agents remember', () => {
     // and replayed history arrives already folded — no performance
     expect(read('web/src/ChatView.tsx')).toMatch(/foldingNow=\{ch\.status === 'verified' && bodyEnd - 1 >= session\.replayedCount\}/);
     // the crew's last word outlives the fold, shown only once the fold is done
-    expect(read('web/src/ChatView.tsx')).toMatch(/\{folded && lastWord && <div className="chapter-last-word">/);
+    // shown only once the fold has finished -- never a blank placeholder (2026-09-28)
+    expect(read('web/src/ChatView.tsx')).toMatch(/\{folded && lastWord && \(!foldingNow \|\| foldDone \|\| choice !== null\) && <div className="chapter-last-word">/);
+    expect(read('scripts/service.mjs')).toMatch(/const QUIET_READINGS = 5;/);
   });
 
   it('folds with a grid track, never a pixel height a font can outgrow', () => {
