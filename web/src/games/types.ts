@@ -24,6 +24,9 @@ export interface GameProps<S = unknown> {
   /** The ghost you're racing (wave 3), or null when ghosts are off. Draw it
    *  see-through; the host checks the finished score against `target`. */
   ghost?: Ghost | null;
+  /** For games whose ghosts are per level (meta.ghostMode 'custom'): call
+   *  when the player beats that ghost's score on the same level. */
+  onGhostBeaten?: (crew: string) => void;
 }
 
 /** A crew member's recorded best, as strong as their model: Haiku's Moss is
@@ -69,6 +72,9 @@ export interface GameMeta {
   ghostScore?: (strength: number) => number;
   /** Plays sideways: the host asks you to turn your phone first. */
   orientation?: 'landscape';
+  /** 'custom': the game runs its own ghosts (per level) and calls
+   *  onGhostBeaten; the host doesn't compare the run score. */
+  ghostMode?: 'custom';
   /** Where the coding crew member may sit without covering anything. */
   safeCorner?: 'tl' | 'tr' | 'bl' | 'br';
 }

@@ -56,10 +56,12 @@ describe('Roost Crates, Rocket League style, no money', () => {
     expect(ITEMS.find((i) => i.id === got.itemId)?.rarity).toBe('very-rare');
     expect(e.state().items).toHaveLength(1);
   });
-  it('a ghost pays once, with its own aura', () => {
+  it('a ghost pays once, with its own aura; only strong ghosts pay a key', () => {
     const e = new Economy(file());
+    expect(e.ghost('snake', 'Moss').keys).toBe(0);
     const r = e.ghost('snake', 'Ollie');
     expect(r.first).toBe(true);
+    expect(r.keys).toBe(1);
     expect(r.item?.itemId).toBe('ghost-ollie');
     expect(e.ghost('snake', 'Ollie').first).toBe(false);
   });

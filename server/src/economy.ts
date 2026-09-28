@@ -33,6 +33,8 @@ export const EARN = { run: 5, best: 10, achievement: 25, job: 20, challenge: 50,
 /** Chance a crate drops: after any game run, and after a job whose checks pass. */
 export const DROP = { run: 0.08, job: 0.25 } as const;
 export const PAINTED = 0.2;
+/** The ghosts strong enough to pay a key. */
+export const STRONG_GHOSTS = new Set(['Juno', 'Bram', 'Ollie', 'Nell']);
 export const CERTIFIED = 0.15;
 
 const CHALLENGES: Array<Omit<Challenge, 'day' | 'done'>> = [
@@ -172,7 +174,10 @@ export class Economy {
     if (this.s.ghostsBeaten[k]) return { first: false };
     this.s.ghostsBeaten[k] = Date.now();
     this.s.stats.ghosts++;
-    this.s.keys += 1;
+    // Keys are rare (first play test, 2026-09-29: "5 keys from 5 easy
+    // levels"): only the strong ghosts -- Juno, Bram, Ollie, Nell -- pay one.
+    const keys = STRONG_GHOSTS.has(crew) ? 1 : 0;
+    this.s.keys += keys;
     this.s.coins += EARN.ghost;
     let item: Owned | undefined;
     const g = ghostItem(crew);
@@ -180,9 +185,9 @@ export class Economy {
       item = { uid: uid(), itemId: g.id, at: Date.now(), source: `beating ${crew}'s ghost` };
       this.s.items.push(item);
     }
-    this.note(`Beat ${crew}'s ghost in ${gameId}`, EARN.ghost, 1);
+    this.note(`Beat ${crew}'s ghost in ${gameId}`, EARN.ghost, keys || undefined);
     this.save();
-    return { first: true, keys: 1, coins: EARN.ghost, item };
+    return { first: true, keys, coins: EARN.ghost, item };
   }
 
   buy(crateId: string, now = new Date()): OwnedCrate {

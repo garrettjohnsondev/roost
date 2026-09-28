@@ -165,6 +165,15 @@ export function Arcade({ onBack, onOpenSession }: { onBack: () => void; onOpenSe
             <span>Ghosts</span>
           </label>
         </div>
+        {eco && eco.keys > 0 && (
+          <button className="hub-keys" onClick={() => setLocker(true)}>
+            <img src="/items/key.webp" alt="" />
+            <span>
+              <b>You have {eco.keys} key{eco.keys === 1 ? '' : 's'}.</b> Keys open crates.{' '}
+              {eco.crates.some((c) => c.crate !== 'free') ? 'Tap to open one.' : 'Buy a crate with coins in the Locker, then open it with a key.'}
+            </span>
+          </button>
+        )}
         {challenge && challengeGame && (
           <button className={`hub-challenge${challenge.done ? ' done' : ''}`} onClick={() => !challenge.done && open(challengeGame)}>
             <img src={sprite(challenge.host, challenge.done ? 'cheer' : 'peek')} alt="" />
@@ -312,20 +321,24 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
       if (r.isBest && (store.plays[meta.id] ?? 0) > 0) { bits.push(`New best! ${fmtScore(meta, score)}`); buzz('reward'); }
       if (r.earned?.coins) bits.push(`+${r.earned.coins} coins`);
       if (r.earned?.crate) { bits.push('A crate dropped!'); sfx('fanfare'); }
-      if (r.challenge?.keys) { bits.push('Challenge done: +1 key'); buzz('pass'); }
-      if (ghost && ghostBeaten(meta, ghost, score)) {
-        api.eco('ghost', { gameId: meta.id, crew: ghost.name }).then((g) => {
-          if (g.result?.first) {
-            toast(`You beat ${ghost.name}'s ghost! +1 key${g.result.item ? ` and ${ghost.name}'s Ghost aura` : ''}`);
-            buzz('pass'); sfx('fanfare');
-          }
-          onEco();
-        }).catch(() => {});
-      }
+      if (r.challenge?.keys) { bits.push('Challenge done: +1 key — open a crate in the Locker'); buzz('pass'); }
+      if (ghost && meta.ghostMode !== 'custom' && ghostBeaten(meta, ghost, score)) beatGhost(ghost.name);
       if (bits.length) toast(bits.join(' · '));
       onEco();
     }).catch(() => {});
   }, [meta, setStore, store.plays, toast, ghost, onEco]);
+  const beatGhost = useCallback((crew: string) => {
+    api.eco('ghost', { gameId: meta.id, crew }).then((g) => {
+      if (g.result?.first) {
+        const bits = [`You beat ${crew}'s ghost!`, `+${g.result.coins} coins`];
+        if (g.result.keys) bits.push('+1 key: open a crate in the Locker');
+        if (g.result.item) bits.push(`${crew}'s Ghost aura`);
+        toast(bits.join(' · '));
+        buzz('pass'); sfx('fanfare');
+      }
+      onEco();
+    }).catch(() => {});
+  }, [meta.id, onEco, toast]);
   const onAchieve = useCallback((id: string) => {
     const key = `${meta.id}:${id}`;
     if (store.achievements[key]) return;
@@ -345,7 +358,7 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
       </header>
       {banner}
       <div className={`game-stage${paused || wantsSideways ? ' paused' : ''}`}>
-        <Game save={save} onSave={onSave} onScore={onScore} onAchieve={onAchieve} paused={paused || wantsSideways} best={store.best[meta.id]} ghost={ghost} />
+        <Game save={save} onSave={onSave} onScore={onScore} onAchieve={onAchieve} paused={paused || wantsSideways} best={store.best[meta.id]} ghost={ghost} onGhostBeaten={beatGhost} />
       </div>
       <CornerCrew sessions={sessions} corner={meta.safeCorner ?? 'br'} onOpen={onOpenSession} />
       {wantsSideways && (
