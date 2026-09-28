@@ -1,6 +1,7 @@
-.game-solitaire {
+.game-solitaire-root {
   position: relative;
   margin: 0 auto;
+  padding: 6px 0 52px;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
@@ -11,42 +12,49 @@
   display: flex;
   gap: 12px;
   justify-content: center;
+  align-items: baseline;
   font-variant-numeric: tabular-nums;
   font-size: 14px;
   margin-bottom: 6px;
 }
-.game-solitaire-dim { color: var(--text-dim); }
+.game-solitaire-clock { font: 700 16px/1 ui-monospace, monospace; }
+.game-solitaire-dim { color: var(--text-dim); font-size: 12px; }
 .game-solitaire-top { display: flex; margin-bottom: 8px; }
 .game-solitaire-waste { position: relative; flex: none; margin-right: auto; }
 .game-solitaire-slot {
   position: relative;
   flex: none;
-  border: 1px dashed var(--border);
+  border: 1px dashed color-mix(in srgb, var(--text) 28%, transparent);
   border-radius: 4px;
   display: grid;
   place-items: center;
   box-sizing: border-box;
+  background: color-mix(in srgb, #2e6b3a 10%, transparent);
+  transition: box-shadow 150ms ease;
 }
+.game-solitaire-cell { background: color-mix(in srgb, #3a8fc0 10%, transparent); }
 .game-solitaire-slot > .game-solitaire-back { position: absolute; inset: -1px; }
-.game-solitaire-ghost { font-size: 22px; color: var(--text-dim); opacity: 0.5; }
-.game-solitaire-recycle { font-size: 22px; color: var(--text-dim); }
+.game-solitaire-suit { font-size: 20px; color: var(--text-dim); opacity: 0.45; }
+.game-solitaire-recycle { width: 18px; height: 18px; border: 3px solid var(--text-dim); border-top-color: transparent; border-radius: 50%; opacity: 0.6; }
+.game-solitaire-count { position: absolute; right: 2px; bottom: 2px; z-index: 1; padding: 0 3px; background: #0008; color: #fff; font: 700 9px/12px ui-monospace, monospace; border-radius: 2px; pointer-events: none; }
 .game-solitaire-tab { display: flex; }
-.game-solitaire-col { position: relative; flex: none; }
+.game-solitaire-col { position: relative; flex: none; border-radius: 4px; }
 .game-solitaire-empty { position: absolute; top: 0; left: 0; }
 
 .game-solitaire-card {
   box-sizing: border-box;
   border-radius: 4px;
-  border: 1px solid #0003;
-  box-shadow: 0 1px 1px #0002;
+  border: 1px solid #0004;
+  box-shadow: 0 1px 0 #0003, 0 2px 3px #0002;
   overflow: hidden;
 }
 .game-solitaire-face {
-  background: #fdfbf5;
+  background: linear-gradient(170deg, #fffdf7 0%, #f6f0e0 100%);
   color: #1b1b1f;
   cursor: pointer;
   position: relative;
 }
+.game-solitaire-face::after { content: ''; position: absolute; inset: 2px; border: 1px solid #0000000d; border-radius: 3px; pointer-events: none; }
 .game-solitaire-red { color: #c8323a; }
 .game-solitaire-corner {
   position: absolute;
@@ -59,59 +67,50 @@
   gap: 1px;
 }
 .game-solitaire-corner i { font-style: normal; font-size: 13px; }
-.game-solitaire-pip {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  font-size: 22px;
-  line-height: 1;
-}
-.game-solitaire-court {
-  position: absolute;
-  bottom: 1px;
-  right: 1px;
-  width: 72%;
-  image-rendering: pixelated;
-  pointer-events: none;
-}
+.game-solitaire-pip { position: absolute; bottom: 4px; right: 4px; font-size: 22px; line-height: 1; }
+.game-solitaire-court { position: absolute; bottom: 1px; right: 1px; width: 72%; image-rendering: pixelated; pointer-events: none; }
 /* Nest back: woven twigs on a straw ground, pixel-hard stops. */
 .game-solitaire-back {
   background-color: #8a5a2b;
   background-image:
+    radial-gradient(circle at 50% 50%, #f3ead2 0 14%, #5e3a1a 15% 19%, transparent 20%),
     repeating-linear-gradient(45deg, #c89455 0 2px, transparent 2px 6px),
-    repeating-linear-gradient(-45deg, #5e3a1a 0 2px, transparent 2px 6px),
-    radial-gradient(circle at 50% 50%, #f3ead2 0 18%, transparent 19%);
+    repeating-linear-gradient(-45deg, #5e3a1a 0 2px, transparent 2px 6px);
   border: 2px solid #f3ead2;
   image-rendering: pixelated;
 }
 .game-solitaire-shake { animation: game-solitaire-shake 0.3s; }
-@keyframes game-solitaire-shake {
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
-}
-.game-solitaire-tools { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.game-solitaire-glow { box-shadow: 0 0 0 2px #ffe07a, 0 0 10px #ffe07a; z-index: 5; animation: game-solitaire-pulse 500ms ease-in-out infinite alternate; }
+.game-solitaire-target { box-shadow: 0 0 0 2px #7fe0ff, 0 0 12px #7fe0ff88; }
+.game-solitaire-tools { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
 .game-solitaire-go { font-weight: 700; }
 .game-solitaire-drag { position: fixed; z-index: 50; pointer-events: none; }
-.game-solitaire-drag .game-solitaire-card { box-shadow: 0 4px 10px #0004; }
+.game-solitaire-drag .game-solitaire-card { box-shadow: 0 8px 16px #0005; transform: rotate(-2deg) scale(1.04); }
 
-.game-solitaire-win { overflow: hidden; }
-.game-solitaire-cascade { position: absolute; inset: 0; pointer-events: none; }
-.game-solitaire-flyer {
-  position: absolute;
-  top: -60px;
-  animation: game-solitaire-drift 3.2s linear calc(var(--i) * 0.18s) infinite;
+/* The win: the deck bounces down the screen behind a small panel. */
+.game-solitaire-cascade { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 40; pointer-events: none; }
+.game-solitaire-win {
+  position: fixed; left: 50%; top: 30%; transform: translateX(-50%); z-index: 41;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 18px; max-width: 86vw;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); border: 2px solid #e8b04a; border-radius: 6px; box-shadow: 0 4px 0 #0004;
+  text-align: center; animation: game-solitaire-land 420ms cubic-bezier(0.2, 1.5, 0.4, 1);
 }
-.game-solitaire-flyer img {
-  width: 48px;
-  image-rendering: pixelated;
-  animation: game-solitaire-bounce 0.8s cubic-bezier(0.3, 0, 0.7, 1) calc(var(--i) * 0.18s) infinite alternate;
+.game-solitaire-win p { margin: 0; font-size: 15px; }
+
+/* The ghost's pace over 52 cards: see-through, glowing, bobbing. */
+.game-solitaire-track { position: relative; height: 34px; margin: 0 4px 6px; padding-top: 16px; box-sizing: border-box; }
+.game-solitaire-track-bar { position: relative; height: 6px; background: color-mix(in srgb, var(--text) 12%, transparent); }
+.game-solitaire-track-bar i { position: absolute; left: 0; top: 0; bottom: 0; transition: width 600ms ease; }
+.game-solitaire-track-you { background: #e8b04a; }
+.game-solitaire-track-them { border-right: 2px solid #fff; background: #ffffff22; box-shadow: 2px 0 6px #fff; }
+.game-solitaire-ghost { position: absolute; top: -8px; opacity: 0.4; filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 2px #fff); transition: left 600ms ease; animation: game-solitaire-bob 1.4s ease-in-out infinite alternate; pointer-events: none; }
+.game-solitaire-ghost img { width: 28px; height: 28px; image-rendering: pixelated; }
+.game-solitaire-track-say { position: absolute; right: 0; top: 0; font-size: 10px; color: var(--text-dim); }
+
+@keyframes game-solitaire-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+@keyframes game-solitaire-pulse { to { box-shadow: 0 0 0 2px #ffe07a, 0 0 16px #ffe07a; } }
+@keyframes game-solitaire-bob { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+@keyframes game-solitaire-land { from { transform: translateX(-50%) scale(0.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .game-solitaire-shake, .game-solitaire-glow, .game-solitaire-ghost, .game-solitaire-win { animation: none; }
 }
-@keyframes game-solitaire-drift {
-  from { transform: translate(0, 0); }
-  to { transform: translate(120px, 0); }
-}
-@keyframes game-solitaire-bounce {
-  from { transform: translateY(60px); }
-  to { transform: translateY(420px); }
-}
-.game-solitaire-win p, .game-solitaire-win button { position: relative; z-index: 1; }

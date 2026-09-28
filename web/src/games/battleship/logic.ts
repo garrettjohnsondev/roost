@@ -1,3 +1,5 @@
+import { seeded } from '../types';
+
 /** Pure Battleship ("Nests") logic: an 8x8 pond, nests of 5,4,3,3,2. */
 export const N = 8;
 export const SIZES = [5, 4, 3, 3, 2];
@@ -120,3 +122,83 @@ export function aiShot(b: Board, level: Level, rand: () => number): number {
   if (max <= 0) return pick(unknown);
   return pick(cand.filter((i) => d[i] === max));
 }
+
+// ---- Wave 3: drag placement, sonar, burst shots, daily pond, ghosts ----
+
+/** The cells a nest of `size` covers from (x, y), or null if off the pond. */
+export function nestCells(x: number, y: number, size: number, horiz: boolean): number[] | null {
+  if (x < 0 || y < 0 || (horiz ? x + size > N || y >= N : y + size > N || x >= N)) return null;
+  return Array.from({ length: size }, (_, k) => (horiz ? idx(x + k, y) : idx(x, y + k)));
+}
+
+export const isHoriz = (n: Nest) => n.cells.length < 2 || n.cells[1] - n.cells[0] === 1;
+
+/** Move nest k so it starts at (x, y) facing `horiz`; null if it would leave
+ *  the pond or overlap another nest. Only for placement (no shots yet). */
+export function moveNest(b: Board, k: number, x: number, y: number, horiz: boolean): Board | null {
+  const cells = nestCells(x, y, b.nests[k].cells.length, horiz);
+  if (!cells) return null;
+  const others = new Set(b.nests.flatMap((n, j) => (j === k ? [] : n.cells)));
+  if (cells.some((c) => others.has(c))) return null;
+  return { ...b, nests: b.nests.map((n, j) => (j === k ? { cells } : n)) };
+}
+
+/** Turn nest k a quarter about its first cell, sliding it back along the
+ *  new line if it would poke off the pond or into a neighbour. */
+export function rotateNest(b: Board, k: number): Board | null {
+  const n = b.nests[k];
+  const [x, y] = xy(n.cells[0]);
+  const horiz = !isHoriz(n);
+  for (let back = 0; back < n.cells.length; back++) {
+    const r = moveNest(b, k, horiz ? x - back : x, horiz ? y : y - back, horiz);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** Sonar: how many unfound nest cells sit in the 3x3 around i. */
+export function sonar(b: Board, i: number): number {
+  const [cx, cy] = xy(i);
+  let n = 0;
+  for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+    if (x < 0 || y < 0 || x >= N || y >= N) continue;
+    const c = idx(x, y);
+    if (b.shots[c] !== 2 && nestAt(b, c) >= 0) n++;
+  }
+  return n;
+}
+
+/** A burst hits i and its left/right neighbours (clipped to the pond). */
+export function burstCells(i: number): number[] {
+  const [x] = xy(i);
+  return [x > 0 ? i - 1 : -1, i, x < N - 1 ? i + 1 : -1].filter((c) => c >= 0);
+}
+
+/** Fire at several cells at once (repeats are skipped). */
+export function fireMany(b: Board, cells: number[]): { board: Board; results: Array<ShotResult & { cell: number }> } {
+  const results: Array<ShotResult & { cell: number }> = [];
+  for (const c of cells) {
+    const r = fire(b, c);
+    if (r.result.kind === 'repeat') continue;
+    b = r.board;
+    results.push({ ...r.result, cell: c });
+  }
+  return { board: b, results };
+}
+
+/** Hits in a row that earn a burst. */
+export const STREAK_FOR_BURST = 3;
+
+/** The streak after a shot, and whether it just earned a burst. */
+export function nextStreak(streak: number, hit: boolean): { streak: number; earned: boolean } {
+  if (!hit) return { streak: 0, earned: false };
+  const n = streak + 1;
+  return n >= STREAK_FOR_BURST ? { streak: 0, earned: true } : { streak: n, earned: false };
+}
+
+/** Today's pond: the same foe nests for everyone all day. */
+export const dailyBoard = (day: number): Board => newBoard(seeded(day * 977 + 13));
+
+/** Shots a ghost of this strength needs to find every nest. Moss (0.2) is
+ *  looser than the easy AI (~48 shots); Nell (0.95) beats the hard AI (~34). */
+export const ghostShots = (strength: number) => Math.round(57.3 - 26.7 * strength);

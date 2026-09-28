@@ -19,6 +19,8 @@ export interface State {
   moves: number;
   secs: number;
   undos: number;
+  /** Set when this is the daily deal (its day number). */
+  daily?: number;
 }
 
 export type From = { kind: 'waste' } | { kind: 'found'; suit: number } | { kind: 'tab'; col: number; idx: number };
@@ -156,3 +158,39 @@ export function autoComplete(s: State): State[] | null {
   }
   return null;
 }
+
+// ---- Wave 3: hints, the daily deal, ghosts ----
+
+/** A useful Klondike move to suggest: home first, then a run that turns a
+ *  face-down card over, then the waste onto a column, else draw. Null when
+ *  there's nothing left to try. */
+export function hint(s: State): { from: From; to: To } | 'draw' | null {
+  const tops: From[] = [{ kind: 'waste' }, ...s.tab.map((c, col) => ({ kind: 'tab', col, idx: c.cards.length - 1 }) as From)];
+  for (const f of tops) {
+    const cards = pick(s, f);
+    if (cards && cards.length === 1) {
+      const to: To = { kind: 'found', suit: suitOf(cards[0]) };
+      if (canPlace(s, cards, to)) return { from: f, to };
+    }
+  }
+  for (let col = 0; col < 7; col++) {
+    const c = s.tab[col];
+    if (!c.cards.length || c.hidden === 0) continue;
+    const from: From = { kind: 'tab', col, idx: c.hidden };
+    const cards = pick(s, from)!;
+    for (let t = 0; t < 7; t++) if (t !== col && canPlace(s, cards, { kind: 'tab', col: t })) return { from, to: { kind: 'tab', col: t } };
+  }
+  const w = pick(s, { kind: 'waste' });
+  if (w) for (let t = 0; t < 7; t++) if (canPlace(s, w, { kind: 'tab', col: t })) return { from: { kind: 'waste' }, to: { kind: 'tab', col: t } };
+  return s.stock.length || s.waste.length ? 'draw' : null;
+}
+
+/** Today's deal, the same for everyone. */
+export const dailySeed = (day: number) => (day * 7919 + 17) % 2 ** 31;
+
+/** Seconds a ghost of this strength takes to win: Moss (0.2) about 8
+ *  minutes, a relaxed game; Nell (0.95) about 2:30, which needs real speed. */
+export const ghostSecs = (strength: number) => Math.round(570 - 440 * strength);
+
+/** Cards the ghost has home by `secs`, pacing evenly to 52 at its target. */
+export const ghostHome = (target: number, secs: number) => Math.min(52, Math.floor((52 * secs) / Math.max(1, target)));
