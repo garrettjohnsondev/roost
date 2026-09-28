@@ -1006,14 +1006,19 @@ button {
 .stop-btn {
   flex-shrink: 0;
   align-self: center;
-  color: var(--danger);
-  font-size: 12px;
-  font-weight: 600;
+  width: 36px;
+  height: 36px;
+  margin-left: 2px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--danger);
   border-radius: 2px;
-  padding: 6px 10px;
   background: transparent;
 }
+/* A plain red square (2026-09-28): the word was crowding the row's edge. */
+.stop-square { width: 12px; height: 12px; border-radius: 2px; background: var(--danger); }
 
 /* ---------- rename ---------- */
 

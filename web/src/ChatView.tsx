@@ -2318,6 +2318,7 @@ function Composer(props: {
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
   /** A send that could not go out. The draft is kept; this says why. */
   const [unsent, setUnsent] = useState(false);
+  const [focused, setFocused] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   // The field grows with the text, like Messages, to the CSS max-height; then
   // it scrolls. Measured from the content, not counted from newlines, so a
@@ -2398,13 +2399,17 @@ function Composer(props: {
       )}
       <div className="composer-row">
         {props.working && (
-          <button className="stop-btn" onClick={props.onInterrupt} title="Stop the current turn">
-            ■ Stop
+          <button className="stop-btn" onClick={props.onInterrupt} title="Stop the current turn" aria-label="Stop">
+            <span className="stop-square" />
           </button>
         )}
-        <button className="ghost" onClick={() => fileRef.current?.click()}>
-          ＋
-        </button>
+        {/* While they work, the + waits until you tap into the box, so Stop
+            has the room (2026-09-28). */}
+        {(!props.working || focused || text || images.length > 0) && (
+          <button className="ghost" onMouseDown={(e) => e.preventDefault()} onClick={() => fileRef.current?.click()}>
+            ＋
+          </button>
+        )}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <div className="composer-field">
           <textarea
@@ -2413,6 +2418,8 @@ function Composer(props: {
             rows={1}
             placeholder={props.placeholder ?? 'Message…'}
             onChange={(e) => setText(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) {
                 e.preventDefault();
