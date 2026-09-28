@@ -467,6 +467,11 @@ Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `cod
 53. **More providers, more crew.** Roost drives only Claude and Codex. Research ACP (Agent Client Protocol) -- one adapter for Gemini CLI and others -- then a crew of 4-5 per new provider, drawn like the rest.
 54. **Carried over.** The code map savings report (needs a few days of turns), more code-map languages (after #53), light/dark parity (MOTION.md §7.9), and #37 (plan mode vs a name you asked for) still undecided.
 55. **Mini games (added 2026-09-28).** Something to play while the crew works: Roost-themed Snake, Minesweeper, Battleship and Solitaire, all using the crew and scenes. Stretch goal: an Angry Birds-style launcher, Roost edition. Needs a design talk first (where the games live, whether they pause when the crew needs you).
+    - Agreed: when the crew needs you mid-game, a banner slides in over the paused game; one tap answers, one tap returns.
+    - Game saves: every game resumes exactly where you left it (a phone in line gets interrupted a lot).
+    - For the player: high scores, personal bests, and achievements (Roost-themed, crew hands them out).
+    - Stretch: a sports pack of simple flick games: field-goal football, baseball (timing swing), soccer (penalty kicks), basketball (flick shots).
+    - More short ideas to consider: 2048, Wordle-style daily word, Flappy-style (a crew bird), Breakout, Sudoku, memory match with crew cards, Stack/tower drop. Rule: every game is playable one-handed in under two minutes.
 
 ### 12a. Motion — the stream with the most pull behind it
 
