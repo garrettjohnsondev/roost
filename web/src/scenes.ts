@@ -341,3 +341,16 @@ export function placeCrew(awake: Array<{ member: CrewInfo; working: boolean }>, 
   });
   return { placed, overflow };
 }
+
+/** Morning and night (roadmap #50): every set was drawn at night; each now
+ *  has a sunny-morning twin with the seats in the same places. Day runs
+ *  6am–6pm local, so the scene you open at lunch is lit, and the stars and
+ *  lamps only come out after dark. */
+export const DAY_TWINS = new Set<string>(["aquarium", "arcade", "bakery", "beach", "blossom", "bowling", "bucket", "busstop", "cafe", "campfire", "cards", "carnival", "castle", "garage", "greenhouse", "hotspring", "icerink", "kitchen", "lake", "lanterns", "laundromat", "library", "lighthouse", "mushrooms", "oasis", "observatory", "orchard", "picnic", "pottery", "ramen", "rooftop", "snow", "spaceship", "stargazing", "station", "studio", "submarine", "summit", "treehouse", "workshop"]);
+export function isDaytime(d: Date): boolean {
+  const h = d.getHours();
+  return h >= 6 && h < 18;
+}
+export function sceneImage(id: string, d: Date): string {
+  return isDaytime(d) && DAY_TWINS.has(id) ? `/scenes/${id}-alt.webp` : `/scenes/${id}.webp`;
+}

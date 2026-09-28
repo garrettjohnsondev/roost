@@ -1,3 +1,4 @@
+import { avatarUrl } from './ChatView';
 import { useEffect, useState } from 'react';
 import { api } from './api';
 
@@ -81,7 +82,7 @@ export function AvatarPicker({
             title={a.label}
             onClick={() => onPick(a.file, a.color)}
           >
-            <img src={a.file} alt={a.label} loading="lazy" />
+            <img src={avatarUrl(a.file) ?? a.file} alt={a.label} loading="lazy" />
           </button>
         ))}
         {custom.map((c) => (

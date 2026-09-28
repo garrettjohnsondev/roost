@@ -2,7 +2,7 @@ import { nameSeed } from './ChatView';
 import { useState } from 'react';
 import { nameColor } from './color';
 import { openCompanion } from './CompanionSheet';
-import { SCENES, placeCrew, sceneIndexFor, type Ambient, type Placed } from './scenes';
+import { DAY_TWINS, SCENES, isDaytime, placeCrew, sceneImage, sceneIndexFor, type Ambient, type Placed } from './scenes';
 import type { CrewInfo } from './types';
 
 /** The crew off duty (docs/SCENES.md): the awake members in a drawn scene,
@@ -23,6 +23,8 @@ export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ 
   const asked = SCENES.find((s) => s.id === projectScene);
   const scene = SCENES.find((s) => s.id === pinned) ?? asked ?? SCENES[sceneIndexFor(new Date())];
   const { placed, overflow } = placeCrew(awake, scene);
+  const now = new Date();
+  const day = isDaytime(now) && DAY_TWINS.has(scene.id);
   onOverflow?.(overflow);
   return (
     <div
@@ -31,8 +33,8 @@ export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ 
       title={`${scene.name} — today's scene`}
       aria-label={`${scene.name}: ${placed.map((p) => p.member.name).join(', ') || 'nobody is up yet'}`}
     >
-      <img className="scene-bg" src={`/scenes/${scene.id}.webp`} alt="" onError={() => setMissing(true)} draggable={false} />
-      {scene.ambient && <AmbientLayer id={scene.id} a={scene.ambient} />}
+      <img className="scene-bg" src={sceneImage(scene.id, now)} alt="" onError={() => setMissing(true)} draggable={false} />
+      {scene.ambient && <AmbientLayer id={scene.id} a={day ? { ...scene.ambient, stars: undefined, shooting: undefined, glows: scene.ambient.glows?.filter((g) => g.kind === 'flicker') } as Ambient : scene.ambient} />}
       {placed.map((p) => (
         <Seated key={p.member.name} placed={p} />
       ))}

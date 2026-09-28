@@ -1005,7 +1005,12 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
  *  also what every crew member has before anyone picks a face. */
 export function avatarUrl(avatar?: string): string | null {
   if (!avatar) return null;
-  return avatar.startsWith('/') ? avatar : `/avatars/custom/${avatar}`;
+  if (!avatar.startsWith('/')) return `/avatars/custom/${avatar}`;
+  // The pool, redrawn in the crew's pixel style (roadmap #51). Stored picks
+  // keep their old path, so every face upgrades without anyone re-choosing.
+  // The beacon stays as drawn: its pixel redo came out as a siren light.
+  const m = /^\/avatars\/([a-z0-9-]+)\.png$/.exec(avatar);
+  return m && m[1] !== 'beacon' ? `/avatars-pixel/${m[1]}.png` : avatar;
 }
 
 /** The poses the drawn sets ship. `idle` is the resting frame every animation
