@@ -1,3 +1,4 @@
+import { Icon } from '../../icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GameMeta, GameProps } from '../types';
 import { sprite } from '../types';
@@ -89,7 +90,7 @@ export function Game({ save, onSave, onScore, onAchieve, paused }: GameProps<Sav
                 disabled={locked}
                 onClick={() => { setPlaying(i); setAttempt((a) => a + 1); }}
               >
-                <span className="game-roostbirds-num">{locked ? '🔒' : i + 1}</span>
+                <span className="game-roostbirds-num">{locked ? <Icon name="lock" /> : i + 1}</span>
                 <span className="game-roostbirds-name">{l.name}</span>
                 <span className="game-roostbirds-stars">{[0, 1, 2].map((k) => <i key={k} className={k < prog.stars[i] ? 'on' : ''}>★</i>)}</span>
               </button>
@@ -304,7 +305,7 @@ function Play({ idx, paused, best, hasNext, onEnd, onRetry, onNext, onLevels }: 
       <div className="game-roostbirds-birds">
         {hud.current && hud.phase !== 'won' && <img className="now" src={sprite(hud.current, 'idle')} alt={hud.current} />}
         {hud.phase !== 'won' && hud.queue.map((b, i) => <img key={i} src={sprite(b, 'idle')} alt={b} />)}
-        <span className="game-roostbirds-bugcount">🪲 {hud.bugs}</span>
+        <span className="game-roostbirds-bugcount">{hud.bugs} bug{hud.bugs === 1 ? '' : 's'} left</span>
       </div>
       <div className="game-roostbirds-stage" ref={wrapRef}>
         <canvas
