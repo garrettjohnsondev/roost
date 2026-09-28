@@ -293,7 +293,8 @@ describe('the only things that repeat are states that persist', () => {
     // .aura-*: a worn aura (games wave 1) -- the owner chose it in the locker;
     // its cause is them wearing it, and it ends when they take it off.
     // .crate-* / .locker-*: the crate opening and shop, on screen only there.
-    const sanctioned = [/^\.aura/, /crate|locker|hub-/, /rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
+    // .rotate-phone: the turn-your-phone hint; gone the moment you turn it.
+    const sanctioned = [/rotate-phone/, /^\.aura/, /crate|locker|hub-/, /rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });

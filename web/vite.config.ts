@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     host: true,
     proxy: {
-      '/api': 'http://localhost:8790',
-      '/ws': { target: 'ws://localhost:8790', ws: true },
+      '/api': `http://localhost:${process.env.ROOST_API_PORT ?? 8790}`,
+      '/ws': { target: `ws://localhost:${process.env.ROOST_API_PORT ?? 8790}`, ws: true },
     },
   },
 });

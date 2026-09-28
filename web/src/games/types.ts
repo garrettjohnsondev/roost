@@ -21,6 +21,29 @@ export interface GameProps<S = unknown> {
   /** True while the needs-you banner is up or the tab is hidden: stop timers. */
   paused: boolean;
   best: number | undefined;
+  /** The ghost you're racing (wave 3), or null when ghosts are off. Draw it
+   *  see-through; the host checks the finished score against `target`. */
+  ghost?: Ghost | null;
+}
+
+/** A crew member's recorded best, as strong as their model: Haiku's Moss is
+ *  easy to beat, Astra's Nell is not (the owner, 2026-09-29). */
+export interface Ghost { name: string; sprite: string; strength: number; target: number }
+export const GHOSTS: Array<{ name: string; sprite: string; strength: number; model: string }> = [
+  { name: 'Moss', sprite: 'moss', strength: 0.2, model: 'Haiku' },
+  { name: 'Tuck', sprite: 'tuck', strength: 0.25, model: 'GPT mini' },
+  { name: 'Bly', sprite: 'bly', strength: 0.35, model: 'Luna' },
+  { name: 'Otto', sprite: 'otto', strength: 0.4, model: 'GPT' },
+  { name: 'Fig', sprite: 'fig', strength: 0.45, model: 'Claude' },
+  { name: 'Wren', sprite: 'wren', strength: 0.55, model: 'Sonnet' },
+  { name: 'Rue', sprite: 'rue', strength: 0.6, model: 'Terra' },
+  { name: 'Juno', sprite: 'juno', strength: 0.75, model: 'Sol' },
+  { name: 'Bram', sprite: 'bram', strength: 0.8, model: 'Fable' },
+  { name: 'Ollie', sprite: 'ollie', strength: 0.88, model: 'Opus' },
+  { name: 'Nell', sprite: 'nell', strength: 0.95, model: 'Astra' },
+];
+export function ghostBeaten(meta: GameMeta, g: Ghost, score: number): boolean {
+  return meta.lowerIsBetter ? score < g.target : score > g.target;
 }
 
 export interface Achievement { id: string; name: string; says: string }
@@ -41,6 +64,13 @@ export interface GameMeta {
   /** For games whose save outlives a run (unlocks, streaks): is a run in
    *  progress? Without it, any save means "Resume". */
   inProgress?: (save: any) => boolean;
+  /** The score a ghost of this strength (0 easy .. 1 hard) posts. Games that
+   *  set it get ghosts; the host picks who and checks the win. */
+  ghostScore?: (strength: number) => number;
+  /** Plays sideways: the host asks you to turn your phone first. */
+  orientation?: 'landscape';
+  /** Where the coding crew member may sit without covering anything. */
+  safeCorner?: 'tl' | 'tr' | 'bl' | 'br';
 }
 
 export interface GameModule {

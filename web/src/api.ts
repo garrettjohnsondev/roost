@@ -106,6 +106,10 @@ export const api = {
   visit: (day: string) => request<{ streak: number; best: number; firstToday: boolean }>('/api/visit', { method: 'POST', body: JSON.stringify({ day }) }),
   newProject: (body: { name: string; visibility: 'private' | 'public' | 'none'; blurb?: string }) =>
     request<{ path: string; repoUrl: string | null; steps: string[]; projects: string[] }>('/api/projects/new', { method: 'POST', body: JSON.stringify(body) }),
+  economy: () => request<any>('/api/economy'),
+  economyCatalog: () => request<any>('/api/economy/catalog'),
+  eco: (action: 'buy' | 'free' | 'open' | 'tradeup' | 'equip' | 'ghost', body: object = {}) =>
+    request<{ result: any; state: any }>(`/api/economy/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
   gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
   gameScore: (id: string, score: number, lowerIsBetter = false) =>

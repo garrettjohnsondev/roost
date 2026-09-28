@@ -11,6 +11,22 @@
  *  including through its label -- so on iPhone each "on" beat of a pattern
  *  becomes one tick (roadmap #48). */
 export type HapticKind = 'approval' | 'pass' | 'fail' | 'reward';
+
+/** For games (wave 3): n quick ticks spaced `gap` ms apart -- on iPhone the
+ *  only thing a web page can vary is the COUNT and rhythm, not the strength,
+ *  so a bigger moment is more ticks. Android gets matching buzz lengths. */
+export function ticks(n: number, gap = 45, strength = 20): void {
+  n = Math.max(1, Math.min(12, Math.round(n)));
+  if (typeof navigator === 'undefined') return;
+  if (typeof navigator.vibrate === 'function') {
+    const p: number[] = [];
+    for (let i = 0; i < n; i++) p.push(strength, gap);
+    try { navigator.vibrate(p); } catch { /* */ }
+    return;
+  }
+  if (!isIOS()) return;
+  for (let i = 0; i < n; i++) setTimeout(iosTick, i * (gap + 15));
+}
 export const HAPTICS: Record<HapticKind, number[]> = {
   /** An achievement or a new best in the arcade: two quick taps. */
   reward: [25, 60, 25],
