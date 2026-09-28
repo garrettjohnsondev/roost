@@ -1,10 +1,10 @@
-/** Fourteen hand-made forts full of bugs. Coordinates: x from the left edge,
+/** Seventeen hand-made forts full of bugs. Coordinates: x from the left edge,
  *  heights measured up from the ground (the game flips them). */
 
 import { makeBox, makeCircle, World, type Body } from './physics';
 
-export type BlockMat = 'wood' | 'stone' | 'glass';
-export type BirdName = 'rue' | 'pip' | 'ollie' | 'wren' | 'moss';
+export type BlockMat = 'wood' | 'stone' | 'glass' | 'tnt';
+export type BirdName = 'rue' | 'pip' | 'ollie' | 'wren' | 'moss' | 'bly' | 'tuck';
 export interface BlockDef { x: number; y: number; w: number; h: number; mat: BlockMat }
 export interface BugDef { x: number; y: number; r: number; boss?: boolean }
 export interface Level {
@@ -16,7 +16,9 @@ export interface Level {
   bugs: BugDef[];
 }
 
-export const SCORE = { bug: 5000, boss: 8000, glass: 300, wood: 500, stone: 800, bird: 10000 };
+export const SCORE = { bug: 5000, boss: 8000, glass: 300, wood: 500, stone: 800, tnt: 400, bird: 10000 };
+/** A boss bug takes this many ordinary bugs' worth of hits. */
+export const BOSS_HP = 5;
 
 class Fort {
   blocks: BlockDef[] = [];
@@ -36,6 +38,7 @@ class Fort {
   }
   bug(cx: number, base: number, r = 10) { this.bugs.push({ x: cx, y: base + r, r }); }
   boss(cx: number, base: number) { this.bugs.push({ x: cx, y: base + 15, r: 15, boss: true }); }
+  tnt(cx: number, base: number, s = 20) { return this.block(cx, base, s, s, 'tnt'); }
   done(name: string, scene: string, width: number, birds: BirdName[]): Level {
     return { name, scene, width, birds, blocks: this.blocks, bugs: this.bugs };
   }
@@ -209,6 +212,41 @@ export const LEVELS: Level[] = [
     f.bug(1000, s, 12);
     f.post(900, 0, 90, 'stone', 16);
   }, 'Production outage', 'submarine', 1130, ['moss', 'ollie', 'moss', 'wren', 'pip']),
+  // 15. TNT: one good knock and the whole shed goes.
+  build((f) => {
+    let t = f.frame(600, 0, 90, 45, 'wood');
+    f.tnt(600, 0);
+    f.bug(578, 0, 8); f.bug(622, 0, 8);
+    t = f.frame(600, t, 70, 40, 'wood', 'glass');
+    f.bug(600, t);
+    const u = f.frame(820, 0, 60, 50, 'stone', 'wood');
+    f.tnt(820, 0, 22);
+    f.bug(820, u);
+  }, 'Hot fix', 'workshop', 960, ['rue', 'tuck', 'rue']),
+
+  // 16. Bly boomerangs back to the bug you walled off.
+  build((f) => {
+    f.post(620, 0, 140, 'stone', 20);
+    f.bug(670, 0, 10);
+    f.bug(705, 0, 9);
+    let t = f.frame(880, 0, 80, 45, 'wood');
+    f.tnt(880, 0);
+    t = f.frame(880, t, 60, 35, 'glass', 'wood');
+    f.bug(880, t);
+  }, 'Backwards compat', 'station', 960, ['bly', 'bly', 'tuck']),
+
+  // 17. Bosses can take a beating: a health bar and a chain of crates.
+  build((f) => {
+    const t = f.frame(760, 0, 140, 55, 'stone', 'stone');
+    f.boss(760, 0);
+    f.tnt(725, 0); f.tnt(795, 0);
+    const u = f.frame(760, t, 90, 40, 'wood', 'glass');
+    f.bug(760, u);
+    f.tnt(560, 0, 22);
+    f.bug(560, 22, 9);
+    const v = f.frame(990, 0, 60, 60, 'glass', 'wood');
+    f.bug(990, 0); f.bug(990, v);
+  }, 'Kernel panic', 'spaceship', 1130, ['tuck', 'ollie', 'bly', 'moss', 'pip']),
 ];
 
 export function levelValue(l: Level) {
@@ -237,7 +275,7 @@ export function spawnLevel(l: Level): { world: World; ground: Body; blocks: Body
   const bugs = l.bugs.map((d) => {
     const b = world.add(makeCircle(d.x, GROUND_Y - d.y, d.r, 'bug'));
     b.invI = 0; // beetles slide, they don't roll
-    if (d.boss) { b.hp *= 3; b.tag = 'boss'; }
+    if (d.boss) { b.hp *= BOSS_HP; b.tag = 'boss'; }
     return b;
   });
   // forts start asleep: rock solid until something hits them

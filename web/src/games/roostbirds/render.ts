@@ -70,6 +70,13 @@ function makeTile(key: string): HTMLCanvasElement {
       for (let i = 0; i < 5; i++) px(g, 3 + i, 10 - i * 2, 'rgba(255,255,255,0.8)', 1, 2);
       for (let i = 0; i < 3; i++) px(g, 10 + i, 14 - i * 2, 'rgba(255,255,255,0.55)', 1, 2);
     });
+    case 'tnt': return tile(key, 16, 16, (g, r) => {
+      px(g, 0, 0, '#d63a2a', 16, 16);
+      for (let i = 0; i < 24; i++) px(g, Math.floor(r() * 16), Math.floor(r() * 16), r() < 0.5 ? '#c02f22' : '#e25040');
+      px(g, 0, 0, '#8a1f14', 16, 2); px(g, 0, 14, '#8a1f14', 16, 2);
+      px(g, 0, 0, '#8a1f14', 2, 16); px(g, 14, 0, '#8a1f14', 2, 16);
+      px(g, 2, 2, '#f0705e', 12, 1);
+    });
     case 'ground': return tile(key, 32, 32, (g, r) => {
       px(g, 0, 0, '#7a5231', 32, 32);
       for (let i = 0; i < 70; i++) px(g, Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? '#6a4529' : '#8d6139', 1 + Math.floor(r() * 2), 1);
@@ -100,7 +107,7 @@ const BUG_COLORS: Record<string, [string, string, string, string]> = {
   red: ['#c9502f', '#7a2a16', '#f08a5f', '#8f3a22'],
 };
 
-function drawBug(ctx: CanvasRenderingContext2D, b: Body, time: number) {
+function drawBug(ctx: CanvasRenderingContext2D, b: Body, time: number, flash = 0) {
   const pal = BUG_COLORS[b.tag === 'boss' ? 'boss' : b.id % 3 === 0 ? 'red' : 'normal'];
   const hurt = b.dmg / b.hp;
   const s = (b.r * 2.2) / 10;
@@ -132,6 +139,25 @@ function drawBug(ctx: CanvasRenderingContext2D, b: Body, time: number) {
     ctx.fillRect(1 * s, 4.5 * s, 3 * s, 1 * s);
   }
   ctx.restore();
+  if (flash > 0) {
+    // a white hit flash
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, flash / 0.15) * 0.7;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 1.05, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  if (b.tag === 'boss') {
+    // a health bar: bosses take a beating
+    const left = Math.max(0, 1 - b.dmg / b.hp);
+    const w = 36, x = b.x - w / 2, y = b.y - b.r - 14;
+    ctx.fillStyle = 'rgba(20,16,30,0.8)';
+    ctx.fillRect(x - 1, y - 1, w + 2, 6);
+    ctx.fillStyle = left > 0.5 ? '#7fcb4f' : left > 0.25 ? '#f4b63f' : '#e2453a';
+    ctx.fillRect(x, y, Math.max(0, w * left), 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(x, y, Math.max(0, w * left), 1);
+  }
 }
 
 // ---------- blocks ----------
@@ -145,9 +171,26 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: Body) {
   const pat = texture(ctx, b.mat);
   ctx.fillStyle = pat ?? '#a0642c';
   ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
-  ctx.strokeStyle = b.mat === 'glass' ? 'rgba(235,250,255,0.9)' : b.mat === 'stone' ? '#4d4f57' : '#5b3716';
+  ctx.strokeStyle = b.mat === 'glass' ? 'rgba(235,250,255,0.9)' : b.mat === 'stone' ? '#4d4f57' : b.mat === 'tnt' ? '#5a120c' : '#5b3716';
   ctx.lineWidth = 1;
   ctx.strokeRect(-hw + 0.5, -hh + 0.5, hw * 2 - 1, hh * 2 - 1);
+  // a pixel top-light and a shade line: blocks read as solid
+  if (b.mat !== 'glass') {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillRect(-hw + 1, -hh + 1, hw * 2 - 2, 1.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(-hw + 1, hh - 2.5, hw * 2 - 2, 1.5);
+  }
+  if (b.mat === 'tnt') {
+    ctx.save();
+    if (tall) ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.font = `bold ${Math.max(6, Math.min(b.hw, b.hh) * 0.7)}px ui-monospace, Menlo, monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('TNT', 0, 0.5);
+    ctx.restore();
+  }
   const frac = b.dmg / b.hp;
   if (frac > 0.2) {
     const r = rng(b.id * 7919);
@@ -167,12 +210,13 @@ function drawBlock(ctx: CanvasRenderingContext2D, b: Body) {
 
 // ---------- birds and sling ----------
 
-function drawBird(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, r: number, a: number, pose: string, flip = false) {
+function drawBird(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, r: number, a: number, pose: string, flip = false, sx = 1, sy = 1) {
   const i = birdSprite(name, pose);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(a);
   if (flip) ctx.scale(-1, 1);
+  if (sx !== 1 || sy !== 1) ctx.scale(sx, sy);
   if (ready(i)) {
     const s = r * 2.9;
     ctx.drawImage(i, -s / 2, -s / 2 - r * 0.15, s, s);
@@ -207,7 +251,47 @@ function band(ctx: CanvasRenderingContext2D, fx: number, fy: number, x: number, 
 
 export interface Aim { dx: number; dy: number; vx: number; vy: number; power: number }
 
-export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: number, h: number, dpr: number, aim: Aim | null, scene: HTMLImageElement) {
+/** The ghost being raced on this fort: their best shot as a faint arc, and
+ *  their crew sprite floating see-through over it. */
+export interface GhostView { sprite: string; name: string; arc: { x: number; y: number }[] }
+export interface FrameOpts { ghost?: GhostView | null; reduced?: boolean }
+
+const trails = new WeakMap<Sim, { x: number; y: number }[]>();
+
+function drawGhost(ctx: CanvasRenderingContext2D, g: GhostView, time: number) {
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.4;
+  g.arc.forEach((p, i) => { if (i % 2 === 0) ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); });
+  // float the ghost near the top of their arc
+  const top = g.arc.reduce((m, p) => (p.y < m.y ? p : m), g.arc[0] ?? { x: SLING.x, y: SLING.y });
+  const i = birdSprite(g.sprite, 'idle');
+  const bob = Math.sin(time * 2.4) * 4;
+  ctx.shadowColor = 'rgba(255,255,255,0.95)';
+  ctx.shadowBlur = 10;
+  if (ready(i)) ctx.drawImage(i, top.x - 15, top.y - 42 + bob, 30, 30);
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 0.6;
+  ctx.font = 'bold 8px ui-monospace, Menlo, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${g.name}'s best`, top.x, top.y - 46 + bob);
+  ctx.restore();
+}
+
+function drawClouds(ctx: CanvasRenderingContext2D, w: number, h: number, camX: number, time: number) {
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  for (let k = 0; k < 5; k++) {
+    const span = w + 160;
+    const x = Math.floor((((k * 211 - camX * 0.15 + time * (4 + k)) % span) + span) % span - 80);
+    const y = Math.floor(14 + ((k * 53) % Math.max(20, h * 0.35)));
+    const s = 3 + (k % 3);
+    ctx.fillRect(x, y, s * 10, s * 2);
+    ctx.fillRect(x + s * 2, y - s * 2, s * 5, s * 2);
+    ctx.fillRect(x + s * 4, y - s * 3, s * 3, s);
+  }
+}
+
+export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: number, h: number, dpr: number, aim: Aim | null, scene: HTMLImageElement, opts: FrameOpts = {}) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
 
@@ -228,9 +312,11 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
     ctx.fillRect(0, 0, w, groundScreen);
   }
+  drawClouds(ctx, w, h, cam.x, sim.time);
 
-  const shx = sim.shake ? (Math.random() - 0.5) * sim.shake : 0;
-  const shy = sim.shake ? (Math.random() - 0.5) * sim.shake : 0;
+  const shk = opts.reduced ? 0 : sim.shake;
+  const shx = shk ? (Math.random() - 0.5) * shk : 0;
+  const shy = shk ? (Math.random() - 0.5) * shk : 0;
   const z = cam.zoom * dpr;
   ctx.setTransform(z, 0, 0, z, (-cam.x * cam.zoom + shx) * dpr, (h - (GROUND_Y + GROUND_SHOW) * cam.zoom + shy) * dpr);
   ctx.imageSmoothingEnabled = false;
@@ -251,6 +337,18 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
     drawBird(ctx, name, SLING.x - 36 - i * 26, GROUND_Y - r - hop, r, 0, 'idle');
   });
 
+  if (opts.ghost && sim.phase !== 'won' && sim.phase !== 'lost') drawGhost(ctx, opts.ghost, sim.time);
+
+  // this shot's trail: little puffs where the bird has been
+  let trail = trails.get(sim);
+  if (!trail) { trail = []; trails.set(sim, trail); }
+  if (sim.phase === 'flying' && sim.flyers[0] && !sim.flyers[0].dead) {
+    const f = sim.flyers[0], last = trail[trail.length - 1];
+    if (!last || Math.hypot(f.x - last.x, f.y - last.y) > 14) trail.push({ x: f.x, y: f.y });
+  } else if (sim.phase === 'aim' && aim) trail.length = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  trail.forEach((p, i) => { const s = i % 3 === 0 ? 3 : 2; ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s); });
+
   drawSlingBack(ctx);
   const forkB = { x: SLING.x + 7, y: SLING.y - 10 }, forkF = { x: SLING.x - 9, y: SLING.y - 10 };
   const pouch = aim ? { x: SLING.x + aim.dx, y: SLING.y + aim.dy } : SLING;
@@ -258,9 +356,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
 
   for (const b of sim.world.bodies) {
     if (b.dead) continue;
-    if (b.mat === 'wood' || b.mat === 'stone' || b.mat === 'glass') drawBlock(ctx, b);
+    if (b.mat === 'wood' || b.mat === 'stone' || b.mat === 'glass' || b.mat === 'tnt') drawBlock(ctx, b);
   }
-  for (const b of sim.bugs) if (!b.dead) drawBug(ctx, b, sim.time);
+  for (const b of sim.bugs) if (!b.dead) drawBug(ctx, b, sim.time, sim.flash.get(b.id) ?? 0);
   for (const e of sim.eggs) {
     const b = e.body;
     ctx.fillStyle = '#fff4d6';
@@ -272,7 +370,12 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
   for (const f of sim.flyers) {
     if (f.dead) continue;
     const sp = Math.hypot(f.vx, f.vy);
-    drawBird(ctx, f.tag ?? 'rue', f.x, f.y, f.r, sp > 60 ? Math.atan2(f.vy, f.vx) * 0.6 : f.a * 0.3, sp > 60 ? 'side' : 'think');
+    // stretch with speed, squash on a hit
+    const sq = sim.squish.get(f.id) ?? 0;
+    const st = Math.min(0.22, sp / 4000);
+    const sx = sq > 0 ? 1 + sq * 2.2 : 1 + st, sy = sq > 0 ? 1 - sq * 2 : 1 - st * 0.6;
+    const spinning = f.tag === 'bly' && Math.abs(f.w) > 5;
+    drawBird(ctx, f.tag ?? 'rue', f.x, f.y, f.r, spinning ? sim.time * -14 : sp > 60 ? Math.atan2(f.vy, f.vx) * 0.6 : f.a * 0.3, sp > 60 ? 'side' : 'think', f.vx < -60 && !spinning, sx, sy);
   }
 
   if (sim.phase === 'aim' && sim.current) {
@@ -290,7 +393,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
     }
     const r = BIRDS[sim.current].r;
     const bob = aim ? 0 : Math.sin(sim.time * 4) * 1.2;
-    drawBird(ctx, sim.current, pouch.x, pouch.y + bob, r, 0, aim ? 'side' : 'idle');
+    const pull = aim ? aim.power : 0;
+    drawBird(ctx, sim.current, pouch.x, pouch.y + bob, r, 0, aim ? 'side' : 'idle', false, 1 - pull * 0.12, 1 + pull * 0.1);
     band(ctx, forkF.x, forkF.y, pouch.x, pouch.y);
   }
   drawSlingFront(ctx);
@@ -299,11 +403,21 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
     const k = b.t / 0.5;
     ctx.fillStyle = `rgba(255,${Math.round(200 - 120 * k)},60,${0.55 * (1 - k)})`;
     ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (0.3 + 0.7 * k), 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,${0.8 * (1 - k)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r * (0.5 + 0.8 * k), 0, Math.PI * 2); ctx.stroke();
   }
   for (const p of sim.particles) {
-    ctx.globalAlpha = Math.max(0, 1 - p.t / p.life);
+    const life = Math.max(0, 1 - p.t / p.life);
+    ctx.globalAlpha = p.dust ? life * 0.55 : life;
     ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    if (p.rot !== undefined) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+      ctx.restore();
+    } else ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = 'center';
@@ -320,6 +434,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
 
   // a marker when a bird flies above the top of the screen
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (sim.slowmo > 0) {
+    // slow-mo letterbox on the last bug
+    const k = Math.min(1, sim.slowmo * 3);
+    ctx.fillStyle = 'rgba(10,12,24,0.55)';
+    ctx.fillRect(0, 0, w, 14 * k);
+    ctx.fillRect(0, h - 14 * k, w, 14 * k);
+  }
   const top = GROUND_Y + GROUND_SHOW - h / cam.zoom;
   for (const f of sim.flyers) {
     if (f.dead || f.y > top) continue;

@@ -3,7 +3,7 @@
  *  starting, per-body sleeping, and impact damage that breaks blocks.
  *  World units are "pixels" with y pointing down. Robust over clever. */
 
-export type Mat = 'wood' | 'stone' | 'glass' | 'bug' | 'bird' | 'ground' | 'egg';
+export type Mat = 'wood' | 'stone' | 'glass' | 'tnt' | 'bug' | 'bird' | 'ground' | 'egg';
 
 export interface Body {
   id: number;
@@ -30,6 +30,8 @@ export const MATS: Record<Mat, MatSpec> = {
   wood: { density: 0.6, friction: 0.6, rest: 0.1, hp: 400 },
   stone: { density: 2.2, friction: 0.8, rest: 0.05, hp: 2500 },
   glass: { density: 0.5, friction: 0.5, rest: 0.15, hp: 120 },
+  /** A crate of TNT: goes off when it breaks, and sets off its neighbours. */
+  tnt: { density: 0.7, friction: 0.6, rest: 0.1, hp: 160 },
   bug: { density: 0.5, friction: 0.6, rest: 0.2, hp: 60 },
   bird: { density: 1.2, friction: 0.5, rest: 0.3, hp: Infinity },
   egg: { density: 2, friction: 0.5, rest: 0.1, hp: Infinity },
