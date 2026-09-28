@@ -3772,3 +3772,4 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .streak-chip { font-size: 11px; padding: 1px 6px; border: 1px solid var(--border); border-radius: 2px; color: var(--text); }
 .streak-chip.fresh { animation: streak-pop 600ms cubic-bezier(.2,1.6,.4,1) both; }
 @keyframes streak-pop { from { transform: scale(.4); opacity: 0; } }
+.new-project-steps { font-size: 14px; line-height: 1.6; padding-left: 18px; }

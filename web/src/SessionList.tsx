@@ -239,6 +239,7 @@ export function SessionList(props: {
   const [recent, setRecent] = useState<RecentProject[] | null>(null);
   const [projects, setProjects] = useState<string[]>(config.projects);
   const [showBrowser, setShowBrowser] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [onDeck, setOnDeck] = useState<Record<string, { text: string; at: number; crew?: string; sessionId?: string }>>({});
   useEffect(() => { api.onDeck().then((r) => setOnDeck(r.onDeck)).catch(() => {}); }, []);
   const [showSettings, setShowSettings] = useState(false);
@@ -489,6 +490,9 @@ export function SessionList(props: {
                 <button className="chip" onClick={() => setShowBrowser(true)}>
                   ＋ Add
                 </button>
+                <button className="chip" onClick={() => setShowNewProject(true)}>
+                  New
+                </button>
               </div>
             </div>
             <div className="field">
@@ -541,6 +545,13 @@ export function SessionList(props: {
           </>
         )}
       </section>
+
+      {showNewProject && (
+        <NewProjectSheet
+          onClose={() => setShowNewProject(false)}
+          onMade={(path, all) => { setProjects(all); setCwd(path); }}
+        />
+      )}
 
       {showBrowser && (
         <FolderBrowser
@@ -687,6 +698,68 @@ function ProjectUsageCard() {
       })}
       {rows.length > 3 && <button className="link" onClick={() => setOpen(!open)}>{open ? 'Show fewer' : `Show all ${rows.length}`}</button>}
     </section>
+  );
+}
+
+/** A new project from the phone (#45): a folder next to your other projects,
+ *  a first commit, and a GitHub repo if you want one. */
+function NewProjectSheet({ onClose, onMade }: { onClose: () => void; onMade: (path: string, projects: string[]) => void }) {
+  const [name, setName] = useState('');
+  const [blurb, setBlurb] = useState('');
+  const [vis, setVis] = useState<'private' | 'public' | 'none'>('private');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<{ path: string; repoUrl: string | null; steps: string[] } | null>(null);
+  const slug = name.trim().replace(/\s+/g, '-');
+  const make = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.newProject({ name: slug, visibility: vis, blurb });
+      setDone(r);
+      onMade(r.path, r.projects);
+    } catch (e: any) { setErr(String(e.message ?? e)); } finally { setBusy(false); }
+  };
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <h3>New project</h3>
+        {done ? (
+          <>
+            <ul className="new-project-steps">{done.steps.map((s) => <li key={s}>{s}</li>)}</ul>
+            {done.repoUrl && <p className="section-hint"><a href={done.repoUrl} target="_blank" rel="noreferrer">{done.repoUrl}</a></p>}
+            <p className="section-hint">It's picked in "Start something" — tap Start session and tell the crew what to build.</p>
+            <button className="primary" onClick={onClose}>Done</button>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label>Name</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="yayo-bay" autoCapitalize="none" autoCorrect="off" />
+              {slug && slug !== name.trim() && <span className="section-hint">Folder: {slug}</span>}
+            </div>
+            <div className="field">
+              <label>What is it? (one line, optional)</label>
+              <input value={blurb} onChange={(e) => setBlurb(e.target.value)} placeholder="A beach volleyball game" />
+            </div>
+            <div className="field">
+              <label>GitHub</label>
+              <div className="segmented">
+                {(['private', 'public', 'none'] as const).map((v) => (
+                  <button key={v} className={vis === v ? 'seg active' : 'seg'} onClick={() => setVis(v)}>
+                    {v === 'none' ? 'No repo' : v[0].toUpperCase() + v.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <span className="section-hint">
+                {vis === 'none' ? 'Just a folder with git, on your Mac.' : `A ${vis} repo on your GitHub, made with the gh tool your Mac is signed in to.`}
+              </span>
+            </div>
+            {err && <div className="error-note">{err}</div>}
+            <button className="primary" disabled={busy || !slug} onClick={make}>{busy ? 'Making it…' : 'Make the project'}</button>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

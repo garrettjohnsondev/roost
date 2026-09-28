@@ -104,6 +104,8 @@ export const api = {
   onDeck: () => request<{ onDeck: Record<string, { text: string; at: number; crew?: string; sessionId?: string }> }>('/api/ondeck'),
   projectUsage: () => request<{ projects: Array<{ cwd: string; tokens: number; byAgent: { claude: number; codex: number }; weekPct: { claude: number | null; codex: number | null }; crew: Array<{ name: string; color: string; sprite?: string; tokens: number }> }> }>('/api/usage/projects'),
   visit: (day: string) => request<{ streak: number; best: number; firstToday: boolean }>('/api/visit', { method: 'POST', body: JSON.stringify({ day }) }),
+  newProject: (body: { name: string; visibility: 'private' | 'public' | 'none'; blurb?: string }) =>
+    request<{ path: string; repoUrl: string | null; steps: string[]; projects: string[] }>('/api/projects/new', { method: 'POST', body: JSON.stringify(body) }),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
   gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
   gameScore: (id: string, score: number, lowerIsBetter = false) =>
