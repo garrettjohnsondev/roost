@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { buzz } from '../haptics';
 import { GAMES, PACK_TITLE } from './registry';
 import { fmtScore, sprite, type GameModule, type GameStoreView } from './types';
 import type { SessionMeta } from '../types';
@@ -42,6 +43,9 @@ export function Arcade({ onBack, onOpenSession }: { onBack: () => void; onOpenSe
   };
 
   const waitKey = waiting.map((w) => w.id).join(',');
+  // A tap on the wrist-equivalent when someone starts waiting on you.
+  const lastWait = useRef('');
+  useEffect(() => { if (waitKey && waitKey !== lastWait.current) buzz('approval'); lastWait.current = waitKey; }, [waitKey]);
   const banner = waiting.length > 0 && dismissed !== waitKey ? waiting[0] : null;
 
   if (!store) return <div className="center-note">Opening the arcade…</div>;
@@ -144,7 +148,7 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
   const onScore = useCallback((score: number) => {
     api.gameScore(meta.id, score, !!meta.lowerIsBetter).then((r) => {
       setStore((s) => ({ ...s, best: { ...s.best, [meta.id]: r.best }, plays: { ...s.plays, [meta.id]: (s.plays[meta.id] ?? 0) + 1 } }));
-      if (r.isBest && (store.plays[meta.id] ?? 0) > 0) toast(`New best! ${fmtScore(meta, score)}`);
+      if (r.isBest && (store.plays[meta.id] ?? 0) > 0) { toast(`New best! ${fmtScore(meta, score)}`); buzz('reward'); }
     }).catch(() => {});
   }, [meta, setStore, store.plays, toast]);
   const onAchieve = useCallback((id: string) => {
@@ -153,7 +157,7 @@ function GameScreen({ game, store, setStore, paused, onBack, banner, toast, toas
     const a = meta.achievements.find((x) => x.id === id);
     setStore((s) => ({ ...s, achievements: { ...s.achievements, [key]: Date.now() } }));
     api.gameAchieve(key).catch(() => {});
-    if (a) toast(`🏆 ${a.name}`);
+    if (a) { toast(`🏆 ${a.name}`); buzz('reward'); }
   }, [meta, setStore, store.achievements, toast]);
 
   return (

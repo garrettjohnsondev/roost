@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { HAPTICS, buzz } from './haptics';
 
 describe('haptics', () => {
-  it('three distinct patterns, none alike', () => {
+  it('four distinct patterns, none alike', () => {
     const shapes = Object.values(HAPTICS).map((p) => p.join(','));
-    expect(new Set(shapes).size).toBe(3);
+    expect(new Set(shapes).size).toBe(4);
   });
   it('pass rises, fail is two heavy beats, approval is one short tap', () => {
     const on = (p: number[]) => p.filter((_, i) => i % 2 === 0);
