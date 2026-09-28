@@ -35,6 +35,7 @@ import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, las
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
+import { readOnDeck } from './onDeck.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
 
 // Every log line gets a time. The log had none, so on the day every session
@@ -346,6 +347,9 @@ app.post('/api/plan', (req, res) => {
   logDecision({ kind: 'gate', rule: 'plan', plan } as any);
   res.json({ ok: true, plan, words: planWords(plan) });
 });
+
+// What's on deck per project (#46).
+app.get('/api/ondeck', (_req, res) => { res.json({ onDeck: readOnDeck() }); });
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.
 const games = new Games();

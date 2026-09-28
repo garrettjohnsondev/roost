@@ -91,6 +91,15 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     });
     return () => { cancelled = true; };
   }, [cwd, deploy, fixture]);
+  // Continue from the home card (#46): a message queued for this chat is sent
+  // once it is connected and idle.
+  useEffect(() => {
+    if (fixture || !session.connected || session.status !== 'idle') return;
+    let say: string | null = null;
+    try { say = sessionStorage.getItem(`roost:say:${sessionId}`); if (say) sessionStorage.removeItem(`roost:say:${sessionId}`); } catch { /* private mode */ }
+    if (say) session.send({ type: 'user_message', text: say });
+  }, [session.connected, session.status, sessionId, fixture]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Ready to ship (2026-09-28): "it comes up and says passed and has deploy
   // but then it disappears fast and I feel rushed". The offer no longer lives
   // inside the checks card that folds away; it waits above the box until you

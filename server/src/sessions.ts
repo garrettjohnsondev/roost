@@ -34,6 +34,7 @@ import { truncate } from './util.js';
 import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
+import { extractOnDeck, noteOnDeck } from './onDeck.js';
 import { dataDir, statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
@@ -643,6 +644,11 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    // What's on deck for this project (#46), in the crew's own words.
+    if (event.type === 'assistant_message' && event.text) {
+      const next = extractOnDeck(event.text);
+      if (next) noteOnDeck(this.cwd, { text: next, at: now(), crew: event.crew?.name, sessionId: this.id });
+    }
     if (event.type === 'approval_request' && !event.crew) {
       // Asked in the thread as a text from whoever wants it (2026-09-25).
       event = { ...event, crew: crewMember(this.agent, this.speakingModel(), this.currentRole) };

@@ -3747,3 +3747,13 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .plan-advice img { width: 32px; height: 32px; image-rendering: pixelated; flex-shrink: 0; }
 .plan-advice span { flex: 1; }
 .plan-advice.differs { border-color: var(--accent, #c9803a); }
+
+/* Where we left off (#46) */
+.left-off-row { padding: 8px 0; border-top: 1px solid var(--border); }
+.left-off-row:first-of-type { border-top: 0; }
+.left-off-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.left-off-line { font-size: 13px; line-height: 1.35; margin: 2px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.left-off-tag { display: inline-block; font-family: 'Silkscreen', monospace; font-size: 10px; text-transform: uppercase; color: var(--text-dim); border: 1px solid var(--border); padding: 0 4px; margin-right: 6px; border-radius: 2px; }
+.left-off-tag.next { color: var(--accent-ink, var(--accent)); border-color: currentColor; }
+.left-off-actions { display: flex; gap: 6px; margin-top: 6px; }
+.primary-chip { background: var(--accent, #c9803a); color: #fff; border-color: transparent; }

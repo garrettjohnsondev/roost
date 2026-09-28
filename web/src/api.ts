@@ -101,6 +101,7 @@ export const api = {
   gitSummaries: () => request<{ summaries: Record<string, { files: number; ahead: number }> }>('/api/git/summaries'),
   plan: () => request<{ plan: '20' | '100' | '200' | null; plans: Array<{ plan: '20' | '100' | '200'; words: string }>; advice: { suggest: '20' | '100' | '200'; why: string; pace: number | null } }>('/api/plan'),
   setPlan: (plan: '20' | '100' | '200') => request<{ ok: true; plan: string; words: string }>('/api/plan', { method: 'POST', body: JSON.stringify({ plan }) }),
+  onDeck: () => request<{ onDeck: Record<string, { text: string; at: number; crew?: string; sessionId?: string }> }>('/api/ondeck'),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
   gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
   gameScore: (id: string, score: number, lowerIsBetter = false) =>

@@ -239,6 +239,8 @@ export function SessionList(props: {
   const [recent, setRecent] = useState<RecentProject[] | null>(null);
   const [projects, setProjects] = useState<string[]>(config.projects);
   const [showBrowser, setShowBrowser] = useState(false);
+  const [onDeck, setOnDeck] = useState<Record<string, { text: string; at: number; crew?: string; sessionId?: string }>>({});
+  useEffect(() => { api.onDeck().then((r) => setOnDeck(r.onDeck)).catch(() => {}); }, []);
   const [showSettings, setShowSettings] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
   const [agent, setAgent] = useState<AgentKind>('claude');
@@ -367,6 +369,27 @@ export function SessionList(props: {
 
       <ClaudeAuthBanner />
       <CrewStrip sessions={sessions} />
+
+      <LeftOff
+        sessions={sessions}
+        recent={recent ?? []}
+        onDeck={onDeck}
+        busy={busy}
+        onContinue={async (cwd, say) => {
+          const live = sessions.find((x) => x.cwd === cwd);
+          let id = live?.id;
+          if (!id) {
+            const rp = (recent ?? []).find((p) => p.path === cwd);
+            if (!rp) return;
+            setBusy(true);
+            try {
+              id = (await api.createSession({ agent: rp.lastAgent, cwd, resume: rp.lastResumeId, title: rp.lastTitle })).session.id;
+            } catch (e: any) { setError(String(e.message ?? e)); return; } finally { setBusy(false); }
+          }
+          if (say) try { sessionStorage.setItem(`roost:say:${id}`, say); } catch { /* private mode */ }
+          onOpen(id);
+        }}
+      />
 
       {sessions.length > 0 && (
         <section className="card">
@@ -565,6 +588,65 @@ export function SessionList(props: {
 }
 
 /** The last path segment — "agent sync", not "/Volumes/PortableSSD/agent sync". */
+/** Where we left off (#46): per project, the last thing said, what the crew
+ *  said is next, and one tap to carry on -- the proactive nudge the owner
+ *  asked for ("be proactive with approve/continue"). */
+function LeftOff({ sessions, recent, onDeck, busy, onContinue }: {
+  sessions: SessionMeta[]; recent: RecentProject[];
+  onDeck: Record<string, { text: string; at: number; crew?: string }>;
+  busy: boolean; onContinue: (cwd: string, say?: string) => void;
+}) {
+  const WEEK = 7 * 86_400_000;
+  const rows = new Map<string, { cwd: string; at: number; left: string; who?: string; color?: string; live: boolean; working: boolean }>();
+  for (const s of sessions) {
+    const prev = rows.get(s.cwd);
+    if (prev && prev.at >= s.updatedAt) continue;
+    rows.set(s.cwd, { cwd: s.cwd, at: s.updatedAt, left: s.lastLine?.text ?? s.title, who: s.lastLine?.speaker ?? undefined, color: s.lastLine?.color, live: true, working: s.state === 'working' });
+  }
+  for (const p of recent) {
+    if (rows.has(p.path) || Date.now() - p.lastActivity > WEEK) continue;
+    rows.set(p.path, { cwd: p.path, at: p.lastActivity, left: p.lastTitle, live: false, working: false });
+  }
+  const list = [...rows.values()].sort((a, b) => b.at - a.at).slice(0, 3);
+  if (!list.length) return null;
+  return (
+    <section className="card left-off">
+      <h2>Where we left off</h2>
+      {list.map((r) => {
+        const next = onDeck[r.cwd] && Date.now() - onDeck[r.cwd].at < 2 * WEEK ? onDeck[r.cwd] : null;
+        return (
+          <div key={r.cwd} className="left-off-row">
+            <div className="left-off-top">
+              <span className="convo-project">{projectName(r.cwd)}</span>
+              <span className="convo-time">{fmtAgo(r.at)}</span>
+            </div>
+            <div className="left-off-line">
+              <span className="left-off-tag">Last</span>
+              {r.who && <strong style={{ color: nameColor(r.color) ?? 'var(--accent-ink)' }}>{r.who}: </strong>}
+              {r.left}
+            </div>
+            {next && (
+              <div className="left-off-line">
+                <span className="left-off-tag next">Next</span>{next.text}
+              </div>
+            )}
+            <div className="left-off-actions">
+              {r.working ? (
+                <button className="chip" onClick={() => onContinue(r.cwd)}>Watch them work</button>
+              ) : (
+                <>
+                  <button className="chip" disabled={busy} onClick={() => onContinue(r.cwd)}>{r.live ? 'Open' : 'Pick it back up'}</button>
+                  {next && <button className="chip primary-chip" disabled={busy} onClick={() => onContinue(r.cwd, `Let's keep going: ${next.text}`)}>Continue</button>}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function projectName(cwd: string): string {
   const parts = cwd.split('/').filter(Boolean);
   return parts[parts.length - 1] ?? cwd;
