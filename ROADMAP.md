@@ -466,6 +466,7 @@ Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `cod
 52. **Dev mode.** For people who want to see the machinery: diffs of each edit, full commands and their output, model ids and cost per turn -- shown in place instead of folded.
 53. **More providers, more crew.** Roost drives only Claude and Codex. Research ACP (Agent Client Protocol) -- one adapter for Gemini CLI and others -- then a crew of 4-5 per new provider, drawn like the rest.
 54. **Carried over.** The code map savings report (needs a few days of turns), more code-map languages (after #53), light/dark parity (MOTION.md §7.9), and #37 (plan mode vs a name you asked for) still undecided.
+55. **Mini games (added 2026-09-28).** Something to play while the crew works: Roost-themed Snake, Minesweeper, Battleship and Solitaire, all using the crew and scenes. Stretch goal: an Angry Birds-style launcher, Roost edition. Needs a design talk first (where the games live, whether they pause when the crew needs you).
 
 ### 12a. Motion — the stream with the most pull behind it
 
