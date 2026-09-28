@@ -1,65 +1,85 @@
-/** Pure helpers for Roost Birds' wave 3 additions: ghosts (their score and
- *  their best shot), the collapse haptics count, and the slow-mo clock. No
- *  DOM, no physics world: easy to test. */
-import { GROUND_Y, levelValue, SCORE, type Level } from './levels';
-import { seeded } from '../types';
+/** Pure helpers for Roost Birds: per-level ghosts, worlds and saves, the
+ *  collapse haptics count and the slow-mo clock. No DOM, no physics world:
+ *  easy to test. */
+import { GROUND_Y, LEVELS, LEVELS_PER_WORLD, levelValue, WORLDS } from './levels';
+import { SOLUTIONS } from './solutions';
+import { GHOSTS } from '../types';
 
 export const GRAVITY = 600;
 export const SLING_XY = { x: 110, y: GROUND_Y - 64 };
 export const MAX_SPEED_V = 820;
 
-/** The run score a ghost of this strength posts (the host checks your
- *  finished fort against it). 0.2 is roughly a clear of an early fort with a
- *  bird to spare; 0.95 needs a late fort demolished with two birds left. */
-export function ghostScore(strength: number): number {
-  const s = Math.max(0, Math.min(1, strength));
-  return Math.round((15000 + 50000 * Math.pow(s, 1.5)) / 100) * 100;
+// ---------- ghosts, one per level ----------
+
+/** Who haunts each level, world by world: weak crew early, stronger later,
+ *  the strongest on the bosses. */
+const GHOST_PLAN: string[][] = [
+  ['Moss', 'Moss', 'Moss', 'Tuck', 'Tuck', 'Tuck', 'Bly', 'Bly', 'Bly', 'Otto', 'Otto', 'Otto', 'Fig', 'Fig', 'Juno'],
+  ['Fig', 'Fig', 'Fig', 'Wren', 'Wren', 'Wren', 'Rue', 'Rue', 'Rue', 'Rue', 'Juno', 'Juno', 'Bram', 'Bram', 'Ollie'],
+  ['Wren', 'Wren', 'Rue', 'Rue', 'Rue', 'Juno', 'Juno', 'Juno', 'Bram', 'Bram', 'Bram', 'Ollie', 'Ollie', 'Ollie', 'Nell'],
+];
+
+export interface LevelGhost { name: string; sprite: string; strength: number; target: number }
+
+/** The ghost on a level, and the score it posted there: a share of the best
+ *  score the level solver found (so it's always beatable), bigger for
+ *  stronger crew, never below a plain clear. */
+export function levelGhost(index: number): LevelGhost {
+  const l = LEVELS[index];
+  const name = GHOST_PLAN[l.world][l.num - 1];
+  const g = GHOSTS.find((x) => x.name === name) ?? GHOSTS[0];
+  const best = SOLUTIONS[index]?.score ?? levelValue(l).bugs;
+  const share = 0.55 + 0.4 * g.strength;
+  const target = Math.max(levelValue(l).bugs, Math.round((best * share) / 100) * 100);
+  return { name: g.name, sprite: g.sprite, strength: g.strength, target: Math.min(target, best - 100) };
 }
 
-/** What that ghost scored on this particular fort, for the HUD. */
-export function ghostFortScore(l: Level, strength: number): number {
-  const s = Math.max(0, Math.min(1, strength));
-  const { bugs, blocks } = levelValue(l);
-  const spare = Math.max(0, Math.min(l.birds.length - 1, Math.floor(s * (l.birds.length - 0.6))));
-  return Math.round((bugs + blocks * (0.15 + 0.65 * s) + spare * SCORE.bird) / 10) * 10;
+// ---------- worlds and the save ----------
+
+export interface Save {
+  v: 2;
+  /** Best stars per level (all 45). */
+  stars: number[];
+  /** Levels whose ghost you've beaten. */
+  ghosts: boolean[];
+  /** Show the one-time "the worlds are new" note. */
+  note: boolean;
 }
 
-/** Launch velocity that lands a bird on (tx, ty) from the sling, flying at
- *  about `angle` radians above flat; steepens until the shot is possible. */
-export function aimAt(tx: number, ty: number, angle = 0.55): { vx: number; vy: number } | null {
-  const dx = tx - SLING_XY.x, h = SLING_XY.y - ty; // h: how far above the sling
-  if (dx <= 0) return null;
-  for (let a = angle; a < 1.45; a += 0.05) {
-    const c = Math.cos(a), denom = 2 * c * c * (dx * Math.tan(a) - h);
-    if (denom <= 0) continue;
-    const v = Math.sqrt((GRAVITY * dx * dx) / denom);
-    if (v <= MAX_SPEED_V) return { vx: v * c, vy: -v * Math.sin(a) };
-  }
-  return null;
+/** Reads any save. Saves from before the worlds (17 forts, no `v`) start
+ *  over, with a note saying why. */
+export function normalizeSave(raw: unknown): Save {
+  const s = raw as Partial<Save> & { unlocked?: number } | null;
+  const fresh: Save = { v: 2, stars: LEVELS.map(() => 0), ghosts: LEVELS.map(() => false), note: false };
+  if (!s || typeof s !== 'object') return fresh;
+  if (s.v !== 2) return { ...fresh, note: Array.isArray(s.stars) && s.stars.some((n) => Number(n) > 0) };
+  return {
+    v: 2,
+    stars: LEVELS.map((_, i) => Math.max(0, Math.min(3, Number(s.stars?.[i]) || 0))),
+    ghosts: LEVELS.map((_, i) => !!s.ghosts?.[i]),
+    note: !!s.note,
+  };
 }
 
-/** The ghost's best shot on a fort: aimed at the first bug, a little off for
- *  a weak ghost (seeded, so it's the same arc every time you play it). */
-export function ghostShot(l: Level, strength: number, seed = 1): { vx: number; vy: number } {
-  const bug = l.bugs.reduce((m, b) => (b.x < m.x ? b : m), l.bugs[0]);
-  const r = seeded(seed * 7919 + l.name.length * 31 + Math.round(strength * 100));
-  const miss = (1 - Math.max(0, Math.min(1, strength))) * 0.12;
-  const shot = aimAt(bug.x, GROUND_Y - bug.y, 0.5 + (r() - 0.5) * 0.1) ?? { vx: 600, vy: -400 };
-  const k = 1 + (r() - 0.5) * 2 * miss;
-  return { vx: shot.vx * k, vy: shot.vy * k };
+export const worldLevels = (w: number) => LEVELS.map((_, i) => i).filter((i) => LEVELS[i].world === w);
+export const worldStars = (s: Save, w: number) => worldLevels(w).reduce((n, i) => n + s.stars[i], 0);
+export const worldCleared = (s: Save, w: number) => worldLevels(w).every((i) => s.stars[i] > 0);
+/** A world opens once the one before it has enough stars. */
+export const worldOpen = (s: Save, w: number) => w === 0 || worldStars(s, w - 1) >= WORLDS[w].unlockStars;
+/** Levels open in order within a world. */
+export function levelOpen(s: Save, index: number): boolean {
+  const l = LEVELS[index];
+  if (!worldOpen(s, l.world)) return false;
+  return l.num === 1 || s.stars[index - 1] > 0;
 }
+/** The first open level with no stars yet in a world (or its last). */
+export function nextLevel(s: Save, w: number): number {
+  const ls = worldLevels(w);
+  return ls.find((i) => levelOpen(s, i) && s.stars[i] === 0) ?? ls[ls.length - 1];
+}
+export const MAX_WORLD_STARS = LEVELS_PER_WORLD * 3;
 
-/** A flight arc from the sling until it meets the ground or leaves the map. */
-export function arc(vx: number, vy: number, maxX: number, every = 0.04): { x: number; y: number }[] {
-  const pts: { x: number; y: number }[] = [];
-  for (let i = 1; i < 400; i++) {
-    const t = i * every;
-    const x = SLING_XY.x + vx * t, y = SLING_XY.y + vy * t + 0.5 * GRAVITY * t * t;
-    pts.push({ x, y });
-    if (y > GROUND_Y || x > maxX) break;
-  }
-  return pts;
-}
+// ---------- feel ----------
 
 /** How many haptic ticks a collapse earns: one per piece that broke or got
  *  knocked loose in the second after impact, capped at 12. */

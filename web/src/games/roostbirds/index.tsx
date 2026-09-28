@@ -1,21 +1,24 @@
 import { Icon } from '../../icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GameMeta, GameProps, Ghost } from '../types';
+import type { GameMeta, GameProps } from '../types';
 import { sprite } from '../types';
 import { sfx } from '../../economy/sound';
 import { buzz, ticks } from '../../haptics';
-import { LEVELS, type BirdName } from './levels';
+import { GROUND_Y, LEVELS, levelTop, WORLDS, type BirdName } from './levels';
 import { BIRDS, DT, SLING, Sim, type Phase } from './game';
-import { birdName, drawFrame, GROUND_SHOW, img, type Aim, type Cam, type GhostView } from './render';
-import { GROUND_Y } from './levels';
-import { arc, collapseTicks, ghostFortScore, ghostScore, ghostShot } from './logic';
+import { birdName, drawFrame, GROUND_SHOW, img, type Aim, type Cam } from './render';
+import {
+  collapseTicks, levelGhost, levelOpen, MAX_WORLD_STARS, nextLevel, normalizeSave, worldCleared, worldLevels, worldOpen, worldStars,
+  type LevelGhost, type Save,
+} from './logic';
 import './style.css';
 
 /** Roost Birds: the crew slings themselves at forts full of bugs. A small
- *  hand-rolled rigid-body engine (physics.ts), seventeen forts (levels.ts),
- *  the rules (game.ts), pixel drawing (render.ts) and the pure wave-3 helpers
- *  (logic.ts); this file is the screens, the input and the loop. Sideways:
- *  the whole fort fits across the phone, the sling on the left. */
+ *  hand-rolled rigid-body engine (physics.ts), three worlds of fifteen forts
+ *  (levels.ts), the rules (game.ts), pixel drawing (render.ts), worlds,
+ *  saves and per-level ghosts (logic.ts), and a solver that proves every
+ *  level can be won (solver.ts); this file is the screens, the input and the
+ *  loop. Sideways: the whole fort fits across the phone, the sling on the left. */
 export const meta: GameMeta = {
   id: 'roostbirds',
   name: 'Roost Birds',
@@ -25,25 +28,24 @@ export const meta: GameMeta = {
   orientation: 'landscape',
   // the top-right is open sky: nothing to aim at or tap there
   safeCorner: 'tr',
-  ghostScore,
+  // every level has its own ghost (a crew score to beat), shown on the tile and the HUD
+  ghostMode: 'custom',
   achievements: [
     { id: 'first', name: 'First fix', says: 'Clear a fort.' },
     { id: 'perfect', name: 'Clean build', says: 'Three stars on a fort.' },
     { id: 'oneshot', name: 'One-liner', says: 'Clear a fort with your first bird.' },
-    { id: 'finale', name: 'Heisenbug caught', says: 'Beat fort 12.' },
-    { id: 'collector', name: 'Code review', says: 'Collect 30 stars.' },
     { id: 'chain', name: 'Cascading failure', says: 'Knock over 12 pieces with one shot.' },
-    { id: 'panic', name: 'Kernel panic', says: 'Beat fort 17.' },
+    { id: 'boss1', name: 'Ancient history', says: 'Beat the Ancient Bug (Legacy Code 15).' },
+    { id: 'boss2', name: 'Conflict resolved', says: 'Beat the Merge Beast (Merge Conflict 15).' },
+    { id: 'boss3', name: 'Leak plugged', says: 'Beat the Cloud Leak (The Cloud 15).' },
+    { id: 'clear1', name: 'Legacy refactored', says: 'Clear every fort in Legacy Code.' },
+    { id: 'clear2', name: 'Branches merged', says: 'Clear every fort in Merge Conflict.' },
+    { id: 'clear3', name: 'Cloud native', says: 'Clear every fort in The Cloud.' },
+    { id: 'gold', name: 'Perfect world', says: 'Three stars on all fifteen forts of a world.' },
+    { id: 'collector', name: 'Code review', says: 'Collect 90 stars.' },
+    { id: 'nell', name: 'Ghost of Astra', says: "Beat Nell's ghost on a boss fort." },
   ],
 };
-
-interface Save { stars: number[]; unlocked: number }
-
-function normalize(s: Save | null): Save {
-  const stars = LEVELS.map((_, i) => Math.max(0, Math.min(3, Number(s?.stars?.[i]) || 0)));
-  const unlocked = Math.max(1, Math.min(LEVELS.length, Number(s?.unlocked) || 1));
-  return { stars, unlocked };
-}
 
 const ALL_BIRDS: BirdName[] = ['rue', 'pip', 'ollie', 'wren', 'moss', 'bly', 'tuck'];
 const HEADER = 36;
@@ -76,118 +78,207 @@ function Glyph({ d }: { d: string }) {
 }
 const MAP_ICON = pixels(['.......', '#######', '.......', '#######', '.......', '#######', '.......']);
 const RETRY_ICON = pixels(['.###.#.', '#...##.', '#..###.', '#......', '#.....#', '.#...#.', '..###..']);
+const BACK_ICON = pixels(['...#...', '..#....', '.#.....', '#######', '.#.....', '..#....', '...#...']);
 
-export function Game({ save, onSave, onScore, onAchieve, paused, ghost }: GameProps<Save>) {
-  const [prog, setProg] = useState<Save>(() => normalize(save));
-  const [playing, setPlaying] = useState<number | null>(null);
+/** A crew ghost's face: see-through with a soft glow. */
+function GhostFace({ g, size = 22 }: { g: LevelGhost; size?: number }) {
+  return <img className="game-roostbirds-ghostface" src={sprite(g.sprite, 'idle')} alt="" width={size} height={size} />;
+}
+
+type Screen = { kind: 'worlds' } | { kind: 'world'; w: number } | { kind: 'play'; idx: number };
+
+export function Game({ save, onSave, onScore, onAchieve, paused, onGhostBeaten }: GameProps<Save>) {
+  const [prog, setProg] = useState<Save>(() => normalizeSave(save));
+  const [screen, setScreen] = useState<Screen>(() => {
+    const p = normalizeSave(save);
+    const open = [2, 1, 0].find((w) => worldOpen(p, w)) ?? 0;
+    return p.stars.some((s) => s > 0) ? { kind: 'world', w: open } : { kind: 'worlds' };
+  });
   const [attempt, setAttempt] = useState(0);
   const size = useStageSize();
 
   // preload sprites so the first shot isn't a yellow dot
   useEffect(() => {
     for (const n of ALL_BIRDS) for (const p of ['idle', 'side', 'think', 'cheer']) img(sprite(n, p));
-    if (ghost) img(sprite(ghost.sprite, 'idle'));
-  }, [ghost]);
+  }, []);
 
   const progRef = useRef(prog);
   progRef.current = prog;
-  const finish = useCallback((idx: number, won: boolean, score: number, stars: number, firstBird: boolean) => {
-    if (!won) return;
-    onScore(score);
-    const p = progRef.current;
-    const next: Save = {
-      stars: p.stars.map((s, i) => (i === idx ? Math.max(s, stars) : s)),
-      unlocked: Math.max(p.unlocked, Math.min(LEVELS.length, idx + 2)),
-    };
+  const commit = useCallback((next: Save) => {
     progRef.current = next;
     setProg(next);
     onSave(next);
+  }, [onSave]);
+
+  const finish = useCallback((idx: number, won: boolean, score: number, stars: number, firstBird: boolean) => {
+    if (!won) return;
+    onScore(score);
+    const l = LEVELS[idx];
+    const g = levelGhost(idx);
+    const p = progRef.current;
+    const beat = score > g.target;
+    const next: Save = {
+      ...p,
+      stars: p.stars.map((s, i) => (i === idx ? Math.max(s, stars) : s)),
+      ghosts: p.ghosts.map((b, i) => (i === idx ? b || beat : b)),
+    };
+    commit(next);
+    if (beat) onGhostBeaten?.(g.name);
     const total = next.stars.reduce((a, b) => a + b, 0);
     onAchieve('first');
     if (stars >= 3) onAchieve('perfect');
     if (firstBird) onAchieve('oneshot');
-    if (idx >= 11) onAchieve('finale');
-    if (idx >= 16) onAchieve('panic');
-    if (total >= 30) onAchieve('collector');
-  }, [onAchieve, onSave, onScore]);
+    if (l.boss) onAchieve(`boss${l.world + 1}`);
+    if (worldCleared(next, l.world)) onAchieve(`clear${l.world + 1}`);
+    if (worldStars(next, l.world) >= MAX_WORLD_STARS) onAchieve('gold');
+    if (total >= 90) onAchieve('collector');
+    if (beat && l.boss && g.name === 'Nell') onAchieve('nell');
+  }, [commit, onAchieve, onGhostBeaten, onScore]);
 
-  if (playing === null) {
-    return <WorldMap prog={prog} size={size} ghost={ghost ?? null} onPick={(i) => { setPlaying(i); setAttempt((a) => a + 1); }} />;
+  const note = prog.note && (
+    <div className="game-roostbirds-note">
+      <Icon name="sparkle" />
+      <span>The forts are new: three worlds of fifteen, each with a boss. Old fort stars were cleared, so every world starts fresh.</span>
+      <button className="chip" onClick={() => commit({ ...progRef.current, note: false })}>Got it</button>
+    </div>
+  );
+
+  if (screen.kind === 'worlds') {
+    return <WorldPicker prog={prog} size={size} note={note} onPick={(w) => { sfx('tap'); setScreen({ kind: 'world', w }); }} />;
+  }
+  if (screen.kind === 'world') {
+    return (
+      <WorldMap
+        w={screen.w} prog={prog} size={size} note={note}
+        onBack={() => setScreen({ kind: 'worlds' })}
+        onPick={(i) => { setScreen({ kind: 'play', idx: i }); setAttempt((a) => a + 1); }}
+      />
+    );
   }
 
+  const idx = screen.idx;
+  const l = LEVELS[idx];
+  const hasNext = l.num < 15 && idx + 1 < LEVELS.length;
   return (
     <Play
-      key={`${playing}-${attempt}`}
-      idx={playing}
+      key={`${idx}-${attempt}`}
+      idx={idx}
       paused={paused}
-      best={prog.stars[playing]}
-      hasNext={playing + 1 < LEVELS.length}
+      best={prog.stars[idx]}
+      hasNext={hasNext}
       size={size}
-      ghost={ghost ?? null}
       onEnd={finish}
       onChain={() => onAchieve('chain')}
       onRetry={() => setAttempt((a) => a + 1)}
-      onNext={() => { setPlaying(playing + 1); setAttempt((a) => a + 1); }}
-      onLevels={() => setPlaying(null)}
+      onNext={() => { setScreen({ kind: 'play', idx: idx + 1 }); setAttempt((a) => a + 1); }}
+      onLevels={() => setScreen({ kind: 'world', w: l.world })}
     />
   );
 }
 
-/** The forts as a winding trail across the sideways screen, stars under each. */
-function WorldMap({ prog, size, ghost, onPick }: { prog: Save; size: { w: number; h: number }; ghost: Ghost | null; onPick: (i: number) => void }) {
+/** The three worlds as big cards: story, new bird, stars, and the lock. */
+function WorldPicker({ prog, size, note, onPick }: { prog: Save; size: { w: number; h: number }; note: React.ReactNode; onPick: (w: number) => void }) {
   const total = prog.stars.reduce((a, b) => a + b, 0);
-  const mapH = Math.max(150, size.h - 112);
-  const step = 92;
-  const pts = LEVELS.map((_, i) => ({ x: 56 + i * step, y: mapH * (0.5 + 0.3 * Math.sin(i * 1.15)) }));
-  const width = pts[pts.length - 1].x + 90;
-  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
-  const scroller = useRef<HTMLDivElement>(null);
-  // start scrolled to the newest fort
-  useEffect(() => {
-    const el = scroller.current;
-    if (el) el.scrollLeft = Math.max(0, pts[prog.unlocked - 1].x - el.clientWidth / 2);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   return (
     <div className="game-roostbirds-root" style={{ height: size.h }}>
       <div className="game-roostbirds-title">
         <img src={sprite('pip', 'cheer')} alt="" />
         <div>
           <b>Bugs in the code.</b>
-          <span>Drag back, let go, tap mid-air for a trick.</span>
+          <span>Drag back, let go, tap mid-air for a trick. Beat each fort's ghost.</span>
         </div>
         <span className="game-roostbirds-total"><Star on size={14} /> {total}/{LEVELS.length * 3}</span>
-        {ghost && <span className="game-roostbirds-ghostchip"><img src={sprite(ghost.sprite, 'idle')} alt="" />{ghost.name}'s ghost is out</span>}
       </div>
-      <div className="game-roostbirds-map" ref={scroller} style={{ height: mapH }}>
+      {note}
+      <div className="game-roostbirds-worlds">
+        {WORLDS.map((wd, w) => {
+          const open = worldOpen(prog, w);
+          const stars = worldStars(prog, w);
+          const need = wd.unlockStars - (w > 0 ? worldStars(prog, w - 1) : 0);
+          return (
+            <button key={w} className={`game-roostbirds-world w${w}${open ? '' : ' locked'}`} disabled={!open} onClick={() => onPick(w)}>
+              <span className="game-roostbirds-wnum">World {w + 1}</span>
+              <b>{wd.name}</b>
+              <span className="game-roostbirds-wstory">{wd.story}</span>
+              <span className="game-roostbirds-wbird"><img src={sprite(wd.newBird, 'idle')} alt="" />{wd.newBirdSays}</span>
+              <span className="game-roostbirds-wfoot">
+                {open ? <><Star on size={12} /> {stars}/{MAX_WORLD_STARS}{worldCleared(prog, w) ? ' · cleared' : ''}</>
+                  : <><Icon name="lock" /> {need} more star{need === 1 ? '' : 's'} in {WORLDS[w - 1].name}</>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** One world's fifteen forts as a winding trail on its themed map. Each tile
+ *  shows its stars and the crew ghost's score to beat there. */
+function WorldMap({ w, prog, size, note, onBack, onPick }: {
+  w: number; prog: Save; size: { w: number; h: number }; note: React.ReactNode; onBack: () => void; onPick: (i: number) => void;
+}) {
+  const wd = WORLDS[w];
+  const ids = worldLevels(w);
+  const stars = worldStars(prog, w);
+  const mapH = Math.max(170, size.h - 64);
+  const step = 108;
+  const pts = ids.map((_, k) => ({ x: 64 + k * step, y: mapH * (0.46 + 0.24 * Math.sin(k * 1.1)) }));
+  const width = pts[pts.length - 1].x + 100;
+  const path = pts.map((p, k) => `${k ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+  const scroller = useRef<HTMLDivElement>(null);
+  const next = nextLevel(prog, w);
+  // start scrolled to the newest fort
+  useEffect(() => {
+    const el = scroller.current;
+    const k = ids.indexOf(next);
+    if (el && k >= 0) el.scrollLeft = Math.max(0, pts[k].x - el.clientWidth / 2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const nextWorld = WORLDS[w + 1];
+  return (
+    <div className="game-roostbirds-root" style={{ height: size.h }}>
+      <div className="game-roostbirds-title slim">
+        <button className="game-roostbirds-btn" onClick={() => { sfx('tap'); onBack(); }} aria-label="Worlds"><Glyph d={BACK_ICON} /></button>
+        <div>
+          <b>World {w + 1}: {wd.name}</b>
+          <span>{wd.gimmick} Boss: {wd.boss}.</span>
+        </div>
+        <span className="game-roostbirds-total"><Star on size={14} /> {stars}/{MAX_WORLD_STARS}</span>
+        {nextWorld && !worldOpen(prog, w + 1) && <span className="game-roostbirds-unlock">{nextWorld.unlockStars} opens {nextWorld.name}</span>}
+      </div>
+      {note}
+      <div className={`game-roostbirds-map w${w}`} ref={scroller} style={{ height: mapH }}>
         <div className="game-roostbirds-mapinner" style={{ width, height: mapH }}>
           <svg className="game-roostbirds-path" width={width} height={mapH} aria-hidden>
-            <path d={path} fill="none" stroke="rgba(90,60,30,0.55)" strokeWidth="6" strokeDasharray="10 8" />
+            <path d={path} fill="none" strokeWidth="6" strokeDasharray="10 8" />
           </svg>
-          {LEVELS.map((l, i) => {
-            const locked = i >= prog.unlocked;
-            const boss = l.bugs.some((b) => b.boss);
+          {ids.map((i, k) => {
+            const l = LEVELS[i];
+            const locked = !levelOpen(prog, i);
+            const g = levelGhost(i);
+            const beaten = prog.ghosts[i];
             return (
               <button
                 key={i}
-                className={`game-roostbirds-node${locked ? ' locked' : ''}${boss ? ' boss' : ''}${i === prog.unlocked - 1 ? ' next' : ''}`}
-                style={{ left: pts[i].x - 26, top: pts[i].y - 26 }}
+                className={`game-roostbirds-node${locked ? ' locked' : ''}${l.boss ? ' boss' : ''}${i === next && !locked ? ' next' : ''}`}
+                style={{ left: pts[k].x - 26, top: pts[k].y - 26 }}
                 disabled={locked}
                 onClick={() => { sfx('tap'); onPick(i); }}
                 title={l.name}
               >
-                <span className="game-roostbirds-num">{locked ? <Icon name="lock" /> : i + 1}</span>
-                <span className="game-roostbirds-stars">{[0, 1, 2].map((k) => <Star key={k} on={k < prog.stars[i]} size={10} />)}</span>
-                <span className="game-roostbirds-name">{l.name}</span>
+                <span className="game-roostbirds-num">{locked ? <Icon name="lock" /> : l.num}</span>
+                <span className="game-roostbirds-stars">{[0, 1, 2].map((s) => <Star key={s} on={s < prog.stars[i]} size={10} />)}</span>
+                <span className="game-roostbirds-name">{l.boss ? `Boss: ${l.name}` : l.name}</span>
+                {!locked && (
+                  <span className={`game-roostbirds-tileghost${beaten ? ' beaten' : ''}`}>
+                    <GhostFace g={g} size={16} />{g.name}'s ghost: {g.target.toLocaleString()}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-      </div>
-      <div className="game-roostbirds-crew">
-        {ALL_BIRDS.map((n) => (
-          <div key={n}><img src={sprite(n, 'idle')} alt="" /><span>{BIRDS[n].says}</span></div>
-        ))}
       </div>
     </div>
   );
@@ -198,8 +289,8 @@ const hudOf = (s: Sim): Hud => ({ phase: s.phase, score: s.score, current: s.cur
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry, onNext, onLevels }: {
-  idx: number; paused: boolean; best: number; hasNext: boolean; size: { w: number; h: number }; ghost: Ghost | null;
+function Play({ idx, paused, best, hasNext, size, onEnd, onChain, onRetry, onNext, onLevels }: {
+  idx: number; paused: boolean; best: number; hasNext: boolean; size: { w: number; h: number };
   onEnd: (idx: number, won: boolean, score: number, stars: number, firstBird: boolean) => void;
   onChain: () => void; onRetry: () => void; onNext: () => void; onLevels: () => void;
 }) {
@@ -220,12 +311,9 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
   chainRef.current = onChain;
   const reduced = useMemo(reducedMotion, []);
 
-  const ghostView = useMemo<GhostView | null>(() => {
-    if (!ghost) return null;
-    const s = ghostShot(level, ghost.strength);
-    return { sprite: ghost.sprite, name: ghost.name, arc: arc(s.vx, s.vy, level.width + 60) };
-  }, [ghost, level]);
-  const ghostFort = ghost ? ghostFortScore(level, ghost.strength) : 0;
+  const ghost = useMemo(() => levelGhost(idx), [idx]);
+  const ghostFort = ghost.target;
+  const passed = useRef(false);
 
   // the canvas fills the stage
   useEffect(() => {
@@ -241,13 +329,13 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
   }, [size]);
 
   // the whole fort, sling included, fits across the screen with sky to spare
-  const fitZoom = () => Math.min(dims.current.w / (level.width + 60), dims.current.h / (GROUND_SHOW + 250));
+  const tall = Math.max(250, levelTop(level) + 70);
+  const fitZoom = () => Math.min(dims.current.w / (level.width + 60), dims.current.h / (GROUND_SHOW + tall));
   const viewW = () => dims.current.w / cam.current.zoom;
 
   // the loop: fixed physics steps (slower in slow-mo), eased camera, draw, HUD sync
   useEffect(() => {
     if (paused) return;
-    const scene = img(`/scenes/${level.scene}.webp`);
     let raf = 0, last = performance.now(), acc = 0, hudKey = '';
     const lastSfx: Record<string, number> = {};
     const say = (name: string, gap = 120) => {
@@ -278,6 +366,8 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
         else if (e === 'squash') say('score', 150);
         else if (e === 'bounce') say('bounce', 150);
         else if (e === 'ability') say('tap');
+        else if (e === 'pop') { say('bounce', 90); ticks(1); }
+        else if (e === 'drop') { say('whoosh', 200); ticks(2, 60); }
         else if (e === 'won') { sfx('win'); buzz('pass'); }
         else if (e === 'lost') { sfx('lose'); buzz('fail'); }
       }
@@ -305,8 +395,9 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx) {
         const { w, h, dpr } = dims.current;
-        drawFrame(ctx, sim, c, w, h, dpr, aim.current, scene, { ghost: ghostView, reduced });
+        drawFrame(ctx, sim, c, w, h, dpr, aim.current, { reduced });
       }
+      if (!passed.current && sim.score > ghostFort && sim.phase !== 'lost') { passed.current = true; say('coin'); ticks(2, 50); }
       const hs = hudOf(sim);
       const key = JSON.stringify(hs);
       if (key !== hudKey) { hudKey = key; setHud(hs); }
@@ -319,7 +410,7 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, ghostView]);
+  }, [paused]);
 
   // ---------- input ----------
   const toWorld = (clientX: number, clientY: number) => {
@@ -373,11 +464,12 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
   };
   const cancel = () => { drag.current = null; aim.current = null; };
 
-  const tip = hud.phase === 'intro' ? `Fort ${idx + 1}: ${level.name}. Tap to start.`
+  const tip = hud.phase === 'intro' ? `${level.world + 1}-${level.num}: ${level.name}. ${level.hint} Tap to start.`
     : hud.phase === 'aim' ? `Drag back on the left half, let go to fling ${birdName(hud.current ?? 'rue')}.`
       : hud.phase === 'flying' ? (hud.slow ? 'Last bug…' : hud.current && hud.current !== 'rue' && !hud.ability ? BIRDS[hud.current].says : '')
         : '';
-  const beatGhost = ghost && hud.phase === 'won' && hud.score > ghostFort;
+  const beatGhost = hud.phase === 'won' && hud.score > ghostFort;
+  const newBird = level.num === 1 ? WORLDS[level.world] : null;
 
   return (
     <div className="game-roostbirds-root play" style={{ height: size.h }}>
@@ -391,34 +483,47 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
           onPointerCancel={cancel}
         />
         <div className="game-roostbirds-hud">
-          <button className="game-roostbirds-btn" onClick={onLevels} aria-label="Forts"><Glyph d={MAP_ICON} /></button>
+          <button className="game-roostbirds-btn" onClick={onLevels} aria-label="World map"><Glyph d={MAP_ICON} /></button>
           <button className="game-roostbirds-btn" onClick={onRetry} aria-label="Restart"><Glyph d={RETRY_ICON} /></button>
-          <span className="game-roostbirds-lvl">{idx + 1}. {level.name}</span>
+          <span className="game-roostbirds-lvl">{level.world + 1}-{level.num} {level.name}</span>
           <span className="game-roostbirds-birds">
             {hud.current && hud.phase !== 'won' && <img className="now" src={sprite(hud.current, 'idle')} alt={hud.current} />}
             {hud.phase !== 'won' && hud.queue.map((b, i) => <img key={i} src={sprite(b, 'idle')} alt={b} />)}
           </span>
           <span className="game-roostbirds-score">{hud.score.toLocaleString()}</span>
           <span className="game-roostbirds-bugcount">{hud.bugs} bug{hud.bugs === 1 ? '' : 's'}</span>
-          {ghost && (
-            <span className={`game-roostbirds-ghost${hud.score > ghostFort ? ' beaten' : ''}`} title={`${ghost.name}'s best on this fort`}>
-              <img src={sprite(ghost.sprite, 'idle')} alt="" />{ghostFort.toLocaleString()}
-            </span>
-          )}
+          <span className={`game-roostbirds-ghost${hud.score > ghostFort ? ' beaten' : ''}`} title={`${ghost.name}'s score on this fort`}>
+            <GhostFace g={ghost} />{ghost.name}'s ghost: {ghostFort.toLocaleString()}
+          </span>
         </div>
         {tip && <div className="game-roostbirds-tip">{tip}</div>}
+        {hud.phase === 'intro' && newBird && (
+          <div className="game-roostbirds-intro">
+            <img src={sprite(newBird.newBird, 'cheer')} alt="" />
+            <b>World {level.world + 1}: {newBird.name}</b>
+            <span>{newBird.story}</span>
+            <span>{newBird.newBirdSays}</span>
+          </div>
+        )}
         {(hud.phase === 'won' || hud.phase === 'lost') && (
           <div className="game-roostbirds-end">
             {hud.phase === 'won' ? <>
-              <img src={sprite(beatGhost ? ghost!.sprite : 'pip', 'cheer')} alt="" />
-              <b>All bugs squashed</b>
+              {beatGhost && (
+                <div className="game-roostbirds-beat">
+                  <GhostFace g={ghost} size={40} />
+                  <b>Beat {ghost.name}'s ghost!</b>
+                  <span>{hud.score.toLocaleString()} vs {ghostFort.toLocaleString()}</span>
+                </div>
+              )}
+              {!beatGhost && <img src={sprite('pip', 'cheer')} alt="" />}
+              <b>{level.boss ? `${level.name} is down` : 'All bugs squashed'}</b>
               <div className="game-roostbirds-bigstars">
                 {[0, 1, 2].map((k) => <Star key={k} on={k < hud.stars} size={34} style={{ animationDelay: `${0.9 + k * 0.25}s` }} />)}
               </div>
               <span>{hud.score.toLocaleString()}{hud.stars > best && best > 0 ? ' · new best' : ''}</span>
-              {ghost && <span className="game-roostbirds-ghostline">{beatGhost ? `Past ${ghost.name}'s ghost (${ghostFort.toLocaleString()})` : `${ghost.name}'s ghost scored ${ghostFort.toLocaleString()} here`}</span>}
+              {!beatGhost && <span className="game-roostbirds-ghostline">{ghost.name}'s ghost scored {ghostFort.toLocaleString()} here: {(ghostFort + 1 - hud.score).toLocaleString()} more to beat it</span>}
               <div className="game-roostbirds-row">
-                <button className="chip" onClick={onLevels}>Forts</button>
+                <button className="chip" onClick={onLevels}>Map</button>
                 <button className="chip" onClick={onRetry}>Replay</button>
                 {hasNext && <button className="chip active" onClick={onNext}>Next fort</button>}
               </div>
@@ -427,7 +532,7 @@ function Play({ idx, paused, best, hasNext, size, ghost, onEnd, onChain, onRetry
               <b>{hud.bugs} bug{hud.bugs === 1 ? '' : 's'} still in the code</b>
               <span>Out of birds.</span>
               <div className="game-roostbirds-row">
-                <button className="chip" onClick={onLevels}>Forts</button>
+                <button className="chip" onClick={onLevels}>Map</button>
                 <button className="chip active" onClick={onRetry}>Try again</button>
               </div>
             </>}

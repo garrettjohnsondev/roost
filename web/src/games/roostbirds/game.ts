@@ -2,7 +2,7 @@
  *  their abilities, damage, scoring and the shot-by-shot flow. The canvas
  *  component drives it; tests can too. */
 import { impactDamage, makeCircle, type Body, type World } from './physics';
-import { GROUND_Y, LEVELS, SCORE, spawnLevel, starsFor, type BirdName, type Level } from './levels';
+import { dropIsland, GROUND_Y, LEVELS, SCORE, spawnLevel, starsFor, type Balloon, type BirdName, type Level } from './levels';
 import { knocked, MAX_SPEED_V, SLING_XY, SLOWMO_SECS, timeScale } from './logic';
 
 export const DT = 1 / 120;
@@ -42,6 +42,8 @@ export class Sim {
   world: World;
   blocks: Body[];
   bugs: Body[];
+  islands: Body[];
+  balloons: Balloon[];
   queue: BirdName[];
   current: BirdName | null;
   flyers: Body[] = [];
@@ -78,8 +80,30 @@ export class Sim {
     this.world = s.world;
     this.blocks = s.blocks;
     this.bugs = s.bugs;
+    this.islands = s.islands;
+    this.balloons = s.balloons;
     this.queue = [...this.level.birds];
     this.current = this.queue.shift() ?? null;
+  }
+
+  /** An exact copy between shots (the level solver forks from it). */
+  clone(): Sim {
+    const map = new Map<Body, Body>();
+    const c = Object.assign(Object.create(Sim.prototype) as Sim, this);
+    c.world = this.world.clone(map);
+    const m = (b: Body) => map.get(b) ?? { ...b };
+    c.blocks = this.blocks.map(m);
+    c.bugs = this.bugs.map(m);
+    c.islands = this.islands.map(m);
+    c.balloons = this.balloons.map((q) => ({ ...q, island: m(q.island) }));
+    c.queue = [...this.queue];
+    c.flyers = this.flyers.map(m);
+    c.eggs = this.eggs.map((e) => ({ body: m(e.body), t: e.t }));
+    c.popups = []; c.particles = []; c.booms = []; c.events = [];
+    c.flash = new Map(); c.squish = new Map();
+    c.boomer = new Set([...this.boomer].map(m));
+    c.collapse = null;
+    return c;
   }
 
   get bugsLeft() { return this.bugs.filter((b) => !b.dead).length; }
@@ -181,6 +205,7 @@ export class Sim {
       if (!bouncy && f.y >= GROUND_Y - f.r - 1.5) { f.vx *= 0.97; f.w *= 0.97; }
     }
     this.applyDamage();
+    this.tickBalloons();
     this.tickEggs(dt);
     this.cull();
     this.tickFx(dt);
@@ -226,12 +251,46 @@ export class Sim {
     }
   }
 
+  /** Anything moving that touches a balloon pops it; the last balloon on an
+   *  island lets it drop. */
+  private tickBalloons() {
+    for (const q of this.balloons) {
+      if (q.dead) continue;
+      for (const b of this.world.bodies) {
+        if (b.dead || b.asleep || b.invM === 0 || b.mat === 'ground') continue;
+        if (Math.abs(b.x - q.x) > b.r + q.r || Math.abs(b.y - q.y) > b.r + q.r) continue;
+        if (Math.hypot(b.x - q.x, b.y - q.y) < b.r + q.r && Math.hypot(b.vx, b.vy) > 30) { this.pop(q); break; }
+      }
+    }
+  }
+
+  private pop(q: Balloon) {
+    if (q.dead) return;
+    q.dead = true;
+    this.score += SCORE.balloon;
+    this.popups.push({ x: q.x, y: q.y - q.r, text: String(SCORE.balloon), t: 0 });
+    this.puff(q.x, q.y, '#ff6b8a', 12, 180);
+    this.events.push('pop');
+    if (!this.balloons.some((o) => !o.dead && o.island === q.island)) {
+      dropIsland(q.island);
+      this.world.wakeAll();
+      this.startCollapse();
+      this.events.push('drop');
+    }
+  }
+
+  /** A blast: shoves the world and pops balloons in reach. */
+  private blast(x: number, y: number, r: number, impulse: number, damage: number) {
+    this.world.explode(x, y, r, impulse, damage);
+    for (const q of this.balloons) if (!q.dead && Math.hypot(q.x - x, q.y - y) < r + q.r) this.pop(q);
+  }
+
   private tickEggs(dt: number) {
     for (const e of this.eggs) {
       e.t += dt;
       if (e.t > 2.5 && !e.body.dead) {
         e.body.dead = true;
-        this.world.explode(e.body.x, e.body.y, 90, 1600, 900);
+        this.blast(e.body.x, e.body.y, 90, 1600, 900);
         this.booms.push({ x: e.body.x, y: e.body.y, t: 0, r: 90 });
         this.puff(e.body.x, e.body.y, '#ff9a3c', 26, 260);
         this.shake = 10;
@@ -254,7 +313,7 @@ export class Sim {
         const pts = b.mat === 'bug' ? (boss ? SCORE.boss : SCORE.bug) : SCORE[b.mat as 'wood' | 'stone' | 'glass' | 'tnt'] ?? 0;
         if (this.collapse) this.collapse.broken++;
         if (b.mat === 'tnt') {
-          this.world.explode(b.x, b.y, 110, 2200, 1100);
+          this.blast(b.x, b.y, 110, 2200, 1100);
           this.booms.push({ x: b.x, y: b.y, t: 0, r: 110 });
           this.puff(b.x, b.y, '#ff9a3c', 22, 280);
           this.puff(b.x, b.y, '#4a4a4a', 10, 120);
@@ -266,7 +325,7 @@ export class Sim {
         this.popups.push({ x: b.x, y: b.y - b.r, text: String(pts), t: 0, big: b.mat === 'bug' });
         if (b.mat === 'bug') {
           this.events.push('squash');
-          const name = boss ? 'heisenbug' : BUG_NAMES[b.id % BUG_NAMES.length];
+          const name = boss ? (this.level.boss ?? 'boss') : BUG_NAMES[b.id % BUG_NAMES.length];
           this.popups.push({ x: b.x, y: b.y - b.r - 16, text: `${name} fixed`, t: 0 });
           if (this.phase === 'flying' && this.bugsLeft === 0 && !this.slowmo) {
             this.slowmo = SLOWMO_SECS;

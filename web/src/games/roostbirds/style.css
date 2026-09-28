@@ -25,8 +25,6 @@
 .game-roostbirds-title div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .game-roostbirds-title span { color: var(--text-dim); font-size: 12px; }
 .game-roostbirds-total { font-weight: 700; color: #e0a526 !important; font-size: 15px !important; white-space: nowrap; }
-.game-roostbirds-ghostchip { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.game-roostbirds-ghostchip img { width: 24px; height: 24px; opacity: 0.45; filter: brightness(1.3) drop-shadow(0 0 3px #fff); }
 
 .game-roostbirds-map {
   position: relative;
@@ -34,11 +32,27 @@
   overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 24px),
-    linear-gradient(180deg, #a9dcf2 0%, #d8efe0 55%, #8fc76a 55%, #6fae4c 100%);
   -webkit-overflow-scrolling: touch;
 }
+/* one backdrop per world, the same one its forts are played on */
+.game-roostbirds-map.w0 {
+  background:
+    repeating-linear-gradient(90deg, rgba(67, 38, 63, 0.35) 0 14px, transparent 14px 150px) bottom / 100% 26% no-repeat,
+    linear-gradient(180deg, #2d1f4d 0%, #c9607a 50%, #f6b36b 74%, #b8894f 74%, #8a6440 100%);
+}
+.game-roostbirds-map.w1 {
+  background:
+    repeating-linear-gradient(90deg, #16233f 0 44px, transparent 44px 90px) bottom / 100% 70% no-repeat,
+    linear-gradient(180deg, #0c1222 0%, #1d3157 76%, #2fb7e8 76%, #1b2438 78%, #1b2438 100%);
+}
+.game-roostbirds-map.w2 {
+  background:
+    radial-gradient(ellipse 60px 14px at 20% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(ellipse 80px 16px at 70% 14%, rgba(255, 255, 255, 0.8), transparent),
+    linear-gradient(180deg, #4aa6e8 0%, #8fd0f5 60%, #e2f5ff 80%, #ffffff 80%, #e8f5ff 100%);
+}
+.game-roostbirds-path path { stroke: rgba(255, 240, 220, 0.6); }
+.game-roostbirds-map.w2 .game-roostbirds-path path { stroke: rgba(40, 90, 140, 0.45); }
 .game-roostbirds-mapinner { position: relative; }
 .game-roostbirds-path { position: absolute; left: 0; top: 0; }
 .game-roostbirds-node {
@@ -74,10 +88,79 @@
   white-space: nowrap;
   font-size: 10px;
   color: #2b2b2b;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.78);
   padding: 1px 4px;
   border-radius: 2px;
 }
+.game-roostbirds-tileghost {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-size: 9px;
+  font-family: ui-monospace, Menlo, monospace;
+  color: #fff;
+  background: rgba(20, 24, 44, 0.62);
+  padding: 1px 4px 1px 1px;
+  border-radius: 2px;
+}
+.game-roostbirds-tileghost.beaten { color: #ffe36b; }
+.game-roostbirds-tileghost.beaten::after { content: ' beaten'; }
+.game-roostbirds-ghostface {
+  image-rendering: pixelated;
+  opacity: 0.45;
+  filter: brightness(1.4) drop-shadow(0 0 3px #fff);
+  animation: game-roostbirds-bob 2.4s ease-in-out infinite;
+}
+
+/* ---------- world picker ---------- */
+.game-roostbirds-title.slim { gap: 8px; }
+.game-roostbirds-unlock { font-size: 11px !important; white-space: nowrap; }
+.game-roostbirds-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  background: rgba(244, 182, 63, 0.14);
+}
+.game-roostbirds-note span { flex: 1; }
+.game-roostbirds-worlds { display: flex; gap: 8px; flex: 1; min-height: 0; }
+.game-roostbirds-world {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  color: #fff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.game-roostbirds-world:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+.game-roostbirds-world.w0 { background: linear-gradient(180deg, #2d1f4d, #c9607a 70%, #f6b36b); }
+.game-roostbirds-world.w1 { background: linear-gradient(180deg, #0c1222, #1d3157 80%, #2fb7e8); }
+.game-roostbirds-world.w2 { background: linear-gradient(180deg, #4aa6e8, #8fd0f5 70%, #e2f5ff); color: #10263a; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
+.game-roostbirds-world.locked { filter: grayscale(0.8) brightness(0.7); cursor: default; }
+.game-roostbirds-world b { font-size: 17px; }
+.game-roostbirds-wnum { font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.06em; }
+.game-roostbirds-wstory { font-size: 12px; opacity: 0.92; }
+.game-roostbirds-wbird { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; }
+.game-roostbirds-wbird img { width: 32px; height: 32px; image-rendering: pixelated; }
+.game-roostbirds-wfoot { margin-top: auto; display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 13px; }
 
 .game-roostbirds-crew {
   display: flex;
@@ -160,7 +243,45 @@
   filter: brightness(1.4) drop-shadow(0 0 3px #fff);
   animation: game-roostbirds-bob 2.4s ease-in-out infinite;
 }
-.game-roostbirds-ghost.beaten { text-decoration: line-through; opacity: 0.55; }
+.game-roostbirds-ghost { white-space: nowrap; }
+.game-roostbirds-ghost.beaten { color: #ffe36b; opacity: 1; }
+
+/* the world's first fort: who joins and what's new */
+.game-roostbirds-intro {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 60%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: rgba(10, 14, 30, 0.7);
+  color: #fff;
+  text-align: center;
+  font-size: 12px;
+  pointer-events: none;
+}
+.game-roostbirds-intro img { width: 48px; height: 48px; image-rendering: pixelated; }
+
+/* the ghost-beaten moment */
+.game-roostbirds-beat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  border: 2px solid #ffe36b;
+  border-radius: 6px;
+  background: rgba(255, 227, 107, 0.16);
+  transform: scale(0.6);
+  animation: game-roostbirds-pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1) 0.9s forwards;
+}
+.game-roostbirds-beat b { color: #ffe36b; font-size: 19px; }
+.game-roostbirds-beat .game-roostbirds-ghostface { opacity: 0.7; }
 
 .game-roostbirds-tip {
   position: absolute;
@@ -213,5 +334,6 @@
 @media (prefers-reduced-motion: reduce) {
   .game-roostbirds-end { animation-duration: 0.01s; }
   .game-roostbirds-bigstars .game-roostbirds-star.on { animation: none; transform: none; }
-  .game-roostbirds-node.next, .game-roostbirds-ghost img { animation: none; }
+  .game-roostbirds-node.next, .game-roostbirds-ghost img, .game-roostbirds-ghostface { animation: none; }
+  .game-roostbirds-beat { animation: none; transform: none; }
 }

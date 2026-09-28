@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { makeBox, makeCircle, World } from './physics';
-import { LEVELS, spawnLevel, starsFor, levelValue } from './levels';
-import { MAX_SPEED, Sim } from './game';
+import { LEVELS, spawnLevel, starsFor, levelValue, WORLDS } from './levels';
+import { Sim } from './game';
+import { SOLUTIONS } from './solutions';
+import { replay } from './solver';
 
 const DT = 1 / 120;
 function run(w: World, secs: number) { for (let i = 0; i < secs / DT; i++) w.step(DT); }
@@ -60,8 +62,20 @@ describe('physics', () => {
 });
 
 describe('levels', () => {
-  it('has at least 12 levels, each with a bug and a bird', () => {
-    expect(LEVELS.length).toBeGreaterThanOrEqual(12);
+  it('three worlds of fifteen, each ending in its one boss', () => {
+    expect(LEVELS.length).toBe(45);
+    for (let w = 0; w < WORLDS.length; w++) {
+      const ls = LEVELS.filter((l) => l.world === w);
+      expect(ls.length).toBe(15);
+      expect(ls.map((l) => l.num)).toEqual(Array.from({ length: 15 }, (_, k) => k + 1));
+      expect(ls[14].boss).toBeTruthy();
+      expect(ls[14].bugs.some((b) => b.boss)).toBe(true);
+      expect(ls.slice(0, 14).some((l) => l.boss || l.bugs.some((b) => b.boss))).toBe(false);
+      // the world's new bird shows up in its first three forts
+      expect(ls.slice(0, 3).some((l) => l.birds.includes(WORLDS[w].newBird))).toBe(true);
+    }
+    // the cloud floats: every sky fort has balloons
+    expect(LEVELS.filter((l) => l.world === 2).every((l) => l.islands.length > 0)).toBe(true);
     for (const l of LEVELS) {
       expect(l.bugs.length).toBeGreaterThan(0);
       expect(l.birds.length).toBeGreaterThan(0);
@@ -83,15 +97,31 @@ describe('levels', () => {
     }
   });
 
-  it('a good shot clears fort 1, scores, and a miss moves to the next bird', () => {
-    const s = new Sim(0);
-    s.skipIntro();
-    const a = (5 * Math.PI) / 180;
-    s.launch(Math.cos(a) * MAX_SPEED, -Math.sin(a) * MAX_SPEED);
-    for (let i = 0; i < 120 * 15 && s.phase === 'flying'; i++) s.step();
-    expect(s.phase).toBe('won');
-    expect(s.stars).toBeGreaterThanOrEqual(1);
+  it("every level is winnable: the solver's recorded shots win it with the birds you get", () => {
+    expect(SOLUTIONS.length).toBe(LEVELS.length);
+    LEVELS.forEach((l, i) => {
+      const sol = SOLUTIONS[i];
+      expect(sol.shots.length, l.name).toBe(sol.birds);
+      expect(sol.birds, l.name).toBeLessThanOrEqual(l.birds.length);
+      const s = replay(i, sol.shots);
+      expect(s.phase, l.name).toBe('won');
+      expect(s.score, l.name).toBe(sol.score);
+    });
+  });
 
+  it('difficulty rises: fort 1 is a one-bird clear with birds to spare, later worlds need more', () => {
+    expect(SOLUTIONS[0].birds).toBe(1);
+    expect(LEVELS[0].birds.length - SOLUTIONS[0].birds).toBeGreaterThanOrEqual(2);
+    const need = (w: number) => LEVELS.map((l, i) => (l.world === w ? SOLUTIONS[i].birds : 0)).reduce((a, b) => a + b, 0);
+    expect(need(1)).toBeGreaterThan(need(0));
+    expect(need(2)).toBeGreaterThan(need(1));
+    // the last world's late forts leave at most two birds to spare
+    LEVELS.forEach((l, i) => {
+      if (l.world === 2 && l.num >= 10) expect(l.birds.length - SOLUTIONS[i].birds, l.name).toBeLessThanOrEqual(2);
+    });
+  });
+
+  it('a miss moves on to the next bird', () => {
     const miss = new Sim(0);
     miss.skipIntro();
     miss.launch(-200, -100); // backwards, off the map

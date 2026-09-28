@@ -214,10 +214,22 @@ export class World {
   impacts: Impact[] = [];
   time = 0;
   private steps = 0;
+  /** Seeded, so a replayed shot plays out the same way every time. */
+  private seed = 12345;
+  private rand() { this.seed = (this.seed * 1664525 + 1013904223) >>> 0; return this.seed / 4294967296; }
 
   add(b: Body): Body { this.bodies.push(b); return b; }
   wakeAll() { for (const b of this.bodies) { b.asleep = false; b.idle = 0; } }
   wake(b: Body) { b.asleep = false; b.idle = 0; }
+
+  /** An exact copy (bodies, warm-start cache, clock), for the level solver. */
+  clone(map: Map<Body, Body>): World {
+    const w = Object.assign(Object.create(World.prototype) as World, this);
+    w.bodies = this.bodies.map((b) => { const c = { ...b }; map.set(b, c); return c; });
+    w.cache = new Map([...this.cache].map(([k, v]) => [k, v.map((c) => ({ ...c, ra: [...c.ra] as [number, number], rb: [...c.rb] as [number, number] }))]));
+    w.impacts = [];
+    return w;
+  }
 
   step(dt: number) {
     this.time += dt;
@@ -452,7 +464,7 @@ export class World {
       const nx = d > 0 ? dx / d : 0, ny = d > 0 ? dy / d : -1;
       b.vx += nx * impulse * f * b.invM;
       b.vy += (ny - 0.3) * impulse * f * b.invM;
-      if (b.invI > 0) b.w += (Math.random() - 0.5) * 6 * f;
+      if (b.invI > 0) b.w += (this.rand() - 0.5) * 6 * f;
       if (b.hp !== Infinity) b.dmg += damage * f;
     }
   }

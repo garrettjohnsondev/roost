@@ -3,7 +3,7 @@
 import type { Body } from './physics';
 import { GROUND_Y } from './levels';
 import { BIRDS, SLING, Sim, trajectory } from './game';
-import type { BirdName } from './levels';
+import type { Balloon, BirdName } from './levels';
 
 export const VIEW_W = 440; // world units across the screen at normal zoom
 export const GROUND_SHOW = 34; // world units of ground under the grass line
@@ -81,6 +81,21 @@ function makeTile(key: string): HTMLCanvasElement {
       px(g, 0, 0, '#7a5231', 32, 32);
       for (let i = 0; i < 70; i++) px(g, Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? '#6a4529' : '#8d6139', 1 + Math.floor(r() * 2), 1);
       for (let i = 0; i < 5; i++) px(g, Math.floor(r() * 30), Math.floor(r() * 30), '#9b9a8e', 2, 2);
+    });
+    case 'sand': return tile(key, 32, 32, (g, r) => {
+      px(g, 0, 0, '#8a6440', 32, 32);
+      for (let i = 0; i < 70; i++) px(g, Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? '#7a5636' : '#a0774d', 1 + Math.floor(r() * 2), 1);
+      px(g, 0, 15, '#6f4e30', 32, 1); px(g, 12, 0, '#6f4e30', 1, 15); px(g, 26, 16, '#6f4e30', 1, 16);
+    });
+    case 'floor': return tile(key, 32, 32, (g, r) => {
+      px(g, 0, 0, '#1b2438', 32, 32);
+      for (let i = 0; i < 30; i++) px(g, Math.floor(r() * 32), Math.floor(r() * 32), '#222d45');
+      px(g, 0, 0, '#2c3a58', 32, 1); px(g, 0, 0, '#2c3a58', 1, 32);
+      px(g, 14, 14, '#3a4d74', 4, 4);
+    });
+    case 'cloudbank': return tile(key, 32, 32, (g, r) => {
+      px(g, 0, 0, '#e8f5ff', 32, 32);
+      for (let i = 0; i < 40; i++) px(g, Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? '#d6ecfb' : '#ffffff', 2, 2);
     });
     default: return tile(key, 2, 2, (g) => px(g, 0, 0, '#f0f', 2, 2));
   }
@@ -251,39 +266,28 @@ function band(ctx: CanvasRenderingContext2D, fx: number, fy: number, x: number, 
 
 export interface Aim { dx: number; dy: number; vx: number; vy: number; power: number }
 
-/** The ghost being raced on this fort: their best shot as a faint arc, and
- *  their crew sprite floating see-through over it. */
-export interface GhostView { sprite: string; name: string; arc: { x: number; y: number }[] }
-export interface FrameOpts { ghost?: GhostView | null; reduced?: boolean }
+export interface FrameOpts { reduced?: boolean }
 
 const trails = new WeakMap<Sim, { x: number; y: number }[]>();
 
-function drawGhost(ctx: CanvasRenderingContext2D, g: GhostView, time: number) {
-  ctx.save();
-  ctx.fillStyle = '#ffffff';
-  ctx.globalAlpha = 0.4;
-  g.arc.forEach((p, i) => { if (i % 2 === 0) ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3); });
-  // float the ghost near the top of their arc
-  const top = g.arc.reduce((m, p) => (p.y < m.y ? p : m), g.arc[0] ?? { x: SLING.x, y: SLING.y });
-  const i = birdSprite(g.sprite, 'idle');
-  const bob = Math.sin(time * 2.4) * 4;
-  ctx.shadowColor = 'rgba(255,255,255,0.95)';
-  ctx.shadowBlur = 10;
-  if (ready(i)) ctx.drawImage(i, top.x - 15, top.y - 42 + bob, 30, 30);
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = 0.6;
-  ctx.font = 'bold 8px ui-monospace, Menlo, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`${g.name}'s best`, top.x, top.y - 46 + bob);
-  ctx.restore();
-}
+// ---------- world backdrops (screen space, always behind the fort) ----------
 
-function drawClouds(ctx: CanvasRenderingContext2D, w: number, h: number, camX: number, time: number) {
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  for (let k = 0; k < 5; k++) {
-    const span = w + 160;
-    const x = Math.floor((((k * 211 - camX * 0.15 + time * (4 + k)) % span) + span) % span - 80);
-    const y = Math.floor(14 + ((k * 53) % Math.max(20, h * 0.35)));
+interface Theme { sky: [string, string, string]; far: string; near: string; ground: string; grass: string; tuft: string; clouds: string | null }
+export const THEMES: Theme[] = [
+  // Legacy Code: ruins at dusk
+  { sky: ['#2d1f4d', '#c9607a', '#f6b36b'], far: '#5a3656', near: '#43263f', ground: 'sand', grass: '#b8894f', tuft: '#d9ae6b', clouds: 'rgba(255,196,170,0.55)' },
+  // Merge Conflict: the glass server room
+  { sky: ['#0c1222', '#152342', '#1d3157'], far: '#16233f', near: '#0f1a31', ground: 'floor', grass: '#2fb7e8', tuft: '#7fe3ff', clouds: null },
+  // The Cloud: sky islands
+  { sky: ['#4aa6e8', '#8fd0f5', '#e2f5ff'], far: '#b4ddf4', near: '#9ccbe9', ground: 'cloudbank', grass: '#ffffff', tuft: '#eaf6ff', clouds: 'rgba(255,255,255,0.8)' },
+];
+
+function drawClouds(ctx: CanvasRenderingContext2D, w: number, horizon: number, camX: number, time: number, color: string) {
+  ctx.fillStyle = color;
+  for (let k = 0; k < 6; k++) {
+    const span = w + 200;
+    const x = Math.floor((((k * 211 - camX * 0.08 + time * (3 + k)) % span) + span) % span - 100);
+    const y = Math.floor(10 + ((k * 53) % Math.max(20, horizon * 0.45)));
     const s = 3 + (k % 3);
     ctx.fillRect(x, y, s * 10, s * 2);
     ctx.fillRect(x + s * 2, y - s * 2, s * 5, s * 2);
@@ -291,28 +295,146 @@ function drawClouds(ctx: CanvasRenderingContext2D, w: number, h: number, camX: n
   }
 }
 
-export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: number, h: number, dpr: number, aim: Aim | null, scene: HTMLImageElement, opts: FrameOpts = {}) {
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.imageSmoothingEnabled = false;
+/** Ruined columns and arches (Legacy Code). */
+function ruins(ctx: CanvasRenderingContext2D, x0: number, base: number, k: number, far: boolean) {
+  const r = rng(Math.floor(x0 / 7) + (far ? 77 : 5));
+  const kind = Math.floor(r() * 3);
+  const hgt = (far ? 60 : 40) * k * (0.7 + r() * 0.6);
+  if (kind === 0) {
+    // a column with a broken top
+    ctx.fillRect(x0, base - hgt, 14 * k, hgt);
+    ctx.fillRect(x0 - 3 * k, base - hgt, 20 * k, 4 * k);
+    ctx.fillRect(x0 + 2 * k, base - hgt - 6 * k, 6 * k, 6 * k);
+  } else if (kind === 1) {
+    // an arch
+    ctx.fillRect(x0, base - hgt, 10 * k, hgt);
+    ctx.fillRect(x0 + 40 * k, base - hgt, 10 * k, hgt);
+    ctx.fillRect(x0, base - hgt - 10 * k, 50 * k, 10 * k);
+  } else {
+    // a stepped temple mound
+    for (let i = 0; i < 3; i++) ctx.fillRect(x0 + i * 8 * k, base - (i + 1) * hgt * 0.3, (60 - i * 16) * k, (i + 1) * hgt * 0.3);
+  }
+}
 
-  // sky + scene, parallax
-  const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#9ad3f0'); sky.addColorStop(1, '#e8f4ea');
+/** Server racks with blinking lights (Merge Conflict). */
+function racks(ctx: CanvasRenderingContext2D, x0: number, base: number, k: number, far: boolean, time: number) {
+  const hgt = (far ? 150 : 110) * k;
+  const wd = 44 * k;
+  ctx.fillRect(x0, base - hgt, wd, hgt);
+  const r = rng(Math.floor(x0 / 5) + (far ? 9 : 3));
+  const save = ctx.fillStyle;
+  for (let y = base - hgt + 6 * k; y < base - 6 * k; y += 9 * k) {
+    ctx.fillStyle = far ? 'rgba(90,140,200,0.18)' : 'rgba(90,140,200,0.28)';
+    ctx.fillRect(x0 + 4 * k, y, wd - 8 * k, 5 * k);
+    const on = Math.sin(time * (1 + r() * 3) + r() * 10) > 0.2;
+    ctx.fillStyle = on ? (r() < 0.25 ? '#ffb347' : '#5cff9a') : 'rgba(40,60,90,0.8)';
+    ctx.fillRect(x0 + wd - 10 * k, y + 1 * k, 2 * k, 2 * k);
+  }
+  ctx.fillStyle = save;
+}
+
+/** Faraway floating islands (The Cloud). */
+function farIsles(ctx: CanvasRenderingContext2D, x0: number, base: number, k: number, far: boolean, time: number) {
+  const r = rng(Math.floor(x0 / 3) + (far ? 31 : 13));
+  const y = base - (far ? 120 : 70) * k * (0.6 + r() * 0.8) + Math.sin(time * 0.6 + x0) * 2;
+  const wd = (far ? 50 : 70) * k;
+  ctx.fillRect(x0, y, wd, 6 * k);
+  ctx.fillRect(x0 + 6 * k, y + 6 * k, wd - 12 * k, 5 * k);
+  ctx.fillRect(x0 + 16 * k, y + 11 * k, wd - 32 * k, 4 * k);
+  ctx.fillRect(x0 + wd / 2, y - 22 * k, 1, 22 * k);
+  ctx.beginPath(); ctx.arc(x0 + wd / 2, y - 26 * k, 5 * k, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBackdrop(ctx: CanvasRenderingContext2D, world: number, w: number, h: number, cam: Cam, time: number) {
+  const th = THEMES[world] ?? THEMES[0];
+  const horizon = h - GROUND_SHOW * cam.zoom;
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, th.sky[0]); sky.addColorStop(0.6, th.sky[1]); sky.addColorStop(1, th.sky[2]);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
-  if (ready(scene)) {
-    const groundScreen = h - GROUND_SHOW * cam.zoom;
-    const sh = groundScreen + 14, sw = (scene.naturalWidth / scene.naturalHeight) * sh;
-    let x0 = -((cam.x * cam.zoom * 0.3) % sw);
-    if (x0 > 0) x0 -= sw;
-    ctx.globalAlpha = 0.9;
-    for (let x = x0; x < w; x += sw) ctx.drawImage(scene, Math.floor(x), Math.floor(groundScreen + 14 - sh), Math.ceil(sw) + 1, Math.ceil(sh));
-    ctx.globalAlpha = 1;
-    // a light veil so the fort reads over any backdrop
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillRect(0, 0, w, groundScreen);
+  if (world === 0) {
+    // a low dusk sun
+    ctx.fillStyle = 'rgba(255,220,150,0.85)';
+    ctx.beginPath(); ctx.arc(w * 0.72 - cam.x * cam.zoom * 0.03, horizon - 30, 26, 0, Math.PI * 2); ctx.fill();
   }
-  drawClouds(ctx, w, h, cam.x, sim.time);
+  if (world === 1) {
+    // ceiling cable trays and a floor glow
+    ctx.fillStyle = 'rgba(60,100,160,0.25)';
+    for (let x = -((cam.x * cam.zoom * 0.1) % 60); x < w; x += 60) ctx.fillRect(x, 0, 30, 6);
+    const glow = ctx.createLinearGradient(0, horizon - 60, 0, horizon);
+    glow.addColorStop(0, 'rgba(47,183,232,0)'); glow.addColorStop(1, 'rgba(47,183,232,0.18)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, horizon - 60, w, 60);
+  }
+  // clouds are sky: drawn first, behind every silhouette and the whole fort
+  if (th.clouds) drawClouds(ctx, w, horizon, cam.x * cam.zoom, time, th.clouds);
+  const k = Math.max(0.6, Math.min(1.4, cam.zoom * 1.6));
+  for (const [layer, par, gap] of [['far', 0.12, 150], ['near', 0.25, 190]] as const) {
+    ctx.fillStyle = layer === 'far' ? th.far : th.near;
+    const step = gap * k;
+    const off = (cam.x * cam.zoom * par) % step;
+    for (let i = -1; i * step - off < w + step; i++) {
+      const x = Math.floor(i * step - off + (layer === 'far' ? 40 : 0) * k);
+      const seedX = Math.floor((cam.x * cam.zoom * par) / step) + i;
+      if (world === 0) ruins(ctx, x, horizon + 2, k, layer === 'far');
+      else if (world === 1) racks(ctx, x, horizon + 2, k, layer === 'far', time + seedX);
+      else farIsles(ctx, x, horizon - 20, k, layer === 'far', time + seedX);
+    }
+  }
+}
+
+// ---------- islands and balloons ----------
+
+const BALLOON_COLS = ['#ff5c7a', '#ffb347', '#6fd3ff', '#b38bff', '#7fe07f'];
+
+function drawIsland(ctx: CanvasRenderingContext2D, b: Body) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.rotate(b.a);
+  const hw = b.hw, hh = b.hh;
+  // rocky underside tapering to a point
+  ctx.fillStyle = '#8b7a66';
+  ctx.fillRect(-hw, -hh, hw * 2, hh * 2);
+  ctx.fillStyle = '#6f604f';
+  ctx.fillRect(-hw * 0.8, hh, hw * 1.6, 6);
+  ctx.fillRect(-hw * 0.5, hh + 6, hw, 5);
+  ctx.fillRect(-hw * 0.2, hh + 11, hw * 0.4, 4);
+  ctx.fillStyle = '#a6947c';
+  for (let x = -hw + 4; x < hw - 4; x += 11) ctx.fillRect(x, -hh + 5, 4, 2);
+  // grass on top
+  ctx.fillStyle = '#5da83a';
+  ctx.fillRect(-hw, -hh, hw * 2, 4);
+  ctx.fillStyle = '#7fcb4f';
+  for (let x = -hw; x < hw; x += 5) ctx.fillRect(x, -hh - 1 - ((x / 5) % 2 ? 1 : 0), 2, 2);
+  ctx.restore();
+}
+
+function drawBalloon(ctx: CanvasRenderingContext2D, q: Balloon, time: number, i: number) {
+  const sway = Math.sin(time * 1.3 + q.phase) * 2.5;
+  const x = q.x + sway, y = q.y + Math.sin(time * 1.9 + q.phase) * 1.2;
+  const isl = q.island;
+  // the string, from the slab's top up to the balloon
+  const ax = Math.max(isl.x - isl.hw + 2, Math.min(isl.x + isl.hw - 2, q.x));
+  const ay = isl.y - isl.hh;
+  ctx.strokeStyle = 'rgba(40,40,60,0.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.quadraticCurveTo((ax + x) / 2 - sway, (ay + y) / 2, x, y + q.r);
+  ctx.stroke();
+  ctx.fillStyle = BALLOON_COLS[i % BALLOON_COLS.length];
+  ctx.beginPath(); ctx.ellipse(x, y, q.r * 0.85, q.r, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(x - 2, y + q.r - 1, 4, 3);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillRect(x - q.r * 0.45, y - q.r * 0.6, 3, 5);
+}
+
+export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: number, h: number, dpr: number, aim: Aim | null, opts: FrameOpts = {}) {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  const world = sim.level.world;
+  const th = THEMES[world] ?? THEMES[0];
+  drawBackdrop(ctx, world, w, h, cam, sim.time);
 
   const shk = opts.reduced ? 0 : sim.shake;
   const shx = shk ? (Math.random() - 0.5) * shk : 0;
@@ -323,12 +445,15 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
 
   // ground
   const gx0 = cam.x - 50, gx1 = cam.x + w / cam.zoom + 50;
-  ctx.fillStyle = texture(ctx, 'ground') ?? '#7a5231';
+  ctx.fillStyle = texture(ctx, th.ground) ?? '#7a5231';
   ctx.fillRect(gx0, GROUND_Y, gx1 - gx0, 200);
-  ctx.fillStyle = '#5da83a';
+  ctx.fillStyle = th.grass;
   ctx.fillRect(gx0, GROUND_Y - 1, gx1 - gx0, 5);
-  ctx.fillStyle = '#7fcb4f';
-  for (let x = Math.floor(gx0 / 6) * 6; x < gx1; x += 6) ctx.fillRect(x, GROUND_Y - 2 - ((x / 6) % 3 === 0 ? 2 : 0), 2, 3);
+  ctx.fillStyle = th.tuft;
+  if (world === 2) {
+    // a puffy cloud bank for a floor
+    for (let x = Math.floor(gx0 / 18) * 18; x < gx1; x += 18) { ctx.beginPath(); ctx.arc(x, GROUND_Y + 2, 9 + ((x / 18) % 3), Math.PI, 0); ctx.fill(); }
+  } else for (let x = Math.floor(gx0 / 6) * 6; x < gx1; x += 6) ctx.fillRect(x, GROUND_Y - 2 - ((x / 6) % 3 === 0 ? 2 : 0), 2, 3);
 
   // birds waiting their turn
   sim.queue.forEach((name, i) => {
@@ -337,7 +462,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
     drawBird(ctx, name, SLING.x - 36 - i * 26, GROUND_Y - r - hop, r, 0, 'idle');
   });
 
-  if (opts.ghost && sim.phase !== 'won' && sim.phase !== 'lost') drawGhost(ctx, opts.ghost, sim.time);
+  sim.balloons.forEach((q, i) => { if (!q.dead) drawBalloon(ctx, q, sim.time, i); });
+  for (const b of sim.islands) drawIsland(ctx, b);
 
   // this shot's trail: little puffs where the bird has been
   let trail = trails.get(sim);
@@ -356,6 +482,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, sim: Sim, cam: Cam, w: 
 
   for (const b of sim.world.bodies) {
     if (b.dead) continue;
+    if (b.tag === 'island') continue;
     if (b.mat === 'wood' || b.mat === 'stone' || b.mat === 'glass' || b.mat === 'tnt') drawBlock(ctx, b);
   }
   for (const b of sim.bugs) if (!b.dead) drawBug(ctx, b, sim.time, sim.flash.get(b.id) ?? 0);
