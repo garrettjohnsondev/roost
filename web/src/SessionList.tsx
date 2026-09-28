@@ -435,6 +435,7 @@ export function SessionList(props: {
       )}
 
       <UsagePanel compact />
+      <ProjectUsageCard />
 
       {visibleRecent.length > 0 && (
         <section className="card">
@@ -643,6 +644,48 @@ function LeftOff({ sessions, recent, onDeck, busy, onContinue }: {
           </div>
         );
       })}
+    </section>
+  );
+}
+
+/** This week, by project (#47): "Did we hammer Nell? … yayo bay used 30% of
+ *  your weekly". Read from the vendors' own logs on the Mac. */
+function ProjectUsageCard() {
+  const [rows, setRows] = useState<Awaited<ReturnType<typeof api.projectUsage>>['projects'] | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => { api.projectUsage().then((r) => setRows(r.projects)).catch(() => setRows([])); }, []);
+  if (!rows || !rows.length) return null;
+  const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+  const pct = (r: (typeof rows)[number]) => [
+    r.weekPct.claude ? `${r.weekPct.claude}% of your Claude week` : null,
+    r.weekPct.codex ? `${r.weekPct.codex}% of your Codex week` : null,
+  ].filter(Boolean).join(' · ');
+  const shown = open ? rows : rows.slice(0, 3);
+  return (
+    <section className="card proj-usage">
+      <h2>This week, by project</h2>
+      {shown.map((r) => {
+        const top = r.crew.slice(0, 3);
+        const all = r.crew.reduce((n, c) => n + c.tokens, 0) || 1;
+        return (
+          <div key={r.cwd} className="proj-usage-row">
+            <div className="left-off-top">
+              <span className="convo-project">{projectName(r.cwd)}</span>
+              <span className="convo-time">{fmt(r.tokens)} tokens</span>
+            </div>
+            {pct(r) && <div className="proj-usage-pct">{pct(r)}</div>}
+            <div className="proj-usage-crew">
+              {top.map((c) => (
+                <span key={c.name} className="proj-usage-who" title={`${c.name}: ${fmt(c.tokens)}`}>
+                  {c.sprite && <img src={`/crew/${c.sprite}-idle.webp`} alt="" />}
+                  <span style={{ color: nameColor(c.color) }}>{c.name}</span> {Math.round((c.tokens / all) * 100)}%
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {rows.length > 3 && <button className="link" onClick={() => setOpen(!open)}>{open ? 'Show fewer' : `Show all ${rows.length}`}</button>}
     </section>
   );
 }

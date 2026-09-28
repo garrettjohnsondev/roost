@@ -36,6 +36,7 @@ import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './compan
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
 import { readOnDeck } from './onDeck.js';
+import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
 
 // Every log line gets a time. The log had none, so on the day every session
@@ -350,6 +351,44 @@ app.post('/api/plan', (req, res) => {
 
 // What's on deck per project (#46).
 app.get('/api/ondeck', (_req, res) => { res.json({ onDeck: readOnDeck() }); });
+
+// Per-project usage this week, from the vendors' own logs (#47). The first
+// call waits for a scan; after that it answers from the cache and refreshes
+// in the background.
+let usageScanned = false;
+app.get('/api/usage/projects', async (_req, res) => {
+  const scan = scanUsage().then(() => { usageScanned = true; }).catch(() => {});
+  if (!usageScanned) await scan;
+  const u: any = getCachedUsage();
+  const weekly = (agent: 'claude' | 'codex') => {
+    const w = u?.[agent]?.windows?.find((x: any) => x.windowDurationMins === 10080 && typeof x.usedPercent === 'number' && !/scoped/.test(x.key));
+    return typeof w?.usedPercent === 'number' ? w.usedPercent : null;
+  };
+  const wk = { claude: weekly('claude'), codex: weekly('codex') };
+  res.json({
+    projects: projectUsage(config.projects).map((p) => {
+      const crew = Object.entries(p.byModel)
+        .map(([model, tokens]) => ({ p: personaFor(/^gpt|codex|^o\d/i.test(model) ? 'codex' : 'claude', model), tokens }))
+        .reduce<Record<string, { name: string; color: string; sprite?: string; tokens: number }>>((acc, { p: per, tokens }) => {
+          const k = per.name;
+          acc[k] = acc[k] ?? { name: per.name, color: per.color, sprite: (per as any).sprite, tokens: 0 };
+          acc[k].tokens += tokens;
+          return acc;
+        }, {});
+      return {
+        cwd: p.cwd,
+        tokens: p.tokens,
+        byAgent: p.byAgent,
+        // Share of your whole week on that vendor, as a percent of the limit.
+        weekPct: {
+          claude: p.share.claude != null && wk.claude != null ? Math.round(p.share.claude * wk.claude) : null,
+          codex: p.share.codex != null && wk.codex != null ? Math.round(p.share.codex * wk.codex) : null,
+        },
+        crew: Object.values(crew).sort((a, b) => b.tokens - a.tokens),
+      };
+    }),
+  });
+});
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.
 const games = new Games();

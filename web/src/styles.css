@@ -3757,3 +3757,11 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .left-off-tag.next { color: var(--accent-ink, var(--accent)); border-color: currentColor; }
 .left-off-actions { display: flex; gap: 6px; margin-top: 6px; }
 .primary-chip { background: var(--accent, #c9803a); color: #fff; border-color: transparent; }
+
+/* This week, by project (#47) */
+.proj-usage-row { padding: 8px 0; border-top: 1px solid var(--border); }
+.proj-usage-row:first-of-type { border-top: 0; }
+.proj-usage-pct { font-size: 13px; margin: 2px 0 4px; }
+.proj-usage-crew { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-dim); }
+.proj-usage-who { display: inline-flex; align-items: center; gap: 4px; }
+.proj-usage-who img { width: 20px; height: 20px; image-rendering: pixelated; }
