@@ -290,7 +290,10 @@ describe('the only things that repeat are states that persist', () => {
     // .snake-* / .game-* / .arcade-*: the arcade (#55). A game is play, not a
     // report of the crew's state; its loops end when you leave the game.
     // .rocket-ready: changes passed but not live; ends when they are deployed.
-    const sanctioned = [/rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
+    // .aura-*: a worn aura (games wave 1) -- the owner chose it in the locker;
+    // its cause is them wearing it, and it ends when they take it off.
+    // .crate-* / .locker-*: the crate opening and shop, on screen only there.
+    const sanctioned = [/^\.aura/, /crate|locker|hub-/, /rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -330,7 +333,7 @@ describe('replayed history does not perform', () => {
     // The approval waiting on you pulses in the thread until answered (the
     // pop-up and its ring are gone, 2026-09-25); an answered one is still.
     expect(c).toMatch(/className=\{`msg assistant approval-ask\$\{waiting \? ' ask-pulse' : ''\}`\}/);
-    expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
+    expect(c).toMatch(/\{r\.passed && fresh && <Confetti variant=\{celebrant\} \/>\}/);
   });
 })
 
@@ -364,7 +367,7 @@ describe('one drawing on screen at a time', () => {
 
   it('draws only the pose itself when a pose is held', () => {
     const c = read('web/src/ChatView.tsx');
-    const s = c.slice(c.indexOf('export function SpriteAvatar('), c.indexOf('export function SpriteAvatar(') + 3200);
+    const s = c.slice(c.indexOf('function SpriteAvatarBase('), c.indexOf('function SpriteAvatarBase(') + 3200);
     // held branch renders exactly one <img>, with no idle frame beneath it
     // (the four-frame working branch returns earlier, item 38)
     const at = s.lastIndexOf(') : (');
@@ -1064,7 +1067,7 @@ describe('the four motions MOTION.md \u00a77 called still open', () => {
   it('confetti is once, gated on a fresh pass, and never on a fail', () => {
     expect(css).toMatch(/@keyframes confetti-burst \{/);
     expect(css).not.toMatch(/confetti-burst[^;]*infinite/);
-    expect(c).toMatch(/\{r\.passed && fresh && <Confetti \/>\}/);
+    expect(c).toMatch(/\{r\.passed && fresh && <Confetti variant=\{celebrant\} \/>\}/);
   });
 
   it('everyone who worked the job cheers, not just whoever is live -- falls back to the live one when a chapter is not known', () => {

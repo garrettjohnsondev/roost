@@ -3786,3 +3786,56 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .welcome-dots span.on { background: var(--accent, #c9803a); }
 .welcome-skip { align-self: center; }
 .welcome-sheet .field { text-align: left; }
+
+/* ---------- the wardrobe (games wave 1): worn everywhere a face is drawn ---------- */
+.look-wrap { position: relative; display: inline-block; flex-shrink: 0; line-height: 0; }
+.look-wrap > .crew-sprite { position: relative; z-index: 1; }
+.look-hat, .look-prop { position: absolute; z-index: 2; image-rendering: pixelated; pointer-events: none; }
+.look-prop { z-index: 3; }
+.aura { position: absolute; inset: -12%; z-index: 0; border-radius: 50%; pointer-events: none; }
+.aura-sparkle { background: radial-gradient(circle, #fff6 0 2px, transparent 3px) 0 0 / 14px 14px, radial-gradient(circle, #ffd86a33, transparent 70%); animation: aura-twinkle 2.4s ease-in-out infinite; }
+.aura-bubbles { background: radial-gradient(circle at 30% 70%, #9fe3ff66 0 3px, transparent 4px), radial-gradient(circle at 70% 40%, #9fe3ff55 0 4px, transparent 5px), radial-gradient(circle, #5bc8ff22, transparent 70%); animation: aura-rise 3s linear infinite; }
+.aura-leaves { background: radial-gradient(circle, #6cbf4a33, transparent 70%); box-shadow: inset 0 0 12px #6cbf4a55; }
+.aura-hearts { background: radial-gradient(circle, #ff6fa833, transparent 70%); box-shadow: 0 0 10px #ff6fa866; animation: aura-twinkle 1.8s ease-in-out infinite; }
+.aura-stars { background: radial-gradient(circle, #fff 0 1px, transparent 2px) 3px 5px / 11px 13px, radial-gradient(circle, #6a7cff33, transparent 70%); animation: aura-twinkle 3s ease-in-out infinite; }
+.aura-ember { background: radial-gradient(circle at 50% 80%, #ff7a1a55, transparent 65%); box-shadow: 0 0 14px #ff7a1a66; animation: aura-flicker 0.9s ease-in-out infinite alternate; }
+.aura-lightning { background: radial-gradient(circle, #b9f2ff44, transparent 70%); box-shadow: 0 0 12px #7fe7ff99; animation: aura-flicker 0.35s steps(2) infinite; }
+.aura-rainbow { background: conic-gradient(#ff5e5e55, #ffd35e55, #6bff8e55, #5ec8ff55, #b35eff55, #ff5e5e55); animation: aura-spin 6s linear infinite; }
+.aura-pixels { background: repeating-linear-gradient(90deg, #0ff3 0 3px, transparent 3px 6px), repeating-linear-gradient(0deg, #f0f3 0 3px, transparent 3px 7px); border-radius: 2px; animation: aura-flicker 0.5s steps(3) infinite; }
+.aura-shadow { background: radial-gradient(circle, #2a0a3a99, transparent 70%); box-shadow: 0 0 16px #6b2bb088; }
+.aura-frost { background: radial-gradient(circle, #cdefff55, transparent 70%); box-shadow: 0 0 12px #a8e4ff99; }
+.aura-petals { background: radial-gradient(circle at 25% 30%, #ff9ecb88 0 3px, transparent 4px), radial-gradient(circle at 75% 60%, #ffc2de88 0 3px, transparent 4px), radial-gradient(circle, #ff9ecb22, transparent 70%); animation: aura-rise 4s linear infinite reverse; }
+.aura[class*='aura-ghost-'] { background: radial-gradient(circle, #ffffff40, transparent 68%); box-shadow: 0 0 16px #ffffffaa; animation: aura-twinkle 2.2s ease-in-out infinite; }
+@keyframes aura-twinkle { 50% { opacity: .55; } }
+@keyframes aura-flicker { to { opacity: .6; transform: scale(1.04); } }
+@keyframes aura-spin { to { transform: rotate(360deg); } }
+@keyframes aura-rise { to { background-position: 0 -28px, 0 -28px, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .aura { animation: none !important; } }
+/* Frames: around the face at 28px and up. */
+.look-wrap[class*='frame-'] { outline-offset: 1px; border-radius: 2px; }
+.frame-wood { outline: 3px solid #8a5a2b; }
+.frame-candy { outline: 3px dashed #ff6fa8; }
+.frame-checker { outline: 3px dotted var(--text); }
+.frame-circuit { outline: 2px solid #38d39f; box-shadow: 0 0 0 4px #0b3b2e; }
+.frame-neon { outline: 2px solid #ff4dff; box-shadow: 0 0 8px #ff4dff, 0 0 2px #fff inset; }
+.frame-gold { outline: 3px solid #e2b33c; box-shadow: 0 0 0 5px #7a5410; }
+.frame-royal { outline: 3px double #e2b33c; box-shadow: 0 0 10px #b35eff; }
+.frame-lava { outline: 3px solid #ff5a1f; box-shadow: 0 0 10px #ff5a1f; }
+.frame-ice { outline: 3px solid #a8e4ff; box-shadow: 0 0 8px #a8e4ff; }
+.frame-vine { outline: 3px dashed #4c9a2a; }
+/* Titles beside names. */
+.crew-title { font-size: 10px; font-family: 'Silkscreen', monospace; padding: 0 4px; border: 1px solid var(--border); border-radius: 2px; color: var(--text-dim); white-space: nowrap; }
+.crew-title.title-glow { color: var(--text); box-shadow: 0 0 6px color-mix(in srgb, var(--accent, #c9803a) 60%, transparent); }
+.crew-title.title-gold { color: #e2b33c; border-color: #e2b33c; }
+.crew-title.title-rainbow { background: linear-gradient(90deg, #ff5e5e, #ffd35e, #6bff8e, #5ec8ff, #b35eff); -webkit-background-clip: text; background-clip: text; color: transparent; border-color: #b35eff; }
+/* Celebrations: the pass burst, re-coloured by what they wear. */
+.confetti.cele-hearts .confetti-piece { background: #ff6fa8 !important; border-radius: 50% 50% 0 50%; }
+.confetti.cele-coins .confetti-piece { background: #e2b33c !important; border-radius: 50%; }
+.confetti.cele-stars .confetti-piece { background: #fff6b0 !important; clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.confetti.cele-feathers .confetti-piece { background: #f4ecd8 !important; border-radius: 0 100% 0 100%; }
+.confetti.cele-bubbles .confetti-piece { background: transparent !important; border: 2px solid #9fe3ff; border-radius: 50%; }
+.confetti.cele-fireworks .confetti-piece:nth-child(3n) { background: #ff5e5e !important; } .confetti.cele-fireworks .confetti-piece:nth-child(3n+1) { background: #5ec8ff !important; } .confetti.cele-fireworks .confetti-piece:nth-child(3n+2) { background: #ffd35e !important; }
+.confetti.cele-pixels .confetti-piece { background: #0ff !important; box-shadow: 3px 0 #f0f; }
+.confetti.cele-bats .confetti-piece { background: #2a0a3a !important; clip-path: polygon(0 40%, 30% 20%, 50% 45%, 70% 20%, 100% 40%, 70% 70%, 50% 55%, 30% 70%); }
+.confetti.cele-snow .confetti-piece { background: #fff !important; border-radius: 50%; }
+.confetti.cele-petals .confetti-piece { background: #ff9ecb !important; border-radius: 0 100% 0 100%; }

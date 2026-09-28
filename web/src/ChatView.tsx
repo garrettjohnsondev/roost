@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useOutfitTier } from './outfits';
 import { useDevMode } from './devMode';
+import { PAINT_FILTER, anchorFor, useLook } from './economy/looks';
 import { buzz } from './haptics';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
@@ -1080,7 +1081,41 @@ function AliveSprite({ crew, size, className }: { crew: CrewInfo; size: number; 
   );
 }
 
-export function SpriteAvatar({ crew, pose, size, className, alive }: { crew: CrewInfo; pose: Pose; size: number; className?: string; alive?: boolean }) {
+/** A crew face, wearing what they've been given (games wave 1): aura behind,
+ *  hat on the head, a prop in hand, a frame around it -- everywhere a face
+ *  is drawn. Tiny faces (under 20px) stay plain; a hat that small is noise. */
+export function SpriteAvatar(props: { crew: CrewInfo; pose: Pose; size: number; className?: string; alive?: boolean; plain?: boolean }) {
+  const look = useLook(props.plain ? undefined : props.crew.name);
+  const base = <SpriteAvatarBase {...props} />;
+  const { size, crew } = props;
+  if (props.plain || size < 20 || !crew.sprite || !(look.hat || look.prop || look.aura || look.frame)) return base;
+  const a = anchorFor(crew.sprite);
+  const hatW = size * a.w;
+  return (
+    <span className={`look-wrap${look.frame && size >= 28 ? ` frame-${look.frame.art}` : ''}`} style={{ width: size, height: size }}>
+      {look.aura && <span className={`aura aura-${look.aura.art}`} style={look.aura.paint ? { filter: PAINT_FILTER[look.aura.paint] } : undefined} aria-hidden="true" />}
+      {base}
+      {look.hat && (
+        <img
+          className="look-hat"
+          src={`/items/hats/${look.hat.art}.webp`}
+          alt=""
+          style={{ width: hatW, height: hatW, left: size * a.cx - hatW / 2, top: size * a.brim - hatW * 0.9, filter: look.hat.paint ? PAINT_FILTER[look.hat.paint] : undefined }}
+        />
+      )}
+      {look.prop && size >= 28 && (
+        <img
+          className="look-prop"
+          src={`/items/props/${look.prop.art}.webp`}
+          alt=""
+          style={{ width: size * 0.38, height: size * 0.38, left: size * a.hand[0] - size * 0.19, top: size * a.hand[1] - size * 0.19, filter: look.prop.paint ? PAINT_FILTER[look.prop.paint] : undefined }}
+        />
+      )}
+    </span>
+  );
+}
+
+function SpriteAvatarBase({ crew, pose, size, className, alive }: { crew: CrewInfo; pose: Pose; size: number; className?: string; alive?: boolean }) {
   const [failed, setFailed] = useState(false);
   // A working pose plays four drawings (item 38) when all four are drawn;
   // until then -- or if one fails to load -- the original two-frame cut.
@@ -1161,9 +1196,16 @@ const CONFETTI_PIECES = Array.from({ length: 26 }, (_, i) => ({
  *  frame by frame, you could barely find it. This is a burst: two dozen
  *  pixels thrown up and out from the verdict, falling back under their own
  *  weight. Still once, still only for a pass that arrived live. */
-function Confetti() {
+/** The title they wear, small beside their name (games wave 1). */
+export function CrewTitle({ name }: { name: string }) {
+  const t = useLook(name).title;
+  if (!t?.text) return null;
+  return <span className={`crew-title title-${t.art}`}>{t.text}{t.cert && t.certValue != null ? ` · ${t.certValue}` : ''}</span>;
+}
+
+function Confetti({ variant }: { variant?: string }) {
   return (
-    <span className="confetti" aria-hidden="true">
+    <span className={`confetti${variant ? ` cele-${variant}` : ''}`} aria-hidden="true">
       {CONFETTI_PIECES.map((p, i) => (
         <i
           key={i}
@@ -1747,6 +1789,7 @@ function CrewRow({ crew, pose, head, children }: { crew: CrewInfo; pose: Pose; h
       <div className="crew-row-col">
         <div className="crew-row-head">
           <span className="crew-ident-name" style={{ color: nameColor(crew.color) }}>{crew.name}</span>
+          <CrewTitle name={crew.name} />
           <span className="crew-row-model" title={crew.model || undefined}>
             {crew.model ? modelName(crew.model) : crew.agent === 'codex' ? 'Codex' : 'Claude'}
           </span>
@@ -1800,6 +1843,8 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
 function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean }) {
   const deploy = React.useContext(DeployContext);
   const dev = useDevMode();
+  // Their celebration (games wave 1): the burst a crew member wears for a pass.
+  const celebrant = useLook(chapterCrew?.[0]?.name ?? crew?.name).celebration?.art;
   switch (item.kind) {
     case 'user':
       // The crew had faces and names from the first commit and you had neither,
@@ -1930,7 +1975,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
                 colours rising off the verdict and fading. The board's one
                 unprompted moment, and it only fires because something real
                 just passed. */}
-            {r.passed && fresh && <Confetti />}
+            {r.passed && fresh && <Confetti variant={celebrant} />}
           </div>
           {r.tampered && <div className="verify-tamper">Gate definitions changed during this session — this result cannot be trusted.</div>}
           {r.gates.map((g, i) => (
