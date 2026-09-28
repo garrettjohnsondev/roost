@@ -3734,3 +3734,10 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .dpad { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 14px; }
 .dpad > div { display: flex; gap: 52px; }
 .dpad button { width: 56px; height: 48px; font-size: 18px; border: 1px solid var(--border); border-radius: 2px; background: var(--surface, transparent); color: var(--text); }
+
+/* Ready to ship: the rocket glows softly while a passed change hasn't gone live. */
+.rocket-ready { color: var(--accent, #c9803a); }
+.rocket-ready svg, .rocket-ready .icon { animation: rocket-pulse 2.4s ease-in-out infinite; }
+@keyframes rocket-pulse { 50% { opacity: .55; transform: translateY(-1px); } }
+@media (prefers-reduced-motion: reduce) { .rocket-ready svg, .rocket-ready .icon { animation: none; } }
+.ship-bar { animation: arcade-banner-in 300ms ease-out both; }

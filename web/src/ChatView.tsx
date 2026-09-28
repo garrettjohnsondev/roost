@@ -73,17 +73,38 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const [showGit, setShowGit] = useState(false);
   const [deploy, setDeploy] = useState<{ proposal?: DeploySuggestion } | null>(null);
   const [deployCommand, setDeployCommand] = useState<{ cwd: string; command: string } | null>(null);
+  // When this project last went live, so a pass after it reads as "ready to ship".
+  const [lastLiveAt, setLastLiveAt] = useState(0);
+  const [deployBusy, setDeployBusy] = useState(false);
   const cwd = session.meta?.cwd;
   useEffect(() => {
     if (!cwd || fixture) return;
     let cancelled = false;
     api.deploy(cwd).then((state) => {
-      if (!cancelled) setDeployCommand(state.recipe ? { cwd, command: state.recipe.command } : null);
+      if (cancelled) return;
+      setDeployCommand(state.recipe ? { cwd, command: state.recipe.command } : null);
+      const run = state.run;
+      setDeployBusy(!!run && (run.phase === 'check' || run.phase === 'deploy'));
+      setLastLiveAt(run?.phase === 'passed' ? run.endedAt ?? run.startedAt : 0);
     }).catch(() => {
       if (!cancelled) setDeployCommand(null);
     });
     return () => { cancelled = true; };
   }, [cwd, deploy, fixture]);
+  // Ready to ship (2026-09-28): "it comes up and says passed and has deploy
+  // but then it disappears fast and I feel rushed". The offer no longer lives
+  // inside the checks card that folds away; it waits above the box until you
+  // pick, and the rocket glows while there is anything unshipped.
+  const lastPass = React.useMemo(() => {
+    for (let i = session.items.length - 1; i >= 0; i--) {
+      const it = session.items[i];
+      if (it.kind === 'verify' && it.report.passed && it.report.changed) return it.ts;
+    }
+    return 0;
+  }, [session.items]);
+  const readyToShip = !fixture && lastPass > lastLiveAt && !deployBusy;
+  const [shipLater, setShipLater] = useState(0);
+  const shipCard = readyToShip && shipLater !== lastPass && !deploy;
   // A question from the crew, answered one at a time like texts; the answers
   // go back together once the last one is in.
   const [askDraft, setAskDraft] = useState<{ id: string; answers: Record<string, string> } | null>(null);
@@ -363,7 +384,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </div>
         </button>
         {session.meta && (
-          <button className="ghost" onClick={() => setDeploy({})} title={deployCommand && deployCommand.cwd === cwd ? `Deploy: ${deployCommand.command}` : 'Set up deploy'}>
+          <button className={`ghost${readyToShip ? ' rocket-ready' : ''}`} onClick={() => setDeploy({})} aria-label={readyToShip ? 'Deploy — changes are ready to go live' : undefined} title={deployCommand && deployCommand.cwd === cwd ? `Deploy: ${deployCommand.command}` : 'Set up deploy'}>
             <Icon name="rocket" size={22} />
             <span className="hdr-label">Deploy</span>
           </button>
@@ -704,6 +725,17 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         </div>
       ) : (
         <>
+        {shipCard && (
+          <div className="consult-bar ship-bar" role="status">
+            <span className="consult-bar-text">
+              <b>Checks passed.</b> Put these changes live?
+            </span>
+            <div className="consult-bar-actions">
+              <button className="link consult-dismiss" onClick={() => setShipLater(lastPass)}>Not now</button>
+              <button className="chip consult-proceed" onClick={() => setDeploy({})}>Deploy</button>
+            </div>
+          </div>
+        )}
         <Composer
           disabled={!session.connected}
           working={session.status === 'working'}

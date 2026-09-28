@@ -289,7 +289,8 @@ describe('the only things that repeat are states that persist', () => {
     // crew and the sleepers in the bunks (no blink is drawn for those poses).
     // .snake-* / .game-* / .arcade-*: the arcade (#55). A game is play, not a
     // report of the crew's state; its loops end when you leave the game.
-    const sanctioned = [/^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
+    // .rocket-ready: changes passed but not live; ends when they are deployed.
+    const sanctioned = [/rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
