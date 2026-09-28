@@ -1197,7 +1197,9 @@ function JobTracker({ session }: { session: SessionState }) {
     // A gap to know about, not a failure (2026-09-27 audit: red "Not tested"
     // on ordinary turns read like something broke).
     if (st.key === 'test' && skippedTest) return 'Unchecked';
-    if (st.key === 'done') return t.outcome === 'verified' ? 'Verified' : 'Done';
+    // The VERIFIED stamp already says it; the last stop just says Done
+    // (2026-09-28: "Verified" twice on one tracker).
+    if (st.key === 'done') return 'Done';
     if (st.state === 'failed') return 'Failed';
     if (k === at && (st.state === 'active' || st.state === 'awaiting') && session.status === 'working') return t.headline.word;
     return st.label;
