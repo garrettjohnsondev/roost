@@ -448,6 +448,9 @@ Kept here so a fix never becomes a detour that loses the thread. Work top to bot
 
 Written 2026-09-22, after the rename. Everything above this line ships; everything in it does not.
 
+#### The overnight run — 2026-09-28 (decisions logged in NIGHT-DECISIONS.md)
+Order: deploy card + rocket pulse → #44 plan setting + advisor → #46 where we left off → #47 per-project usage → #48 haptics → #50/#51 scenes + pixel avatars → #55 games (Snake, Minesweeper, Battleship, Solitaire, 2048, daily word, Flappy, Breakout, Sudoku, memory match, stack; then sports pack and Roost Birds) → #57 level-up accessories → #49 fun layer → #45 new project → #52 dev mode → #56 onboarding → #53 provider research. One deploy at the end.
+
 #### The next working order — agreed 2026-09-28
 
 Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `codemap.ts`), per-turn measurement (`turns.jsonl`, `npm run codemap:report`), the UX sweep part 1 (celebration, living crew, plain words), preset-based session settings, the crew's last word outliving the fold, "What shipped" in the Changes sheet, the chat reading like a chat (every crew line a message, optimistic send, replies growing out of the typing bubble, gliding scroll), deploys that wait for the crew to finish, and the Codex 1%→100% misread (`4ac8698`).
