@@ -1,0 +1,117 @@
+.game-solitaire {
+  position: relative;
+  margin: 0 auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  color: var(--text);
+}
+.game-solitaire-bar {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.game-solitaire-dim { color: var(--text-dim); }
+.game-solitaire-top { display: flex; margin-bottom: 8px; }
+.game-solitaire-waste { position: relative; flex: none; margin-right: auto; }
+.game-solitaire-slot {
+  position: relative;
+  flex: none;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+.game-solitaire-slot > .game-solitaire-back { position: absolute; inset: -1px; }
+.game-solitaire-ghost { font-size: 22px; color: var(--text-dim); opacity: 0.5; }
+.game-solitaire-recycle { font-size: 22px; color: var(--text-dim); }
+.game-solitaire-tab { display: flex; }
+.game-solitaire-col { position: relative; flex: none; }
+.game-solitaire-empty { position: absolute; top: 0; left: 0; }
+
+.game-solitaire-card {
+  box-sizing: border-box;
+  border-radius: 4px;
+  border: 1px solid #0003;
+  box-shadow: 0 1px 1px #0002;
+  overflow: hidden;
+}
+.game-solitaire-face {
+  background: #fdfbf5;
+  color: #1b1b1f;
+  cursor: pointer;
+  position: relative;
+}
+.game-solitaire-red { color: #c8323a; }
+.game-solitaire-corner {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font: 700 15px/1 system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+.game-solitaire-corner i { font-style: normal; font-size: 13px; }
+.game-solitaire-pip {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 22px;
+  line-height: 1;
+}
+.game-solitaire-court {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 72%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+/* Nest back: woven twigs on a straw ground, pixel-hard stops. */
+.game-solitaire-back {
+  background-color: #8a5a2b;
+  background-image:
+    repeating-linear-gradient(45deg, #c89455 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, #5e3a1a 0 2px, transparent 2px 6px),
+    radial-gradient(circle at 50% 50%, #f3ead2 0 18%, transparent 19%);
+  border: 2px solid #f3ead2;
+  image-rendering: pixelated;
+}
+.game-solitaire-shake { animation: game-solitaire-shake 0.3s; }
+@keyframes game-solitaire-shake {
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+.game-solitaire-tools { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+.game-solitaire-go { font-weight: 700; }
+.game-solitaire-drag { position: fixed; z-index: 50; pointer-events: none; }
+.game-solitaire-drag .game-solitaire-card { box-shadow: 0 4px 10px #0004; }
+
+.game-solitaire-win { overflow: hidden; }
+.game-solitaire-cascade { position: absolute; inset: 0; pointer-events: none; }
+.game-solitaire-flyer {
+  position: absolute;
+  top: -60px;
+  animation: game-solitaire-drift 3.2s linear calc(var(--i) * 0.18s) infinite;
+}
+.game-solitaire-flyer img {
+  width: 48px;
+  image-rendering: pixelated;
+  animation: game-solitaire-bounce 0.8s cubic-bezier(0.3, 0, 0.7, 1) calc(var(--i) * 0.18s) infinite alternate;
+}
+@keyframes game-solitaire-drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(120px, 0); }
+}
+@keyframes game-solitaire-bounce {
+  from { transform: translateY(60px); }
+  to { transform: translateY(420px); }
+}
+.game-solitaire-win p, .game-solitaire-win button { position: relative; z-index: 1; }
