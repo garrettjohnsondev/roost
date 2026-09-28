@@ -1,0 +1,17 @@
+.game-hatch-wrap { display: flex; flex-direction: column; align-items: center; }
+.game-hatch-board { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; box-sizing: border-box; background: color-mix(in srgb, var(--text) 8%, var(--bg)); border: 2px solid var(--border); border-radius: 4px; }
+.game-hatch-cell { position: relative; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
+.game-hatch-cell img { width: 78%; height: 78%; image-rendering: pixelated; }
+.game-hatch-num { position: absolute; right: 4px; bottom: 2px; font-family: 'Silkscreen', monospace; font-size: 10px; color: var(--text-dim); }
+.game-hatch-egg { width: 42%; height: 54%; border-radius: 50% 50% 46% 46% / 60% 60% 40% 40%; background: #f4ecd8; box-shadow: inset -4px -4px 0 #d9c9a3, 0 0 0 2px #8a7650; }
+.game-hatch-cracked { background: linear-gradient(170deg, #f4ecd8 44%, #8a7650 45% 49%, #f4ecd8 50%); transform: rotate(-8deg); }
+.game-hatch-t1, .game-hatch-t2 { background: color-mix(in srgb, #e8b04a 14%, var(--surface, var(--bg))); }
+.game-hatch-t3, .game-hatch-t4, .game-hatch-t5 { background: color-mix(in srgb, #e8b04a 26%, var(--surface, var(--bg))); }
+.game-hatch-t6, .game-hatch-t7, .game-hatch-t8 { background: color-mix(in srgb, #e0773a 30%, var(--surface, var(--bg))); }
+.game-hatch-t9, .game-hatch-t10 { background: color-mix(in srgb, #d9523a 36%, var(--surface, var(--bg))); }
+.game-hatch-t11, .game-hatch-t12 { background: color-mix(in srgb, #f2c230 55%, var(--surface, var(--bg))); box-shadow: 0 0 12px #f2c230; }
+.game-hatch-pop { animation: game-hatch-pop 280ms ease-out; }
+@keyframes game-hatch-pop { 0% { transform: scale(.6); } 70% { transform: scale(1.12); } }
+.game-hatch-bar { display: flex; gap: 10px; margin-top: 12px; }
+.game-hatch-bar .chip { min-height: 44px; min-width: 110px; }
+.game-hatch-hint { font-size: 12px; color: var(--text-dim); margin: 10px 0 0; }

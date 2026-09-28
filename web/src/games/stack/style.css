@@ -1,0 +1,11 @@
+.game-stack-wrap { display: flex; flex-direction: column; align-items: center; }
+.game-stack-stage { position: relative; overflow: hidden; border: 2px solid var(--border); border-radius: 4px; background: linear-gradient(to top, color-mix(in srgb, #6fa8d8 22%, var(--bg)), var(--bg)); cursor: pointer; }
+.game-stack-sky { position: absolute; inset: 0; background: linear-gradient(to top, transparent, color-mix(in srgb, #2b2f5a 45%, var(--bg))); pointer-events: none; }
+.game-stack-ground { position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, #5b8a3a 55%, var(--bg)); border-top: 2px solid #3f6a26; }
+.game-stack-block { position: absolute; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .28); border-radius: 2px; box-shadow: inset 0 3px 0 rgba(255, 255, 255, .22); }
+.game-stack-moving { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .3), 0 3px 0 rgba(0, 0, 0, .12); }
+.game-stack-cut { position: absolute; box-sizing: border-box; border: 2px solid rgba(0, 0, 0, .28); border-radius: 2px; animation: game-stack-fall 700ms ease-in forwards; }
+@keyframes game-stack-fall { to { transform: translateY(260px) rotate(18deg); opacity: 0; } }
+.game-stack-flash { position: absolute; border: 3px solid #fff3b0; border-radius: 4px; box-shadow: 0 0 14px #f2c230; animation: game-stack-flash 450ms ease-out forwards; pointer-events: none; }
+@keyframes game-stack-flash { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.12); } }
+.game-stack-rider { position: absolute; width: 36px; height: 36px; image-rendering: pixelated; pointer-events: none; transition: left 120ms ease-out; }
