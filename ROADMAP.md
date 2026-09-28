@@ -481,6 +481,8 @@ Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `cod
     - App: first-run welcome that meets the crew, picks a plan (feeds #44), adds a first project (#45), and shows how to add Roost to the home screen.
     - Note: the "Pocket" home-screen name was the app's old name; iOS keeps the name and icon from when the shortcut was added. Remove it and add it again to get Roost.
     - Sharing: point people to the GitHub repo with a README that starts with the install command.
+57. **Crew level-ups you can see (added 2026-09-28).** As you use a crew member they earn accessories and props: sash, hat, necklace, sunglasses, crown, staff, crystal ball, wizard robe. After two months your most-used one (e.g. Ollie on Opus) is visibly decked out, so when a plainer crew member shows up you notice and can tap to see why Pip picked them. Needs image generation: accessory layers or re-drawn sprite frames per level. Ties into #47 (usage) and #49 (the fun layer).
+    - Also in this batch: the deploy offer becomes a pinned card that waits for you ("Checks passed. Put these changes live?" Deploy / Not now), and the top-bar rocket gets a subtle colour and pulse whenever there are changes ready to deploy.
 
 ### 12a. Motion — the stream with the most pull behind it
 
