@@ -1,0 +1,175 @@
+.game-roostbirds-root {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 16px;
+  box-sizing: border-box;
+  color: var(--text);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* level select */
+.game-roostbirds-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.game-roostbirds-title img {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+.game-roostbirds-title div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.game-roostbirds-title span { color: var(--text-dim); font-size: 13px; }
+.game-roostbirds-total { font-weight: 700; color: #e0a526 !important; font-size: 15px !important; }
+
+.game-roostbirds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.game-roostbirds-level {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 78px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.game-roostbirds-level:active { transform: translateY(1px); }
+.game-roostbirds-level.locked { opacity: 0.45; cursor: default; }
+.game-roostbirds-num { font-weight: 800; font-size: 18px; font-family: ui-monospace, Menlo, monospace; }
+.game-roostbirds-name { font-size: 12px; color: var(--text-dim); line-height: 1.2; flex: 1; }
+.game-roostbirds-stars i { font-style: normal; color: var(--border); font-size: 15px; }
+.game-roostbirds-stars i.on { color: #f4b63f; }
+
+.game-roostbirds-crew {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.game-roostbirds-crew div { display: flex; align-items: center; gap: 8px; }
+.game-roostbirds-crew img { width: 28px; height: 28px; image-rendering: pixelated; }
+
+/* play */
+.game-roostbirds-hud {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.game-roostbirds-lvl {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.game-roostbirds-score {
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 800;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.game-roostbirds-btn {
+  min-width: 40px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.game-roostbirds-btn.on { background: #f4b63f; color: #151c33; border-color: #f4b63f; }
+
+.game-roostbirds-birds {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-height: 30px;
+}
+.game-roostbirds-birds img { width: 24px; height: 24px; image-rendering: pixelated; opacity: 0.8; }
+.game-roostbirds-birds img.now { width: 30px; height: 30px; opacity: 1; margin-right: 4px; }
+.game-roostbirds-bugcount { margin-left: auto; font-weight: 700; font-size: 14px; }
+
+.game-roostbirds-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #9ad3f0;
+}
+.game-roostbirds-canvas {
+  display: block;
+  touch-action: none;
+  image-rendering: pixelated;
+}
+
+.game-roostbirds-tip {
+  min-height: 34px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.game-roostbirds-end {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(10, 14, 30, 0.62);
+  color: #fff;
+  text-align: center;
+  opacity: 0;
+  animation: game-roostbirds-in 0.35s ease-out 0.7s forwards;
+}
+.game-roostbirds-end img { width: 56px; height: 56px; image-rendering: pixelated; }
+.game-roostbirds-end b { font-size: 17px; }
+.game-roostbirds-end span { font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+.game-roostbirds-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+.game-roostbirds-row .chip { min-height: 38px; padding: 0 14px; }
+
+.game-roostbirds-bigstars { display: flex; gap: 6px; }
+.game-roostbirds-bigstars i {
+  font-style: normal;
+  font-size: 34px;
+  color: rgba(255, 255, 255, 0.25);
+}
+.game-roostbirds-bigstars i.on {
+  color: #f4b63f;
+  transform: scale(0);
+  animation: game-roostbirds-pop 0.35s cubic-bezier(0.3, 1.6, 0.6, 1) forwards;
+}
+
+@keyframes game-roostbirds-in { to { opacity: 1; } }
+@keyframes game-roostbirds-pop { to { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .game-roostbirds-end { animation-duration: 0.01s; }
+  .game-roostbirds-bigstars i.on { animation: none; transform: none; }
+}
