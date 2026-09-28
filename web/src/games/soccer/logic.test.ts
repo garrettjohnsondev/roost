@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shoot, shotAt, keeperDive, resolve, isTopCorner, SPOT, HALF_W } from './logic';
+import { shoot, shotAt, keeperDive, resolve, isTopCorner, wallFor, hitsWall, targetFor, onTarget, pointsFor, ghostScore, SPOT, HALF_W, BAR_H } from './logic';
 
 const f = (speed: number, angle = 0, curve = 0) => ({ speed, angle, curve });
 const nowhere = { x: 0, y: 0.8, read: false };
@@ -43,5 +43,36 @@ describe('penalty kicks', () => {
   it('knows a top corner', () => {
     expect(isTopCorner({ x: 3.2, y: 2.1, time: 0.4, bend: 0, curve: 0 })).toBe(true);
     expect(isTopCorner({ x: 0, y: 2.1, time: 0.4, bend: 0, curve: 0 })).toBe(false);
+  });
+  it('a wall stands on every other shot from the fourth', () => {
+    expect(wallFor(0, 0.5)).toBeNull();
+    expect(wallFor(2, 0.5)).toBeNull();
+    expect(wallFor(3, 0.5)).toEqual({ x0: -1, x1: 1 });
+    expect(wallFor(4, 0.5)).toBeNull();
+  });
+  it('the wall blocks a low one through it, not one round it or over it', () => {
+    const wall = { x0: -1, x1: 1 };
+    const low = shoot(f(1.2, 0));
+    expect(hitsWall(low, wall)).toBe(true);
+    expect(resolve(low, { x: 3, y: 1, read: false }, wall)).toBe('blocked');
+    expect(hitsWall(shoot(f(1.5, 0.3)), wall)).toBe(false);
+    expect(hitsWall({ x: 0.5, y: 2.3, time: 0.4, bend: 0, curve: 0 }, wall)).toBe(false);
+  });
+  it('targets sit in a corner and count when you hit them', () => {
+    const t = targetFor(0.9, 0.9);
+    expect(t.x).toBeGreaterThan(2.5);
+    expect(t.y).toBeGreaterThan(BAR_H / 2);
+    expect(onTarget({ x: t.x + 0.3, y: t.y - 0.2, time: 0.4, bend: 0, curve: 0 }, t)).toBe(true);
+    expect(onTarget({ x: -t.x, y: t.y, time: 0.4, bend: 0, curve: 0 }, t)).toBe(false);
+  });
+  it('scores: target doubles up, clutch doubles again', () => {
+    expect(pointsFor(false, true, true)).toBe(0);
+    expect(pointsFor(true, false, false)).toBe(1);
+    expect(pointsFor(true, true, false)).toBe(2);
+    expect(pointsFor(true, true, true)).toBe(4);
+  });
+  it('ghosts: Moss is beatable, Nell is not easy', () => {
+    expect(ghostScore(0.2)).toBeLessThanOrEqual(5);
+    expect(ghostScore(0.95)).toBeGreaterThanOrEqual(12);
   });
 });

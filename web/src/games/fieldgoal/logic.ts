@@ -1,4 +1,5 @@
 import { clamp, type Flick } from '../_sports/flick';
+import { streakMult } from '../_sports/pace';
 
 /** Field goal physics, in metres and seconds. x is across the field (+ right),
  *  y is up, z is toward the posts. The ball is kicked from z = 0. */
@@ -18,10 +19,19 @@ export const metres = (yards: number) => yards * 0.9144;
 export interface Ball { x: number; y: number; z: number; vx: number; vy: number; vz: number; hook: number }
 export type Outcome = 'good' | 'doink' | 'short' | 'wide-left' | 'wide-right';
 
+/** Weather for a kick (wave 3): rain makes the ball heavy (less power), a
+ *  gusty day swings the wind while the ball is in the air. */
+export type Weather = 'clear' | 'rain' | 'gusty';
+export function weatherFor(attempt: number, r: number): Weather {
+  if (attempt < 2) return 'clear';
+  return r < 0.22 ? 'rain' : r < 0.44 ? 'gusty' : 'clear';
+}
+export const RAIN_POWER = 0.9;
+
 /** A flick becomes a kick: speed is power, the angle aims, and a bent
  *  swipe hooks the ball the way the finger finished. */
-export function kick(f: Pick<Flick, 'speed' | 'angle' | 'curve'>): Ball {
-  const v = clamp(9 + f.speed * 8.5, 9, 29);
+export function kick(f: Pick<Flick, 'speed' | 'angle' | 'curve'>, weather: Weather = 'clear'): Ball {
+  const v = clamp(9 + f.speed * 8.5, 9, 29) * (weather === 'rain' ? RAIN_POWER : 1);
   const aim = clamp(f.angle * 0.55, -0.6, 0.6);
   const vz = v * Math.cos(ELEVATION);
   return { x: 0, y: 0.15, z: 0, vx: vz * Math.tan(aim), vy: v * Math.sin(ELEVATION), vz, hook: -f.curve * 12 };
@@ -35,6 +45,10 @@ export function windFor(yards: number, r: number): number {
 }
 /** The wind, as the arrow says it. */
 export const windMph = (w: number) => Math.round(Math.abs(w) * 6);
+
+/** The wind right now: steady, or on a gusty day swelling to half again and
+ *  dropping away, `t` seconds into the flight. */
+export const windNow = (wind: number, weather: Weather, t: number) => (weather === 'gusty' ? wind * (1 + 0.6 * Math.sin(t * 3.2)) : wind);
 
 export function step(b: Ball, wind: number, dt: number): Ball {
   const vx = b.vx + (b.hook + wind) * dt;
@@ -59,10 +73,10 @@ export function judge(a: Ball, b: Ball, dist: number): Outcome | null {
 }
 
 /** Runs a kick to the end (for tests, and for "what would've happened"). */
-export function simulate(ball: Ball, wind: number, dist: number): Outcome {
+export function simulate(ball: Ball, wind: number, dist: number, weather: Weather = 'clear'): Outcome {
   let b = ball;
   for (let i = 0; i < 1200; i++) {
-    const n = step(b, wind, 1 / 120);
+    const n = step(b, windNow(wind, weather, i / 120), 1 / 120);
     const o = judge(b, n, dist);
     if (o) return o;
     b = n;
@@ -70,6 +84,18 @@ export function simulate(ball: Ball, wind: number, dist: number): Outcome {
   return 'short';
 }
 
-/** Points for a make: longer kicks are worth more. */
-export const pointsFor = (yards: number) => Math.max(1, Math.round(yards / 10));
+/** How far through the posts it went: 0 on the upright, 1 dead centre. */
+export const centred = (x: number) => clamp(1 - Math.abs(x) / HALF, 0, 1);
+
+/** Points for a make: longer kicks are worth more, a streak multiplies it, a
+ *  kick down the middle earns a bonus point, and the clutch last kick doubles
+ *  the lot. */
+export function pointsFor(yards: number, streak = 1, clutch = false, middle = false): number {
+  const base = Math.max(1, Math.round(yards / 10)) + (middle ? 1 : 0);
+  return base * streakMult(streak) * (clutch ? 2 : 1);
+}
 export const nextYards = (yards: number, made: boolean) => (made ? Math.min(MAX_YARDS, yards + STEP_YARDS) : yards);
+
+/** A ghost's round, in points: Moss (0.2) is a casual kicker, Nell (0.95)
+ *  runs the table with multipliers. */
+export const ghostScore = (strength: number) => Math.round(4 + 40 * strength + 40 * strength * strength);

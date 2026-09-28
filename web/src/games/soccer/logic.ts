@@ -44,9 +44,10 @@ export function keeperDive(s: Shot, n: number, history: number[], r1: number, r2
   return { x: middle ? 0 : side * (1.5 + r2 * 1.1), y: 0.5 + r2 * 1.2, read: false };
 }
 
-export type Result = 'goal' | 'saved' | 'post' | 'wide' | 'over';
+export type Result = 'goal' | 'saved' | 'post' | 'wide' | 'over' | 'blocked';
 
-export function resolve(s: Shot, d: Dive): Result {
+export function resolve(s: Shot, d: Dive, wall: Wall | null = null): Result {
+  if (wall && hitsWall(s, wall)) return 'blocked';
   const ax = Math.abs(s.x);
   if ((Math.abs(ax - HALF_W) < POST && s.y < BAR_H + POST) || (Math.abs(s.y - BAR_H) < POST && ax < HALF_W + POST)) return 'post';
   if (ax >= HALF_W) return 'wide';
@@ -59,3 +60,34 @@ export function resolve(s: Shot, d: Dive): Result {
 }
 
 export const isTopCorner = (s: Shot) => Math.abs(s.x) > HALF_W - 0.9 && s.y > BAR_H - 0.7;
+
+/** Free kicks (wave 3): from the fourth shot on, every other shot has a wall
+ *  of four crew 9.15 m out. It covers a 2 m stretch; go round it, bend it, or
+ *  get it up over their heads. */
+export const WALL_Z = 9.15;
+export const WALL_H = 1.85;
+export interface Wall { x0: number; x1: number }
+export function wallFor(n: number, r: number): Wall | null {
+  if (n < 3 || n % 2 === 0) return null;
+  const c = (r * 2 - 1) * 1.6;
+  return { x0: c - 1, x1: c + 1 };
+}
+export function hitsWall(s: Shot, w: Wall): boolean {
+  const p = shotAt(s, WALL_Z / SPOT);
+  return p.x > w.x0 - 0.12 && p.x < w.x1 + 0.12 && p.y < WALL_H;
+}
+
+/** A glowing target in one corner of the goal: put it there for a bonus. */
+export interface Target { x: number; y: number }
+export const TARGET_R = 0.75;
+export function targetFor(r1: number, r2: number): Target {
+  return { x: (r1 < 0.5 ? -1 : 1) * (HALF_W - 0.7), y: r2 < 0.5 ? 0.55 : BAR_H - 0.55 };
+}
+export const onTarget = (s: Shot, t: Target) => Math.hypot(s.x - t.x, s.y - t.y) < TARGET_R;
+
+/** Points for a goal: one, a second for the target, the lot doubled on the
+ *  clutch last shot. */
+export const pointsFor = (goal: boolean, target: boolean, clutch: boolean) => (goal ? (1 + (target ? 1 : 0)) * (clutch ? 2 : 1) : 0);
+
+/** A ghost's round, in points: Moss (0.2) scores four, Nell (0.95) thirteen. */
+export const ghostScore = (strength: number) => Math.round(2 + 11.5 * strength);

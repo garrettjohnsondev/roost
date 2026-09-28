@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeSwing, pitchFor, pitchAt, fence, MOUND, RELEASE_Y } from './logic';
+import { judgeSwing, pitchFor, pitchAt, fence, carry, windFor, isGolden, runsFor, onFire, ghostScore, MOUND, RELEASE_Y } from './logic';
 
 describe('home run derby', () => {
   it('a perfect swing is a home run', () => {
@@ -46,5 +46,32 @@ describe('home run derby', () => {
   it('the wall is deepest in centre', () => {
     expect(fence(0)).toBe(400);
     expect(fence(45)).toBe(330);
+  });
+  it('on fire, the perfect window is wider', () => {
+    expect(judgeSwing(0.05, 0.1).perfect).toBe(false);
+    expect(judgeSwing(0.05, 0.1, { fire: true }).perfect).toBe(true);
+    expect(onFire(2)).toBe(false);
+    expect(onFire(3)).toBe(true);
+  });
+  it('wind blowing out carries a fly, blowing in knocks it down', () => {
+    const calm = judgeSwing(0.075, 0.2);
+    expect(calm.kind).toBe('fly');
+    expect(judgeSwing(0.075, 0.2, { wind: 12 }).feet).toBeGreaterThan(calm.feet);
+    expect(judgeSwing(0.04, 0.1, { wind: -12 }).feet).toBeLessThan(judgeSwing(0.04, 0.1).feet);
+    expect(carry(400, 10)).toBe(448);
+    expect(Math.abs(windFor(0))).toBe(12);
+    expect(Math.abs(windFor(1))).toBe(12);
+  });
+  it('gold balls count double, but not in the first few pitches', () => {
+    expect(isGolden(1, 0.01)).toBe(false);
+    expect(isGolden(5, 0.01)).toBe(true);
+    expect(isGolden(5, 0.5)).toBe(false);
+    expect(runsFor(true, true)).toBe(2);
+    expect(runsFor(true, false)).toBe(1);
+    expect(runsFor(false, true)).toBe(0);
+  });
+  it('ghosts: Moss is beatable, Nell needs a monster round', () => {
+    expect(ghostScore(0.2)).toBeLessThanOrEqual(3);
+    expect(ghostScore(0.95)).toBeGreaterThanOrEqual(18);
   });
 });

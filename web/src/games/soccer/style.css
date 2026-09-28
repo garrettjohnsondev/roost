@@ -5,3 +5,5 @@
 .game-soccer-shots i.on { background: var(--text-dim); }
 .game-soccer-field { position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); }
 .game-soccer-field canvas { display: block; touch-action: none; }
+.game-soccer-shots i.clutch { border-color: #d9a400; }
+.game-soccer-ghost { font-size: 13px; opacity: .8; }

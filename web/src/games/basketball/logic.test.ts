@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { launch, simulate, step, hoopMotion, hoopX, pointsFor, RIM_Y } from './logic';
+import { launch, simulate, step, hoopMotion, hoopX, pointsFor, isMoney, onFire, isClutchTime, multiplier, ghostScore, RIM_Y } from './logic';
 
 const f = (speed: number, angle = 0) => ({ speed, angle });
 
@@ -36,5 +36,30 @@ describe('basketball', () => {
   it('swishes are worth more', () => {
     expect(pointsFor(true)).toBe(3);
     expect(pointsFor(false)).toBe(2);
+  });
+  it('fire, money balls and clutch time stack up', () => {
+    expect(onFire(2)).toBe(false);
+    expect(onFire(3)).toBe(true);
+    expect([0, 3, 4, 9].map(isMoney)).toEqual([false, false, true, true]);
+    expect(isClutchTime(30)).toBe(false);
+    expect(isClutchTime(9.5)).toBe(true);
+    expect(isClutchTime(0)).toBe(false);
+    expect(multiplier(true, true)).toBe(3);
+    expect(pointsFor(true, { fire: true })).toBe(6);
+    expect(pointsFor(false, { money: true })).toBe(4);
+    expect(pointsFor(true, { money: true, fire: true, clutch: true })).toBe(15);
+  });
+  it('counts each time the ball clangs off the rim or glass', () => {
+    let b = launch(f(1.9));
+    let hits = 0;
+    for (let i = 0; i < 1200 && !b.done; i++) { b = step(b, 1 / 240, 0); hits = b.hits ?? 0; }
+    expect(hits).toBeGreaterThan(0);
+    let clean = launch(f(1.34));
+    for (let i = 0; i < 1200 && !clean.done; i++) clean = step(clean, 1 / 240, 0);
+    expect(clean.hits ?? 0).toBe(0);
+  });
+  it('ghosts: Moss is beatable, Nell needs fire', () => {
+    expect(ghostScore(0.2)).toBeLessThan(22);
+    expect(ghostScore(0.95)).toBeGreaterThan(70);
   });
 });

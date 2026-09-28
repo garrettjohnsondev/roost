@@ -15,7 +15,7 @@ export const BOARD_HIGH = 3.7;
 export const ROUND_SECONDS = 60;
 const ELEVATION = (58 * Math.PI) / 180;
 
-export interface Ball { x: number; y: number; z: number; vx: number; vy: number; vz: number; touched: boolean; scored: boolean; done: boolean }
+export interface Ball { x: number; y: number; z: number; vx: number; vy: number; vz: number; touched: boolean; scored: boolean; done: boolean; hits?: number }
 
 export function launch(f: Pick<Flick, 'speed' | 'angle'>): Ball {
   const v = clamp(7.3 + f.speed * 0.75, 6.3, 10.8);
@@ -45,6 +45,7 @@ export function step(b: Ball, dt: number, hx: number): Ball {
     n.vz = -Math.abs(n.vz) * 0.8;
     n.vx *= 0.8;
     n.touched = true;
+    n.hits = (n.hits ?? 0) + 1;
   }
 
   // Rim: nearest point on the ring
@@ -58,6 +59,7 @@ export function step(b: Ball, dt: number, hx: number): Ball {
     const vn = n.vx * nx + n.vy * ny + n.vz * nz;
     if (vn < 0) {
       n.vx -= 1.6 * vn * nx; n.vy -= 1.6 * vn * ny; n.vz -= 1.6 * vn * nz;
+      n.hits = (n.hits ?? 0) + 1;
     }
     const push = BALL_R - dist;
     n.x += nx * push; n.y += ny * push; n.z += nz * push;
@@ -81,4 +83,19 @@ export function simulate(b: Ball, hx = 0): { made: boolean; swish: boolean } {
   return { made: cur.scored, swish: cur.scored && !cur.touched };
 }
 
-export const pointsFor = (swish: boolean) => (swish ? 3 : 2);
+/** Wave 3: three makes in a row sets the ball on fire (double points until
+ *  a miss), every fifth ball is a gold money ball (+2), and the last ten
+ *  seconds are clutch time (double again). */
+export const FIRE_AT = 3;
+export const CLUTCH_SECONDS = 10;
+export const isMoney = (shotIndex: number) => (shotIndex + 1) % 5 === 0;
+export const onFire = (makeRun: number) => makeRun >= FIRE_AT;
+export const isClutchTime = (left: number) => left > 0 && left <= CLUTCH_SECONDS;
+export const multiplier = (fire: boolean, clutch: boolean) => 1 + (fire ? 1 : 0) + (clutch ? 1 : 0);
+
+export function pointsFor(swish: boolean, o: { fire?: boolean; money?: boolean; clutch?: boolean } = {}): number {
+  return ((swish ? 3 : 2) + (o.money ? 2 : 0)) * multiplier(!!o.fire, !!o.clutch);
+}
+
+/** A ghost's sixty seconds: Moss (0.2) posts about 19, Nell (0.95) about 74. */
+export const ghostScore = (strength: number) => Math.round(4 + 74 * strength);

@@ -5,3 +5,4 @@
 .game-baseball-outs i.on { background: var(--text); border-color: var(--text); }
 .game-baseball-field { position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); }
 .game-baseball-field canvas { display: block; touch-action: none; }
+.game-baseball-ghost { font-size: 13px; opacity: .8; }

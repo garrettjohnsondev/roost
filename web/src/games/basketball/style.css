@@ -3,3 +3,4 @@
 .game-basketball-hurry { color: #e8622c; font-weight: bold; }
 .game-basketball-court { position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); }
 .game-basketball-court canvas { display: block; touch-action: none; }
+.game-basketball-ghost { font-size: 13px; opacity: .8; }

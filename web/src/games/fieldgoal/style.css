@@ -3,3 +3,4 @@
 .game-fieldgoal-wind { color: var(--text); }
 .game-fieldgoal-field { position: relative; border: 2px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); }
 .game-fieldgoal-field canvas { display: block; touch-action: none; image-rendering: pixelated; }
+.game-fieldgoal-ghost { font-size: 13px; opacity: .8; }

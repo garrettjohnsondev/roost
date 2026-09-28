@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kick, simulate, metres, windFor, pointsFor, nextYards, judge, BAR, HALF } from './logic';
+import { kick, simulate, metres, windFor, pointsFor, nextYards, judge, weatherFor, windNow, centred, ghostScore, BAR, HALF } from './logic';
 
 const f = (speed: number, angle = 0, curve = 0) => ({ speed, angle, curve });
 
@@ -39,5 +39,31 @@ describe('field goal', () => {
     expect(nextYards(20, true)).toBe(25);
     expect(nextYards(20, false)).toBe(20);
     expect(nextYards(60, true)).toBe(60);
+  });
+  it('streaks multiply, the middle earns a bonus, clutch doubles', () => {
+    expect(pointsFor(30, 1)).toBe(3);
+    expect(pointsFor(30, 3)).toBe(6);
+    expect(pointsFor(30, 5)).toBe(9);
+    expect(pointsFor(30, 1, true)).toBe(6);
+    expect(pointsFor(30, 1, false, true)).toBe(4);
+    expect(centred(0)).toBe(1);
+    expect(centred(HALF)).toBe(0);
+  });
+  it('rain makes the ball heavy: a kick that makes it dry falls short wet', () => {
+    expect(simulate(kick(f(1.5)), 0, metres(45))).toBe('good');
+    expect(simulate(kick(f(1.5), 'rain'), 0, metres(45))).toBe('short');
+  });
+  it('weather starts clear and gusts swing the wind', () => {
+    expect(weatherFor(0, 0.1)).toBe('clear');
+    expect(weatherFor(5, 0.1)).toBe('rain');
+    expect(weatherFor(5, 0.3)).toBe('gusty');
+    expect(weatherFor(5, 0.9)).toBe('clear');
+    expect(windNow(2, 'clear', 0.5)).toBe(2);
+    expect(windNow(2, 'gusty', 0.5)).not.toBe(2);
+  });
+  it('ghosts: Moss is beatable, Nell needs a hot streak', () => {
+    expect(ghostScore(0.2)).toBeLessThan(16);
+    expect(ghostScore(0.95)).toBeGreaterThan(70);
+    expect(ghostScore(0.5)).toBeGreaterThan(ghostScore(0.4));
   });
 });

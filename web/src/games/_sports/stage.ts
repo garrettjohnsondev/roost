@@ -21,6 +21,27 @@ export function useStageSize(aspect = 1.45) {
   return size;
 }
 
+/** For sideways games: fill the window, minus the arcade header (~36px),
+ *  a HUD line and a little margin. Upright (the "play anyway" case) it keeps a
+ *  wide letterbox so the field still reads side-on. */
+export function useWideStageSize(reserve = 36 + 34 + 12) {
+  const calc = () => {
+    const w = Math.max(280, window.innerWidth - 20);
+    const room = window.innerHeight - reserve;
+    const h = window.innerWidth > window.innerHeight ? room : Math.min(room, Math.round(w * 0.62));
+    return { w, h: Math.max(200, h) };
+  };
+  const [size, setSize] = useState(calc);
+  useEffect(() => {
+    const r = () => setSize(calc());
+    window.addEventListener('resize', r);
+    window.addEventListener('orientationchange', r);
+    return () => { window.removeEventListener('resize', r); window.removeEventListener('orientationchange', r); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return size;
+}
+
 export type Frame = (ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, now: number) => void;
 
 /** Runs `frame` every animation frame while `running`. dt is in seconds and
