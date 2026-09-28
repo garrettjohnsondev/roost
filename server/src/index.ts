@@ -24,7 +24,7 @@ import { getLiveModels, type ModelOption } from './models.js';
 import { initNotify, sendNotification, sendNotificationAsync } from './notify.js';
 import { getRecentProjects, listClaudeSessions, listCodexSessions } from './resumable.js';
 import { getClaudePreview, getCodexPreview } from './preview.js';
-import { SessionManager } from './sessions.js';
+import { SessionManager, setJobShippedHook } from './sessions.js';
 import { getCachedUsage, refreshUsage } from './usage.js';
 import { allPersonas, personaFor, saveOverrides, loadOverrides, resetCrewCache, type Persona, DISPATCHER } from './crew.js';
 import { loadMe, saveMe } from './me.js';
@@ -35,6 +35,8 @@ import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, las
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
+import { Economy, crateOnSale } from './economy.js';
+import { CRATES, ITEMS, PAINTS, CERTS, RARITY_NAME, SLOTS, itemById } from './catalog.js';
 import { readOnDeck } from './onDeck.js';
 import { visit } from './visits.js';
 import { createProject } from './newProject.js';
@@ -417,16 +419,51 @@ app.post('/api/visit', (req, res) => {
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.
 const games = new Games();
+// Coins, keys, crates and the wardrobe (games wave 1).
+const economy = new Economy();
+setJobShippedHook((crew) => economy.job(crew));
+const ecoView = () => {
+  const s = economy.state();
+  return {
+    ...s,
+    looks: economy.looks(),
+    shop: CRATES.map((c) => ({ ...c, onSale: crateOnSale(c) })),
+    freeReady: s.freeDay !== dayKeyLocal(),
+  };
+};
+const dayKeyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+app.get('/api/economy/catalog', (_req, res) => { res.json({ items: ITEMS, crates: CRATES, paints: PAINTS, certs: CERTS, rarityName: RARITY_NAME, slots: SLOTS }); });
+app.get('/api/economy', (_req, res) => { res.json(ecoView()); });
+app.get('/api/economy/looks', (_req, res) => { res.json({ looks: economy.looks() }); });
+const ecoAction = (fn: (body: any) => unknown) => (req: express.Request, res: express.Response) => {
+  try { res.json({ result: fn(req.body ?? {}), state: ecoView() }); } catch (err: any) { res.status(400).json({ error: String(err?.message ?? err) }); }
+};
+app.post('/api/economy/buy', ecoAction((b) => economy.buy(String(b.crate))));
+app.post('/api/economy/free', ecoAction(() => economy.claimFree()));
+app.post('/api/economy/open', ecoAction((b) => { const o = economy.open(String(b.uid)); return { ...o, item: itemById(o.itemId) }; }));
+app.post('/api/economy/tradeup', ecoAction((b) => { const o = economy.tradeUp(b.uids ?? []); return { ...o, item: itemById(o.itemId) }; }));
+app.post('/api/economy/equip', ecoAction((b) => economy.equip(String(b.crew), b.slot, b.uid ?? null)));
+app.post('/api/economy/ghost', ecoAction((b) => economy.ghost(String(b.gameId), String(b.crew))));
 app.get('/api/games', (_req, res) => { res.json(games.all()); });
 app.put('/api/games/:id/save', (req, res) => {
   res.status(games.save(req.params.id, req.body?.state ?? null) ? 200 : 400).json({ ok: true });
 });
 app.post('/api/games/:id/score', (req, res) => {
-  const r = games.score(req.params.id, Number(req.body?.score), !!req.body?.lowerIsBetter);
+  const score = Number(req.body?.score);
+  const r = games.score(req.params.id, score, !!req.body?.lowerIsBetter);
   if (!r) return void res.status(400).json({ error: 'bad score' });
-  res.json(r);
+  // Every run pays (games wave 1), a best pays more, and the day's challenge
+  // is checked against it.
+  const earned = economy.run(req.params.id, { best: r.isBest });
+  const challenge = economy.challengeResult(req.params.id, score);
+  res.json({ ...r, earned, challenge });
 });
-app.post('/api/games/achievement', (req, res) => { res.json({ earned: games.achieve(String(req.body?.id ?? '')) }); });
+app.post('/api/games/achievement', (req, res) => {
+  const id = String(req.body?.id ?? '');
+  const earned = games.achieve(id);
+  const coins = earned ? economy.achievement(id.split(':')[0], id) : 0;
+  res.json({ earned, coins });
+});
 
 // The project's history as crew-shaped entries: the Map, per project (2026-09-27).
 app.get('/api/git/history', async (req, res) => {

@@ -100,6 +100,10 @@ interface SessionOpts {
   onChange?: () => void;
 }
 
+/** Called when a job's checks pass with changes (games wave 1: work earns coins). */
+let onJobShipped: ((crew?: string) => void) | undefined;
+export function setJobShippedHook(fn: (crew?: string) => void): void { onJobShipped = fn; }
+
 export class Session {
   readonly id: string;
   readonly createdAt: number;
@@ -398,6 +402,10 @@ export class Session {
     this.lastTier = undefined;
   }
 
+  private speakingCrewName(): string | undefined {
+    try { return crewMember(this.agent, this.speakingModel(), this.currentRole).name; } catch { return undefined; }
+  }
+
   meta(): SessionMeta {
     return {
       id: this.id,
@@ -644,6 +652,9 @@ export class Session {
     }
     // A reply that arrived is proof the sign-in works; stop showing the warning.
     if (event.type === 'assistant_message' && this.agent === 'claude') clearAuthFailure();
+    // Work pays too (games wave 1): a job whose checks passed earns coins and
+    // may drop a crate. Set by index.ts; unset in tests.
+    if (event.type === 'verify' && event.report.passed && event.report.changed) onJobShipped?.(this.speakingCrewName());
     // What's on deck for this project (#46), in the crew's own words.
     if (event.type === 'assistant_message' && event.text) {
       const next = extractOnDeck(event.text);
