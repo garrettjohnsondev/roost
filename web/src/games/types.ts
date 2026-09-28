@@ -38,6 +38,9 @@ export interface GameMeta {
   scoreKind?: 'points' | 'time' | 'guesses';
   pack?: 'classic' | 'quick' | 'sports' | 'stretch';
   achievements: Achievement[];
+  /** For games whose save outlives a run (unlocks, streaks): is a run in
+   *  progress? Without it, any save means "Resume". */
+  inProgress?: (save: any) => boolean;
 }
 
 export interface GameModule {

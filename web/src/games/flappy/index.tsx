@@ -20,6 +20,7 @@ export const meta: GameMeta = {
     { id: 'fifty', name: 'Migration', says: 'Pass 50 gaps in a run.' },
     { id: 'friend', name: 'New wings', says: 'Unlock a second flier.' },
   ],
+  inProgress: (s: { run?: unknown }) => !!s?.run,
 };
 
 interface Save { unlocked: string[]; chosen: string; run?: World | null }

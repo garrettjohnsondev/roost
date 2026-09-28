@@ -91,7 +91,8 @@ export function Arcade({ onBack, onOpenSession }: { onBack: () => void; onOpenSe
           <h2 className="arcade-pack">{PACK_TITLE[p] ?? p}</h2>
           <div className="arcade-grid">
             {GAMES.filter((g) => (g.meta.pack ?? 'quick') === p).map((g) => {
-              const saved = store.saves[g.meta.id] != null;
+              const sv = store.saves[g.meta.id];
+              const saved = g.meta.inProgress ? sv != null && g.meta.inProgress(sv) : sv != null;
               const got = g.meta.achievements.filter((a) => store.achievements[`${g.meta.id}:${a.id}`]).length;
               return (
                 <button key={g.meta.id} className="arcade-card" onClick={() => open(g)}>
