@@ -5,6 +5,7 @@
 //   node scripts/scenes/gen.mjs scene campfire            # one backdrop
 //   node scripts/scenes/gen.mjs props guitar flute laptop # hand props
 //   node scripts/scenes/gen.mjs work ollie juno           # 6 working frames each (item 38)
+//   node scripts/scenes/gen.mjs relight all                # AM twin of every backdrop
 //
 // Output: .roost-data/scene-raw/{poses/<name>,scenes,props}/. Then
 // scripts/scenes/convert.py checks hue against the character's idle frame
@@ -216,6 +217,21 @@ if (mode === 'poses') {
     const prompt = `Use your built-in image_gen tool to generate ONE 1536x1024 landscape image.\n\n${BACKDROP_STYLE}\n\nScene: ${desc}. -> save as ${file}\n\nUse the image_gen tool directly; do not write code.`;
     await draw(join(RAW, 'scenes'), file, prompt, `scene/${id}`);
   }
+} else if (mode === 'relight') {
+  // AM/PM twins (2026-09-28): the same backdrop at the other half of the day.
+  // Every original was painted on the navy night base, so all 40 are "pm" and
+  // the twin is a morning. The original is attached as the reference and the
+  // composition is locked: crew seats sit at fixed x/y on it.
+  //   node scripts/scenes/gen.mjs relight all | relight picnic campfire
+  const ids = names[0] === 'all' ? Object.keys(SCENES) : names;
+  for (const id of ids) {
+    const desc = SCENES[id];
+    const ref = join(RAW, 'scenes', `${id}.png`);
+    if (!desc || !existsSync(ref)) { console.log(`${id}: unknown scene or no original`); continue; }
+    const file = `${id}.png`;
+    const prompt = `Use your built-in image_gen tool to EDIT the attached image into ONE 1536x1024 landscape image.\n\nThe attached image is a retro pixel-art game backdrop at NIGHT/EVENING: ${desc}.\n\nRedraw the EXACT SAME picture as a bright, sunny MORNING in daylight. CRITICAL -- THE COMPOSITION IS LOCKED: identical camera, framing and aspect; the horizon line, ground line, floor, walls, windows and every object stay at EXACTLY the same position, size and shape, pixel for pixel; add NO new objects and remove NONE (characters will be placed at fixed coordinates on this image). Change ONLY the lighting and time of day: outdoor skies become a soft light-blue morning sky with a few small white pixel clouds and (if the sky is visible) a sun instead of the moon and stars; windows show daylight instead of night; lamps, lanterns, string lights, torches and neon are switched off or faint; fires may become a thin wisp of smoke or low embers in the SAME spot; shadows are short daytime shadows; colours are brighter and warmer. Indoor scenes with no window stay the same room with brighter, cheerful daytime lighting.\n\nCRITICAL: literal retro PIXEL ART matching the attached image -- LOW RESOLUTION with large VISIBLE SQUARE PIXEL BLOCKS, hard aliased edges, flat blocks of colour, crisp one-pixel dark outlines, no gradients, no anti-aliasing, no airbrush shading. NO characters, NO people, NO animals, NO text.\nCRITICAL: save the image into the CURRENT WORKING DIRECTORY under the exact filename ${file}.\n\nUse the image_gen tool directly with the attached image as the reference; do not write code.`;
+    await draw(join(RAW, 'scenes-alt'), file, prompt, `relight/${id}`, ref);
+  }
 } else if (mode === 'props') {
   for (const id of names) {
     const desc = PROPS[id];
@@ -225,7 +241,7 @@ if (mode === 'poses') {
     await draw(join(RAW, 'props'), file, prompt, `prop/${id}`);
   }
 } else {
-  console.error('usage: gen.mjs poses <name...> | scene <id...> | props <id...>');
+  console.error('usage: gen.mjs poses <name...> | scene <id...> | props <id...> | relight <id...|all>');
   process.exit(2);
 }
 console.log('DONE');
