@@ -472,6 +472,12 @@ Shipped 2026-09-27/28 and not repeated below: the code map (Claude + Codex, `cod
     - For the player: high scores, personal bests, and achievements (Roost-themed, crew hands them out).
     - Stretch: a sports pack of simple flick games: field-goal football, baseball (timing swing), soccer (penalty kicks), basketball (flick shots).
     - More short ideas to consider: 2048, Wordle-style daily word, Flappy-style (a crew bird), Breakout, Sudoku, memory match with crew cards, Stack/tower drop. Rule: every game is playable one-handed in under two minutes.
+56. **Onboarding (added 2026-09-28).** Roost has never been set up from scratch by anyone new. Two halves:
+    - Computer: one install command for Mac, Windows and Linux. It checks for Node, Claude Code / Codex logins and git, starts Roost as a background service, and shows a QR code to open on the phone.
+    - Reaching the phone: today that's Tailscale (free, but a second app plus an account on both devices). Options to weigh: guide people through Tailscale, same Wi-Fi only, or a built-in tunnel (e.g. Cloudflare Tunnel) with a login in front. Decision pending.
+    - App: first-run welcome that meets the crew, picks a plan (feeds #44), adds a first project (#45), and shows how to add Roost to the home screen.
+    - Note: the "Pocket" home-screen name was the app's old name; iOS keeps the name and icon from when the shortcut was added. Remove it and add it again to get Roost.
+    - Sharing: point people to the GitHub repo with a README that starts with the install command.
 
 ### 12a. Motion — the stream with the most pull behind it
 
