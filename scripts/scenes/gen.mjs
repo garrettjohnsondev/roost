@@ -190,15 +190,15 @@ const ITEMS = {
   logos: {
     frame: 'A bold ICONIC EMBLEM like an arcade cabinet badge: one simple, high-contrast symbol with a few strong colours, big readable shapes that stay recognisable when shrunk to 64 pixels, centred, filling about 80 percent of the frame. No border text, no banner with words.',
     list: {
-      snake: 'a winding pixel snake-trail made of a conga line of golden seeds and small feathers, curling in an S shape, with a seed at the head',
+      snake: 'a THICK chunky S-shaped snake made of big round golden seed segments with small green feather tufts, a large round head with two eyes at the front, bold and heavy',
       minesweeper: 'a shovel stuck diagonally into a brown dirt mound with a small red triangular flag planted on top',
       battleship: 'a round twig nest floating on a small blue pond, with a red target crosshair over it',
       solitaire: 'three playing cards fanned out (card backs and simple red and black suit pips, no letters or numbers) with a white feather laid across them',
-      memory: 'two face-down playing cards with a patterned back, the right one mid-flip, tilted, showing a sliver of its bright face',
+      memory: 'two playing cards side by side: the left card face-down with a purple patterned back; the right card clearly MID-FLIP, turned sideways in perspective so it looks narrow, half its bright white face showing a yellow star, with little curved motion lines beside it',
       hatch: 'a cream egg cracking open with a zigzag crack, sitting on a rounded square sliding-puzzle tile in warm orange, with small tile corners peeking behind it',
       wordle: 'a 3 by 3 grid of rounded square tiles coloured green, yellow and grey, all blank with no letters',
       stack: 'a tall tower of wooden planks stacked slightly offset from one another, the top plank sliding in',
-      flappy: 'a single feathered wing flapping upward between two vertical tree branches, one from the top and one from the bottom, like pipes',
+      flappy: 'a LARGE white-and-yellow feathered wing, spread wide and filling the middle, flying through the gap between two THICK green-brown log branches, one hanging from the top and one rising from the bottom, like the pipes in a flappy game',
       breakout: 'a white egg used as a ball flying upward toward a row of colourful bricks, a paddle below',
       fieldgoal: 'a brown american football spinning through yellow goal-post uprights',
       baseball: 'a wooden baseball bat hitting a white baseball with a bright yellow impact spark',
