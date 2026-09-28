@@ -1,0 +1,242 @@
+[
+ {
+  "id": "aquarium",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/aquarium-alt.webp"
+ },
+ {
+  "id": "arcade",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/arcade-alt.webp"
+ },
+ {
+  "id": "bakery",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/bakery-alt.webp"
+ },
+ {
+  "id": "beach",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/beach-alt.webp"
+ },
+ {
+  "id": "blossom",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/blossom-alt.webp"
+ },
+ {
+  "id": "bowling",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/bowling-alt.webp"
+ },
+ {
+  "id": "bucket",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/bucket-alt.webp"
+ },
+ {
+  "id": "busstop",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/busstop-alt.webp"
+ },
+ {
+  "id": "cafe",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/cafe-alt.webp"
+ },
+ {
+  "id": "campfire",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/campfire-alt.webp"
+ },
+ {
+  "id": "cards",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/cards-alt.webp"
+ },
+ {
+  "id": "carnival",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/carnival-alt.webp"
+ },
+ {
+  "id": "castle",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/castle-alt.webp"
+ },
+ {
+  "id": "garage",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/garage-alt.webp"
+ },
+ {
+  "id": "greenhouse",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/greenhouse-alt.webp"
+ },
+ {
+  "id": "hotspring",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/hotspring-alt.webp"
+ },
+ {
+  "id": "icerink",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/icerink-alt.webp"
+ },
+ {
+  "id": "kitchen",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/kitchen-alt.webp"
+ },
+ {
+  "id": "lake",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/lake-alt.webp"
+ },
+ {
+  "id": "lanterns",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/lanterns-alt.webp"
+ },
+ {
+  "id": "laundromat",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/laundromat-alt.webp"
+ },
+ {
+  "id": "library",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/library-alt.webp"
+ },
+ {
+  "id": "lighthouse",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/lighthouse-alt.webp"
+ },
+ {
+  "id": "mushrooms",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/mushrooms-alt.webp"
+ },
+ {
+  "id": "oasis",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/oasis-alt.webp"
+ },
+ {
+  "id": "observatory",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/observatory-alt.webp"
+ },
+ {
+  "id": "orchard",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/orchard-alt.webp"
+ },
+ {
+  "id": "picnic",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/picnic-alt.webp"
+ },
+ {
+  "id": "pottery",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/pottery-alt.webp"
+ },
+ {
+  "id": "ramen",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/ramen-alt.webp"
+ },
+ {
+  "id": "rooftop",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/rooftop-alt.webp"
+ },
+ {
+  "id": "snow",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/snow-alt.webp"
+ },
+ {
+  "id": "spaceship",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/spaceship-alt.webp"
+ },
+ {
+  "id": "stargazing",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/stargazing-alt.webp"
+ },
+ {
+  "id": "station",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/station-alt.webp"
+ },
+ {
+  "id": "studio",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/studio-alt.webp"
+ },
+ {
+  "id": "submarine",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/submarine-alt.webp"
+ },
+ {
+  "id": "summit",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/summit-alt.webp"
+ },
+ {
+  "id": "treehouse",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/treehouse-alt.webp"
+ },
+ {
+  "id": "workshop",
+  "base": "pm",
+  "alt": "am",
+  "file": "/scenes/workshop-alt.webp"
+ }
+]
