@@ -164,7 +164,10 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
       cwd: spec.cwd,
       model: spec.model,
       ...(spec.effort ? { effort: spec.effort } : {}),
-      maxTurns: 24,
+      // A job asked for by name across vendors is real work, not a quick
+      // answer: 24 steps ended "Next phase" mid-way with error_max_turns
+      // (2026-09-29). The 20-minute timeout still bounds it.
+      maxTurns: spec.capability === 'all' ? 150 : 40,
       // Load NO filesystem settings: a user/project settings file can carry
       // permissions.allow rules that approve tools without ever consulting
       // canUseTool, which would make this capability gate advisory.
@@ -185,6 +188,11 @@ function runClaude(spec: AgentTaskSpec, timeoutMs: number, setCancel: (c: () => 
       }
       if (m.type === 'result') {
         reportClaudeUsage(spec, m);
+        // Out of steps is not a failure of the work so far: keep what was
+        // said and let the person say "keep going".
+        if (m.subtype === 'error_max_turns') {
+          return `${final || 'I made progress but ran out of steps for one go.'}\n\n_(I hit my step limit for one go — say "keep going" and I'll pick up where I stopped.)_`;
+        }
         if (m.is_error === true || (typeof m.subtype === 'string' && m.subtype.startsWith('error'))) {
           throw new Error(`claude dispatch failed: ${typeof m.result === 'string' && m.result ? m.result.slice(0, 300) : m.subtype}`);
         }
