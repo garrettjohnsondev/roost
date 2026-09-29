@@ -38,7 +38,7 @@ let sessions = [];
 try { const d = await (await fetch(BASE + '/api/sessions')).json(); sessions = (d.sessions ?? d).map((s) => s.id); } catch { /* none */ }
 const pages = [['home', '/'], ...fixtures.map((f) => [`fixture:${f}`, `/?fixture=${f}`]), ...sessions.map((id) => [`session:${id.slice(0, 8)}`, `/?s=${id}`])];
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 180_000,
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, protocolTimeout: 180_000, timeout: 120_000,
   // CI Linux runners have no user namespace sandbox.
   args: process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : [] });
 const failures = [];
