@@ -27,3 +27,6 @@ web/public/avatars/raw-*.png
 # 1024px sprite originals live in .roost-data/sprite-raw; only the 256px webp
 # frames under web/public/crew/ ship. 10.4 MB of PNG becomes 580 KB.
 .claude/
+
+# Your own settings: projects, plan, routes (made on first run).
+roost.config.json
