@@ -61,13 +61,13 @@ You need **Node 20+**, **git**, at least one of **[Claude Code](https://docs.ant
 **Mac or Linux** — in Terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gjohnsonmb1-afk/remote/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gjohnsonmb1-afk/roost/main/scripts/install.sh | bash
 ```
 
 **Windows** — in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/gjohnsonmb1-afk/remote/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/gjohnsonmb1-afk/roost/main/scripts/install.ps1 | iex
 ```
 
 The installer checks what's missing and walks you through it, builds Roost, starts it in the background (it comes back after a reboot) and ends on a **QR code** — scan it with your phone, then *Share → Add to Home Screen*.
