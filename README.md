@@ -4,8 +4,8 @@
 
 <p align="center">
   <b>Claude + Codex, working together.</b><br>
-  One app on your computer turns them into a crew you text from your phone — and Pip sends every job to the right AI.<br>
-  Free · Private · Mac, Windows &amp; Linux · works with the plan you already pay for
+  One app on your computer turns them into a crew you text from your phone — and Pip, your AI project manager, sends every job to the right AI.<br>
+  Free &amp; open source · bring your own Claude or Codex plan · Mac, Windows &amp; Linux
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@ It runs quietly on your computer and turns your agents into a friendly crew you 
 
 ## How Pip works
 
-**Pip** is the crew's dispatcher. Every message goes to Pip first, who picks the right AI model for the job — a lighter one for quick questions, a strong one for everyday work, the strongest one thinking deeply for hard problems. On big jobs, the *other* company's AI reviews the plan before anything is built. Then the tests run, you approve, and it goes live.
+**Pip** is your AI project manager. Every message goes to Pip first, who picks the right AI model for the job — a lighter one for quick questions, a strong one for everyday work, the strongest one thinking deeply for hard problems. On big jobs, the *other* company's AI reviews the plan before anything is built. Then the tests run, you approve, and it goes live.
 
 <p align="center">
   <img src="docs/readme/slides/diagram.png" alt="How Pip routes work: you, Pip, the right model, a second opinion, tests, you, ship" width="100%">
@@ -48,7 +48,7 @@ You don't need both Claude and Codex — either one works on its own. Tell Roost
 - **Stay in control.** Nothing risky happens without your tap. Every job shows its progress: *Plan → Build → Test → Done*.
 - **A second opinion built in.** Big jobs get reviewed by a different company's AI before any code changes.
 - **Private by design.** It runs on your computer. Your phone reaches it through Tailscale, a private network of just your devices.
-- **Free.** Open source, no accounts, no fees. Roost never sees your code, keys or bill.
+- **Free and open source.** No accounts, no fees — you bring your own Claude or Codex plan. Roost never sees your code, keys or bill.
 
 <p align="center">
   <img src="docs/readme/screens.png" alt="Home, a job in progress, an approval, and dressing up the crew" width="100%">
@@ -106,7 +106,7 @@ Already cloned? Run `node scripts/setup.mjs` (or `--check` to just see what's mi
 
 ## What it costs
 
-Nothing. Roost is free and open source (MIT). The agents run on **your own** Claude and/or Codex subscription — Roost never sees a bill, a key or your code.
+Roost itself is free and open source (MIT). You bring the AI: it runs on **your own** Claude and/or Codex subscription — Roost never sees a bill, a key or your code.
 
 ## Privacy and security
 
