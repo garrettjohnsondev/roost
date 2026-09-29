@@ -55,3 +55,8 @@ Both are unit-tested for all three platforms from any machine
   don't resolve and are dropped harmlessly; `os.tmpdir()` covers the real one.
 - Signals: `child.kill('SIGTERM')` is a hard kill on Windows, which is
   acceptable for the timeouts where it is used.
+
+## CI results (2026-09-29)
+All green on windows-latest, macos-latest and ubuntu-latest: install, typecheck, tests, build, setup check, server start, smoke (39 pages in headless Chrome), service install/status/uninstall.
+
+One open question for a real Windows user: when Roost runs as the logon task on the CI runner, the Claude Agent SDK's bundled `claude.exe` "exists but failed to launch", while the same server started directly on that runner lists Claude's models fine. Hosted runners run scheduled tasks in a non-interactive session without a full user profile, which is the likely cause; a normal Windows login should not have it. First tester on Windows: after `setup`, open Roost and check Settings → Models lists Claude's models. If it doesn't, the fallback is starting Roost from a terminal (`npm start`).

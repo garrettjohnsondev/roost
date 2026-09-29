@@ -1016,7 +1016,7 @@ function printTailscaleUrl(port: number) {
   const candidates = tailscaleCandidates();
   const tryNext = (i: number) => {
     if (i >= candidates.length) {
-      console.log('[roost] tailscale CLI not found — find your Mac\'s address in the Tailscale menu bar app');
+      console.log('[roost] tailscale CLI not found — find this computer\'s address in the Tailscale app');
       return;
     }
     execFile(candidates[i], ['ip', '-4'], (err, stdout) => {
