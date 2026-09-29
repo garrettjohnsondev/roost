@@ -67,7 +67,9 @@ jobs:
 
       - name: Smoke (headless Chrome at 390px)
         env:
-          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          # macOS: the runner's own Google Chrome -- the downloaded Chromium
+          # hangs on Network.enable on arm64 runners (CI, 2026-09-29).
+          CHROME_PATH: ${{ runner.os == 'macOS' && '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' || steps.chrome.outputs.chrome-path }}
           ROOST_SMOKE_REQUIRED: '1'
         run: ROOST_SMOKE_URL="http://127.0.0.1:$ROOST_TEST_PORT" node scripts/smoke.mjs
 
