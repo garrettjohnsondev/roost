@@ -50,7 +50,7 @@ describe('chapterName — named after the work, not the date', () => {
   it('drops the preamble and the leading verb', () => {
     expect(chapterName('Add a --json flag to the avatar generator')).toBe('--json flag to the avatar');
     expect(chapterName('Please can you rename fmtAgo to formatAgo')).toBe('fmtAgo to formatAgo');
-    expect(chapterName("Let's build the odds model for the demo app")).toBe('odds model for the bet');
+    expect(chapterName("Let's build the odds model for the demo app")).toBe('odds model for the demo');
   });
   it('keeps the verb when it is all there is', () => {
     expect(chapterName('Refactor')).toBe('Refactor');
