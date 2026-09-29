@@ -3930,3 +3930,11 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .look-wrap.breathing > .crew-sprite.alive { animation: none; }
 @media (prefers-reduced-motion: reduce) { .look-wrap.breathing { animation: none; } }
 .update-card { border-color: var(--accent, #c9803a); } .update-notes { white-space: pre-line; font-size: 14px; line-height: 1.45; }
+
+/* First-time tip and quick actions (2026-09-29) */
+.composer-tip { display: flex; align-items: center; gap: 6px; width: calc(100% - 16px); margin: 0 8px 6px; padding: 8px 10px; font-size: 13px; line-height: 1.35; text-align: left; border: 1px dashed var(--accent, #c9803a); border-radius: 2px; background: var(--surface, transparent); color: var(--text); animation: arcade-banner-in 300ms ease-out both; }
+.composer-tip code, .help-sheet code { font-family: ui-monospace, monospace; background: color-mix(in srgb, var(--text) 10%, transparent); padding: 0 3px; }
+.composer-tip-x { margin-left: auto; opacity: .6; }
+.slash-cmd { font-family: ui-monospace, monospace; font-weight: 700; }
+.help-sheet p, .help-sheet li { font-size: 15px; line-height: 1.45; }
+.help-sheet ul { padding-left: 18px; }

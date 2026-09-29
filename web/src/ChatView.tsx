@@ -173,6 +173,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // Tapping Proceed answers on the spot -- the button says so and stops taking
   // taps -- until the server's meta confirms the plan has left the bar.
   const [proceeding, setProceeding] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   // "Plan first, get a second opinion": was a scales icon beside Send, easy to
   // hit by accident (2026-09-28). Now a switch in settings, kept per chat.
   const consultKey = `roost:consult:${sessionId}`;
@@ -422,6 +423,20 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       </header>
 
       {showLive && session.meta && <LiveView cwd={session.meta.cwd} onClose={() => setShowLive(false)} onAsk={(text) => session.send({ type: 'user_message', text })} crewName={session.meta?.crew?.name} />}
+
+      {showHelp && (
+        <div className="sheet-backdrop" onClick={() => setShowHelp(false)}>
+          <div className="sheet help-sheet" onClick={(e) => e.stopPropagation()}>
+            <h3>How to talk to the crew</h3>
+            <p><b>Just type.</b> Pip reads each message and hands it to the right crew member for the job.</p>
+            <p><b>@name</b> picks who answers, like <code>@Ollie</code> for the hard stuff. They keep answering until you type <code>/pip</code>.</p>
+            <p><b>Quick actions</b></p>
+            <ul>{SLASH_COMMANDS.map((c) => <li key={c.cmd}><code>{c.cmd}</code> — {c.says}</li>)}</ul>
+            <p className="section-hint">Tap any face to see who they are, how they're feeling and what they wear.</p>
+            <button className="primary" onClick={() => setShowHelp(false)}>Got it</button>
+          </div>
+        </div>
+      )}
 
       {deploy && session.meta && (
         <DeploySheet
@@ -760,6 +775,21 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
             // A question waiting on you: what you text back is the answer.
             // Sending is talking: you go to the bottom, where they'll answer.
             pinned.current = true;
+            // Quick actions (2026-09-29).
+            const slash = /^\/(plan|deploy|next|pip|help)\b\s*([\s\S]*)$/i.exec(text.trim());
+            if (slash && !images?.length) {
+              const [, cmd, rest] = slash;
+              switch (cmd.toLowerCase()) {
+                case 'plan':
+                  if (rest.trim()) return session.send({ type: 'consult', text: rest.trim() });
+                  session.send({ type: 'set_mode', mode: 'plan' });
+                  return true;
+                case 'deploy': setDeploy({}); return true;
+                case 'next': return session.send({ type: 'user_message', text: "What's left to do on this project? A short list, most important first." });
+                case 'pip': session.send({ type: 'set_sticky', name: null }); return true;
+                case 'help': setShowHelp(true); return true;
+              }
+            }
             if (pendingQ && text.trim()) return answerQuestion(text.trim());
             if (consultMode && text.trim() && !images?.length && session.status !== 'working') return session.send({ type: 'consult', text: text.trim() });
             return session.send({ type: 'user_message', text, images });
@@ -2451,6 +2481,17 @@ function ThinkingBlock({ text, open, crew }: { text: string; open: boolean; crew
   );
 }
 
+/** Quick actions (2026-09-29): a few plain shortcuts for things you'd
+ *  otherwise type as a sentence. Nothing technical lives here. */
+export const SLASH_COMMANDS: Array<{ cmd: string; says: string }> = [
+  { cmd: '/plan', says: 'Plan this first — nothing changes until you say go' },
+  { cmd: '/deploy', says: 'Put the latest changes live' },
+  { cmd: '/next', says: "What's left to do on this project" },
+  { cmd: '/pip', says: 'Let Pip pick who answers again' },
+  { cmd: '/help', says: 'How @, / and the crew work' },
+];
+const TIP_KEY = 'roost:tip-mentions';
+
 /** A crew member the composer can @-mention. */
 interface MentionTarget { name: string; color: string; sprite?: string; suite: 'claude' | 'codex'; tier: 'flagship' | 'worker'; model?: string }
 
@@ -2470,6 +2511,12 @@ function Composer(props: {
     ? (props.crew ?? []).filter((c) => c.name.toLowerCase().startsWith(atMatch[2].toLowerCase()))
     : [];
   const completeMention = (name: string) => setText((t) => t.replace(/@([A-Za-z]*)$/, `@${name} `));
+  // "/" at the start opens the quick actions.
+  const slashMatch = text.match(/^\/([a-z]*)$/i);
+  const slashable = slashMatch ? SLASH_COMMANDS.filter((c) => c.cmd.slice(1).startsWith(slashMatch[1].toLowerCase())) : [];
+  // First time in a chat: one tip about @ and /, then never again.
+  const [tip, setTip] = useState(() => { try { return !localStorage.getItem(TIP_KEY); } catch { return false; } });
+  const dropTip = () => { if (!tip) return; setTip(false); try { localStorage.setItem(TIP_KEY, '1'); } catch { /* private mode */ } };
   const [images, setImages] = useState<Array<UserImage & { preview: string }>>([]);
   /** A send that could not go out. The draft is kept; this says why. */
   const [unsent, setUnsent] = useState(false);
@@ -2488,6 +2535,7 @@ function Composer(props: {
 
   function send() {
     if (!text.trim() && images.length === 0) return;
+    dropTip();
     // A send while disconnected used to clear the box into the void; now the
     // draft stays until a send actually goes out.
     const sent = props.onSend(text.trim(), images.length ? images.map(({ mediaType, data }) => ({ mediaType, data })) : undefined);
@@ -2535,6 +2583,21 @@ function Composer(props: {
       {unsent && (
         <div className="composer-hint composer-unsent">
           Not connected — your message is kept here until the session reconnects.
+        </div>
+      )}
+      {tip && !text && (
+        <button className="composer-tip" onClick={dropTip}>
+          <b>Tip:</b> type <code>@</code> to pick who answers, like @Ollie. Type <code>/</code> for quick actions.
+          <span className="composer-tip-x" aria-hidden="true">✕</span>
+        </button>
+      )}
+      {slashable.length > 0 && (
+        <div className="mention-pop slash-pop" role="listbox" aria-label="Quick actions">
+          {slashable.map((c) => (
+            <button key={c.cmd} className="mention-opt" role="option" onMouseDown={(e) => e.preventDefault()} onClick={() => setText(`${c.cmd} `)}>
+              <span className="mention-text"><span className="slash-cmd">{c.cmd}</span><span className="mention-model">{c.says}</span></span>
+            </button>
+          ))}
         </div>
       )}
       {mentionable.length > 0 && (
