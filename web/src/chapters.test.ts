@@ -167,3 +167,10 @@ describe('what comes after a passing check', () => {
     expect(more[1].start).toBe(4);
   });
 });
+
+import { chapterName as nameOf } from './chapters';
+describe('a proceed is named after its task', () => {
+  it('drops the button words', () => {
+    expect(nameOf('▶ Proceed with the consulted plan: Add client prediction to the game')).toBe('client prediction to the game');
+  });
+});

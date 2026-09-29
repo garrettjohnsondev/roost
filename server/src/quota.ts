@@ -320,7 +320,12 @@ export class QuotaStore {
     const bucket = this.agent(agent);
     const wins = this.live(agent);
     const known = wins.filter((w) => w.usedPercent != null);
-    const oldest = wins.length ? Math.min(...wins.map((w) => w.observedAt)) : null;
+    // Age is read from the windows that carry a number. A window that never
+    // reports a percent (e.g. "Unrecognized limit") sat at its first sighting
+    // for days and made fresh Claude readings look 5 days stale, which sent
+    // builds to Codex for no reason (2026-09-29).
+    const aged = known.length ? known : wins;
+    const oldest = aged.length ? Math.min(...aged.map((w) => w.observedAt)) : null;
     const ageMins = oldest == null ? null : Math.round((Date.now() - oldest) / 60000);
 
     // An explicit denial outranks everything, including having no percentages

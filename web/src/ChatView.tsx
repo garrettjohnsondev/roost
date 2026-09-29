@@ -791,7 +791,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               }
             }
             if (pendingQ && text.trim()) return answerQuestion(text.trim());
-            if (consultMode && text.trim() && !images?.length && session.status !== 'working') return session.send({ type: 'consult', text: text.trim() });
+            // Plan-first applies to new asks only (2026-09-29): a reply while a
+            // plan waits ("yes, I wanted your input…") or a name you called
+            // ("@Ollie try again") used to be turned into a brand-new plan.
+            const naming = /(^|\s)@[A-Za-z]/.test(text);
+            if (consultMode && text.trim() && !images?.length && session.status !== 'working' && !session.meta?.consultPending && !naming) return session.send({ type: 'consult', text: text.trim() });
             return session.send({ type: 'user_message', text, images });
           }}
           placeholder={pendingQ ? `Reply to ${pendingQ.crew?.name ?? session.meta?.crew?.name ?? 'the crew'}…` : consultMode ? 'Plan first — what should they plan?' : undefined}

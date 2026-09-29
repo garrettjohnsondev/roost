@@ -270,3 +270,16 @@ describe('Codex reports 0-100, and 1% is 1% (2026-09-28)', () => {
     expect(w.usedPercent).toBe(1);
   });
 });
+
+describe('a window with no number never makes fresh readings look stale', () => {
+  it('ages headroom by the windows that carry a percent (2026-09-29)', () => {
+    const s = new QuotaStore(join(tmp, 'stale-null'));
+    const now = Date.now();
+    s.agent('claude').windows = {
+      'claude:weekly_all': { key: 'claude:weekly_all', label: '7-day', usedPercent: 40, resetsAt: now + 86_400_000, windowDurationMins: 10080, observedAt: now, source: 'sdk-usage' },
+      'claude:other:unknown': { key: 'claude:other:unknown', label: 'Unrecognized limit', usedPercent: null, resetsAt: null, windowDurationMins: null, observedAt: now - 5 * 86_400_000, source: 'sdk-event' },
+    } as any;
+    const h = s.headroom('claude', loadConfig().budget);
+    expect(h.state).toBe('room');
+  });
+});

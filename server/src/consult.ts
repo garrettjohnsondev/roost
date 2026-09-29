@@ -87,6 +87,9 @@ export function composeProceedPrompt(task: string, plan: string, critique: strin
     '',
     critique ? `The reviewer's findings, for context (the plan above already reconciles them):\n${critique}\n` : '',
     'Proceed with the implementation now. The harness will run the project gates when you finish; do not edit or run the gate definitions yourself.',
+    // Codex's sandbox keeps .git read-only, so a plan step "commit a baseline"
+    // failed and the build reported itself blocked (2026-09-29). Roost commits.
+    "Don't run git commit, branch or reset: Roost commits the finished work itself after the gates pass. Skip any plan step that asks you to commit.",
   ]
     .filter(Boolean)
     .join('\n');

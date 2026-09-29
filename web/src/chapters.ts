@@ -197,7 +197,9 @@ const VERB = /^(?:add|fix|make|build|create|implement|write|update|change|refact
 export function chapterName(text: string, words = 5): string {
   // The first sentence only: five words across a full stop read as noise
   // ("on my phone. I").
-  let s = text.replace(/^▶\s*/, '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s/)[0];
+  // "▶ Proceed with the consulted plan: X" names the job after X, not after
+  // the button (2026-09-29: a job was titled "the consulted plan: Yes I").
+  let s = text.replace(/^▶\s*/, '').replace(/^Proceed with the consulted plan:\s*/i, '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s/)[0];
   s = s.replace(PREAMBLE, '');
   const stripped = s.replace(VERB, '');
   // keep the verb only if removing it would leave nothing
