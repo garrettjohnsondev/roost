@@ -41,3 +41,15 @@ describe('seats fill in order; a working member sits and types; the rest are awa
     for (const s of SCENES) for (const seat of s.seats) expect(['sit', 'side', 'hold', 'dance']).toContain(seat.pose);
   });
 });
+
+import { SCENES as ALL_SCENES, sceneName } from './scenes';
+describe('scene names fit the time of day', () => {
+  it('no night words on a daytime scene', () => {
+    const noon = new Date('2026-09-29T12:00:00');
+    for (const sc of ALL_SCENES) expect(sceneName(sc, noon), sc.id).not.toMatch(/night|midnight|moon|late-night|stargaz|bonfire|lantern/i);
+  });
+  it('keeps the night name at night', () => {
+    const late = new Date('2026-09-29T23:00:00');
+    expect(sceneName(ALL_SCENES.find((s) => s.id === 'kitchen')!, late)).toBe('Midnight Snack');
+  });
+});

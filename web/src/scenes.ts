@@ -39,6 +39,9 @@ export interface Ambient {
 export interface Scene {
   id: string;
   name: string;
+  /** Its name by day, when the name is about night (2026-09-29: "Midnight
+   *  Snack" over the sunny morning art). */
+  dayName?: string;
   seats: Seat[];
   ambient?: Ambient;
 }
@@ -60,7 +63,7 @@ export const SCENES: Scene[] = [
     ],
     ambient: { stars: { x0: 0, y0: 0, x1: 512, y1: 62, n: 26 }, shooting: { x0: 80, y0: 6, x1: 460, y1: 50, every: 61 }, glows: [{ x: 198, y: 170, r: 46, color: '#ff9a2e', kind: 'flicker' }] },
   },
-  { id: 'cards', name: 'Poker Night', seats: [
+  { id: 'cards', name: 'Poker Night', dayName: 'Card Table', seats: [
     { x: 150, y: 128, size: 64, pose: 'hold', prop: 'cards' },
     { x: 348, y: 128, size: 64, pose: 'hold', prop: 'cards' },
     { x: 250, y: 150, size: 66, pose: 'sit' },
@@ -78,13 +81,13 @@ export const SCENES: Scene[] = [
     { x: 330, y: 192, size: 70, pose: 'side' },
     { x: 440, y: 204, size: 68, pose: 'sit' },
   ], ambient: { stars: { x0: 150, y0: 0, x1: 430, y1: 68, n: 18 }, shooting: { x0: 180, y0: 4, x1: 420, y1: 40, every: 83 }, glows: [{ x: 451, y: 8, r: 26, color: '#fff2b0', kind: 'breathe' }] } },
-  { id: 'stargazing', name: 'Stargazing Hill', seats: [
+  { id: 'stargazing', name: 'Stargazing Hill', dayName: 'Hilltop Picnic', seats: [
     { x: 380, y: 202, size: 70, pose: 'side', flip: true },
     { x: 140, y: 206, size: 70, pose: 'sit' },
     { x: 250, y: 212, size: 68, pose: 'side' },
     { x: 60, y: 200, size: 62, pose: 'hold', prop: 'telescope' },
   ], ambient: { stars: { x0: 0, y0: 0, x1: 512, y1: 150, n: 44 }, shooting: { x0: 40, y0: 10, x1: 470, y1: 120, every: 47 } } },
-  { id: 'kitchen', name: 'Midnight Snack', seats: [
+  { id: 'kitchen', name: 'Midnight Snack', dayName: 'Brunch Break', seats: [
     { x: 392, y: 200, size: 72, pose: 'hold', prop: 'ladle' },
     { x: 150, y: 212, size: 68, pose: 'sit' },
     { x: 258, y: 216, size: 66, pose: 'hold', prop: 'bowl' },
@@ -102,7 +105,7 @@ export const SCENES: Scene[] = [
     { x: 330, y: 212, size: 66, pose: 'sit' },
     { x: 432, y: 200, size: 66, pose: 'hold', prop: 'gear' },
   ], ambient: { blink: { x: 244, y: 30, color: '#6fe0ff' }, glows: [{ x: 62, y: 17, r: 18, color: '#ffd98a', kind: 'breathe' }] } },
-  { id: 'rooftop', name: 'Rooftop Sunset', seats: [
+  { id: 'rooftop', name: 'Rooftop Sunset', dayName: 'Rooftop Morning', seats: [
     { x: 130, y: 206, size: 70, pose: 'side', flip: true },
     { x: 390, y: 206, size: 70, pose: 'side' },
     { x: 262, y: 200, size: 74, pose: 'dance' },
@@ -116,13 +119,13 @@ export const SCENES: Scene[] = [
   ], ambient: { stars: { x0: 60, y0: 0, x1: 512, y1: 48, n: 18 }, shooting: { x0: 120, y0: 4, x1: 440, y1: 36, every: 71 }, snow: true } },
   // Item 39: thirty more, one a day. Seats sit on each backdrop's open floor,
   // placed by eye on a gridded contact sheet of the 512x256 art.
-  { id: 'beach', name: 'Beach Bonfire', seats: [
+  { id: 'beach', name: 'Beach Bonfire', dayName: 'Beach Day', seats: [
     { x: 118, y: 198, size: 66, pose: 'side' },
     { x: 206, y: 210, size: 66, pose: 'hold', prop: 'guitar' },
     { x: 310, y: 202, size: 72, pose: 'dance' },
     { x: 420, y: 212, size: 64, pose: 'sit' },
   ], ambient: { stars: { x0: 0, y0: 0, x1: 512, y1: 40, n: 18 }, glows: [{ x: 42, y: 188, r: 40, color: '#ff9a2e', kind: 'flicker' }, { x: 382, y: 18, r: 22, color: '#fff2b0', kind: 'breathe' }] } },
-  { id: 'lighthouse', name: 'The Lighthouse Watch', seats: [
+  { id: 'lighthouse', name: 'The Lighthouse Watch', dayName: 'Lighthouse Morning', seats: [
     { x: 90, y: 214, size: 64, pose: 'sit' },
     { x: 196, y: 218, size: 66, pose: 'hold', prop: 'telescope' },
     { x: 300, y: 214, size: 66, pose: 'side' },
@@ -143,7 +146,7 @@ export const SCENES: Scene[] = [
     { x: 336, y: 206, size: 66, pose: 'side' },
     { x: 430, y: 214, size: 62, pose: 'sit' },
   ], ambient: { glows: [{ x: 339, y: 18, r: 18, color: '#fff2b0', kind: 'breathe' }, { x: 42, y: 128, r: 14, color: '#ffc46b', kind: 'flicker' }, { x: 472, y: 128, r: 14, color: '#ffc46b', kind: 'flicker' }] } },
-  { id: 'station', name: 'Night Train', seats: [
+  { id: 'station', name: 'Night Train', dayName: 'Morning Train', seats: [
     { x: 92, y: 176, size: 60, pose: 'sit' },
     { x: 196, y: 208, size: 66, pose: 'side' },
     { x: 290, y: 214, size: 66, pose: 'hold', prop: 'book' },
@@ -161,7 +164,7 @@ export const SCENES: Scene[] = [
     { x: 330, y: 206, size: 66, pose: 'side', flip: true },
     { x: 430, y: 214, size: 62, pose: 'sit' },
   ], ambient: { glows: [{ x: 410, y: 70, r: 36, color: '#ff8a2a', kind: 'flicker' }, { x: 150, y: 12, r: 14, color: '#ffc46b', kind: 'breathe' }] } },
-  { id: 'ramen', name: 'Late-Night Ramen', seats: [
+  { id: 'ramen', name: 'Late-Night Ramen', dayName: 'Ramen Lunch', seats: [
     { x: 150, y: 206, size: 64, pose: 'hold', prop: 'bowl' },
     { x: 250, y: 210, size: 64, pose: 'hold', prop: 'bowl' },
     { x: 350, y: 206, size: 64, pose: 'side' },
@@ -170,7 +173,7 @@ export const SCENES: Scene[] = [
     { x: 44, y: 40, r: 16, color: '#ff4a3a', kind: 'breathe' }, { x: 207, y: 34, r: 16, color: '#ff4a3a', kind: 'breathe' },
     { x: 247, y: 28, r: 16, color: '#ff4a3a', kind: 'breathe' }, { x: 474, y: 22, r: 16, color: '#ff4a3a', kind: 'breathe' },
   ] } },
-  { id: 'lanterns', name: 'Lantern Festival', seats: [
+  { id: 'lanterns', name: 'Lantern Festival', dayName: 'Street Fair', seats: [
     { x: 110, y: 214, size: 64, pose: 'side', flip: true },
     { x: 220, y: 218, size: 66, pose: 'sit' },
     { x: 320, y: 214, size: 66, pose: 'dance' },
@@ -239,7 +242,7 @@ export const SCENES: Scene[] = [
     { x: 380, y: 206, size: 64, pose: 'side', flip: true },
     { x: 460, y: 214, size: 60, pose: 'sit' },
   ], ambient: { glows: [{ x: 30, y: 30, r: 18, color: '#ffd98a', kind: 'breathe' }] } },
-  { id: 'bowling', name: 'Bowling Night', seats: [
+  { id: 'bowling', name: 'Bowling Night', dayName: 'Bowling League', seats: [
     { x: 80, y: 214, size: 64, pose: 'hold', prop: 'ball' },
     { x: 190, y: 220, size: 66, pose: 'dance' },
     { x: 320, y: 220, size: 66, pose: 'sit' },
@@ -257,7 +260,7 @@ export const SCENES: Scene[] = [
     { x: 350, y: 210, size: 66, pose: 'dance' },
     { x: 440, y: 218, size: 62, pose: 'sit' },
   ], ambient: { stars: { x0: 120, y0: 0, x1: 390, y1: 30, n: 10 }, glows: [{ x: 256, y: 70, r: 34, color: '#ff8a3a', kind: 'breathe' }] } },
-  { id: 'observatory', name: 'The Observatory', seats: [
+  { id: 'observatory', name: 'The Observatory', dayName: 'Observatory Tour', seats: [
     { x: 200, y: 210, size: 66, pose: 'hold', prop: 'telescope' },
     { x: 300, y: 214, size: 66, pose: 'sit' },
     { x: 400, y: 210, size: 64, pose: 'hold', prop: 'book' },
@@ -278,7 +281,7 @@ export const SCENES: Scene[] = [
     { x: 340, y: 214, size: 66, pose: 'hold', prop: 'book' },
     { x: 440, y: 220, size: 62, pose: 'sit' },
   ], ambient: { glows: [{ x: 60, y: 6, r: 26, color: '#ffd98a', kind: 'breathe' }, { x: 250, y: 90, r: 18, color: '#ffe8a6', kind: 'breathe' }] } },
-  { id: 'lake', name: 'Moonlit Lake', seats: [
+  { id: 'lake', name: 'Moonlit Lake', dayName: 'Lakeside Morning', seats: [
     { x: 120, y: 224, size: 62, pose: 'side' },
     { x: 226, y: 228, size: 62, pose: 'hold', prop: 'flute' },
     { x: 330, y: 224, size: 62, pose: 'sit' },
@@ -302,7 +305,7 @@ export const SCENES: Scene[] = [
     { x: 330, y: 214, size: 66, pose: 'side' },
     { x: 430, y: 222, size: 60, pose: 'sit' },
   ], ambient: { steam: [256, 118], stars: { x0: 60, y0: 0, x1: 460, y1: 30, n: 12 }, glows: [{ x: 26, y: 50, r: 16, color: '#ffb44a', kind: 'flicker' }] } },
-  { id: 'carnival', name: 'Carnival Night', seats: [
+  { id: 'carnival', name: 'Carnival Night', dayName: 'Carnival Day', seats: [
     { x: 120, y: 214, size: 66, pose: 'dance' },
     { x: 230, y: 218, size: 66, pose: 'hold', prop: 'sandwich' },
     { x: 340, y: 214, size: 66, pose: 'hold', prop: 'ball' },
@@ -353,4 +356,9 @@ export function isDaytime(d: Date): boolean {
 }
 export function sceneImage(id: string, d: Date): string {
   return isDaytime(d) && DAY_TWINS.has(id) ? `/scenes/${id}-alt.webp` : `/scenes/${id}.webp`;
+}
+
+/** The name to show right now: its day name by day, where it has one. */
+export function sceneName(scene: Scene, d: Date): string {
+  return isDaytime(d) && DAY_TWINS.has(scene.id) ? scene.dayName ?? scene.name : scene.name;
 }

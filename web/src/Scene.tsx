@@ -2,7 +2,7 @@ import { nameSeed } from './ChatView';
 import { useState } from 'react';
 import { nameColor } from './color';
 import { openCompanion } from './CompanionSheet';
-import { DAY_TWINS, SCENES, isDaytime, placeCrew, sceneImage, sceneIndexFor, type Ambient, type Placed } from './scenes';
+import { DAY_TWINS, SCENES, isDaytime, sceneName, placeCrew, sceneImage, sceneIndexFor, type Ambient, type Placed } from './scenes';
 import type { CrewInfo } from './types';
 
 /** The crew off duty (docs/SCENES.md): the awake members in a drawn scene,
@@ -30,15 +30,15 @@ export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ 
     <div
       className="scene"
       role="img"
-      title={`${scene.name} — today's scene`}
-      aria-label={`${scene.name}: ${placed.map((p) => p.member.name).join(', ') || 'nobody is up yet'}`}
+      title={`${sceneName(scene, now)} — today's scene`}
+      aria-label={`${sceneName(scene, now)}: ${placed.map((p) => p.member.name).join(', ') || 'nobody is up yet'}`}
     >
       <img className="scene-bg" src={sceneImage(scene.id, now)} alt="" onError={() => setMissing(true)} draggable={false} />
       {scene.ambient && <AmbientLayer id={scene.id} a={day ? { ...scene.ambient, stars: undefined, shooting: undefined, glows: scene.ambient.glows?.filter((g) => g.kind === 'flicker') } as Ambient : scene.ambient} />}
       {placed.map((p) => (
         <Seated key={p.member.name} placed={p} />
       ))}
-      <span className="scene-name">{scene.name}</span>
+      <span className="scene-name">{sceneName(scene, now)}</span>
     </div>
   );
 }
