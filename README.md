@@ -3,8 +3,15 @@
 </p>
 
 <p align="center">
-  <b>Drive Claude Code and Codex on your own computer — from your phone — through a crew of pixel-art birds.</b><br>
-  Free &amp; open source · Mac, Windows, Linux · uses the plans you already pay for
+  <b>Your AI coding agents, in your pocket.</b><br>
+  Text Claude Code or Codex like a group chat — from your phone — while they build on your computer.<br>
+  Free · Private · Mac, Windows &amp; Linux · works with the plan you already pay for
+</p>
+
+<p align="center">
+  <b>To install, just ask your AI:</b><br>
+  <code>Install Roost from github.com/gjohnsonmb1-afk/roost</code><br>
+  <sub>Paste that into Claude Code or Codex. It follows <a href="docs/INSTALL-WITH-AI.md">this guide</a> and only asks you for a couple of taps.</sub>
 </p>
 
 <p align="center">
@@ -13,50 +20,71 @@
 
 ---
 
-## Why Roost
+## What is Roost?
 
-Coding agents are amazing. Being chained to a laptop to babysit them isn't.
+AI coding agents like **Claude Code** and **Codex** can build real software — but you normally have to sit at your computer and watch them. Roost lets you step away.
 
-Roost runs on your computer and puts your agents in your pocket. You text the crew like a group chat. **Pip**, the dispatcher, hands each message to the right crew member — **Ollie** (Opus) for the hard problems, **Wren** (Sonnet) for everyday work, **Nell**, **Juno** and friends on Codex — and you watch the work happen: plan, build, test, verified, shipped. When they need a yes, your phone taps you. When they're done, the rocket lights up and you deploy with one tap.
+It runs quietly on your computer and turns your agents into a friendly crew you can text from your phone. You say what you want in plain words. They plan it, build it, test it, and check in with you before anything risky. You tap *yes*, and it ships.
 
-It's built for the moments in between: in line for coffee, between meetings, on the couch.
+<p align="center">
+  <img src="docs/readme/slides/s2.png" alt="Text your crew. They get to work." width="49%">
+  <img src="docs/readme/slides/s4.png" alt="They build. You approve." width="49%">
+</p>
+
+## How Pip works
+
+**Pip** is the crew's dispatcher. Every message goes to Pip first, who picks the right AI model for the job — a lighter one for quick questions, a strong one for everyday work, the strongest one thinking deeply for hard problems. On big jobs, the *other* company's AI reviews the plan before anything is built. Then the tests run, you approve, and it goes live.
+
+<p align="center">
+  <img src="docs/readme/slides/diagram.png" alt="How Pip routes work: you, Pip, the right model, a second opinion, tests, you, ship" width="100%">
+</p>
+
+You don't need both Claude and Codex — either one works on its own. Tell Roost which plan you pay for ($20, $100 or $200) and Pip spends it wisely, and warns you when your week is running hot or cold.
+
+## The benefits, simply
+
+- **Step away from your desk.** Start a job, go to lunch, approve it from your phone.
+- **Get more from what you already pay for.** Pip matches each task to the right model for your plan.
+- **Stay in control.** Nothing risky happens without your tap. Every job shows its progress: *Plan → Build → Test → Done*.
+- **A second opinion built in.** Big jobs get reviewed by a different company's AI before any code changes.
+- **Private by design.** It runs on your computer. Your phone reaches it through Tailscale, a private network of just your devices.
+- **Free.** Open source, no accounts, no fees. Roost never sees your code, keys or bill.
 
 <p align="center">
   <img src="docs/readme/screens.png" alt="Home, a job in progress, an approval, and dressing up the crew" width="100%">
 </p>
 
+## Talking to the crew
+
+- **Just type.** Pip hands your message to the right crew member.
+- **Type `@`** to pick who answers — `@Ollie` (Opus) for the hard stuff, `@Wren` (Sonnet) for everyday work, `@Nell` or `@Juno` on Codex.
+- **Type `/`** for quick actions: `/plan` (plan first, nothing changes until you say go), `/deploy`, `/next` (what's left), `/pip` and `/help`.
+- **Tap any face** to see who they are, how they're feeling, and what they're wearing.
+
 ## What's inside
 
 **A crew, not a chat log**
-- Twelve pixel-art characters, each tied to a real model, with moods, energy, levels and a wardrobe they earn from real work.
-- Every job reads like a story: a progress trail from *Plan → Review → Build → Test → Done*, a big **VERIFIED** stamp when the checks pass, and the crew cheering.
+- Twelve pixel-art characters, each tied to a real model, with moods, levels and a wardrobe they earn from real work.
+- Every job reads like a story, with a big **VERIFIED** stamp when the checks pass.
 - "Where we left off" and "what's next" for every project, with one-tap **Continue**.
-
-**Smart about your plan**
-- Tell Roost whether you're on the $20, $100 or $200 plan and Pip hands out work to fit — and tells you when your week is running hot or cold.
-- Per-project usage read from Claude's and Codex's own logs: *"yayo bay used 18% of your Claude week, mostly Ollie."*
-- Plan mode, a second-opinion review from the other vendor, gates that actually run your tests, and approvals that never ask twice.
 
 **Ship from your phone**
 - Live preview of your app, git changes and history, and a Deploy button that waits for you when the checks pass.
-- New project from the phone: folder, first commit and a GitHub repo in one tap.
+- New project from the phone: a folder, first commit and GitHub repo in one tap.
+- Per-project usage read from Claude's and Codex's own logs.
 
-**An arcade for the wait**
-- 18 games — from Conga (Snake with the crew) to **Roost Birds** (a slingshot game with 45 hand-built levels), **Crew Kart** (a behind-the-kart racer) and **Bug Siege** (tower defense, crew as towers).
-- Ghosts of each crew member to beat (Haiku's is easy, Astra's is not), a daily challenge, and **Roost Crates** — earn coins and keys, open crates, dress up your crew. No real money, ever.
-- When a crew member needs you, the game pauses and a banner slides in. One tap to answer, one tap back.
+**And an arcade, for the wait**
+- 18 small games starring the crew — including Roost Birds (a slingshot game with 45 levels), Crew Kart and Bug Siege.
+- Ghosts of each crew member to beat, a daily challenge, and crates of hats and props for your crew. No real money, ever.
+- When the crew needs you, the game pauses and a banner slides in.
 
 <p align="center">
   <img src="docs/readme/games.png" alt="Roost Birds, Crew Kart and Bug Siege" width="100%">
 </p>
 
-<p align="center">
-  <img src="docs/readme/screens2.png" alt="A verified job and the arcade hub" width="62%">
-</p>
+## Install it yourself
 
-## Install
-
-You need **Node 20+**, **git**, at least one of **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex](https://github.com/openai/codex)** signed in, and **[Tailscale](https://tailscale.com/download)** (free) on your computer and your phone.
+Prefer to do it by hand? You need **Node 20+**, **git**, at least one of **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex](https://github.com/openai/codex)** signed in, and **[Tailscale](https://tailscale.com/download)** (free) on your computer and your phone.
 
 **Mac or Linux** — in Terminal:
 

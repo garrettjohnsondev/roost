@@ -1,0 +1,140 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+@font-face{font-family:Silk;src:url(/fonts/silkscreen-700.woff2)}
+@font-face{font-family:Atk;src:url(/fonts/atkinson-hyperlegible-400.woff2)}
+@font-face{font-family:Atk;font-weight:700;src:url(/fonts/atkinson-hyperlegible-700.woff2)}
+*{box-sizing:border-box}
+body{margin:0;background:#000;font-family:Atk;color:#eef1ff}
+.slide{width:1080px;height:1350px;position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% 115%,#2b3770 0%,#161c38 55%,#0d1124 100%);padding:84px 80px}
+.slide::before{content:'';position:absolute;inset:0;background-image:radial-gradient(#fff 1.2px,transparent 1.8px);background-size:53px 59px;opacity:.16}
+.wide{width:1600px;height:900px;padding:60px 70px}
+.kicker{font-family:Silk;color:#f5b642;font-size:30px;letter-spacing:4px;position:relative}
+h1{font-family:Atk;font-weight:700;font-size:82px;line-height:1.05;margin:18px 0 0;position:relative;letter-spacing:-1px}
+h1 em{font-style:normal;color:#f5b642}
+.sub{font-size:36px;line-height:1.35;color:#c3cbf2;margin-top:24px;position:relative;max-width:900px}
+.phone{position:absolute;background:#2a2f45;border-radius:56px;padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.phone img{display:block;border-radius:40px;width:100%}
+.crew{image-rendering:pixelated;position:absolute}
+.logo{font-family:Silk;font-size:64px;color:#f5b642;text-shadow:5px 5px 0 #6b3d0a;position:absolute;left:80px;bottom:70px;letter-spacing:4px}
+.url{position:absolute;right:80px;bottom:84px;font-size:28px;color:#aab3e0}
+.bubble{position:absolute;background:#f5b642;color:#1a1300;font-weight:700;font-size:30px;padding:18px 24px;border-radius:6px;box-shadow:6px 6px 0 #6b3d0a;max-width:420px;line-height:1.25}
+.card{position:absolute;background:#1b2244;border:3px solid #3b4680;border-radius:8px;padding:26px 30px;font-size:30px;line-height:1.35}
+.card b{color:#f5b642}
+.num{display:inline-block;width:54px;height:54px;border-radius:50%;background:#f5b642;color:#1a1300;font-family:Silk;font-size:28px;text-align:center;line-height:56px;margin-right:16px;vertical-align:middle}
+.ask{position:absolute;left:80px;right:80px;background:#0b0f1f;border:3px solid #f5b642;border-radius:10px;padding:34px 38px;font-family:ui-monospace,Menlo,monospace;font-size:34px;line-height:1.4;color:#fff}
+.ask .p{color:#f5b642}
+/* diagram */
+.flow{position:absolute;display:flex;align-items:center;gap:26px}
+.node{background:#1b2244;border:3px solid #3b4680;border-radius:10px;padding:18px 22px;text-align:center;font-size:24px;line-height:1.25;position:relative}
+.node img{width:110px;height:110px;image-rendering:pixelated;display:block;margin:0 auto 6px}
+.node .t{font-family:Silk;font-size:22px;color:#f5b642;letter-spacing:1px}
+.arrow{font-family:Silk;color:#f5b642;font-size:40px}
+.tier{display:flex;align-items:center;gap:14px;background:#141a36;border:2px solid #3b4680;border-radius:8px;padding:10px 16px;font-size:24px;margin:10px 0}
+.tier img{width:74px;height:74px;image-rendering:pixelated}
+.tier b{color:#f5b642;font-family:Silk;font-size:18px;display:block;letter-spacing:1px}
+.pill{display:inline-block;font-family:Silk;font-size:18px;padding:6px 10px;border:2px solid #f5b642;color:#f5b642;border-radius:4px;margin-right:8px}
+</style></head><body>
+
+<!-- 1: hook -->
+<section class="slide" id="s1">
+  <div class="kicker">MEET ROOST</div>
+  <h1>Your AI coding agents,<br><em>in your pocket.</em></h1>
+  <div class="sub">Claude Code and Codex, running on your own computer — driven from your phone, by a crew of pixel-art birds.</div>
+  <div class="phone" style="width:470px;left:540px;top:560px"><img src="home.png"></div>
+  <img class="crew" src="/crew/ollie-tier4.webp" style="width:250px;left:110px;top:640px">
+  <img class="crew" src="/crew/pip-cheer.webp" style="width:210px;left:300px;top:880px">
+  <img class="crew" src="/crew/nell-idle.webp" style="width:190px;left:90px;top:960px">
+  <div class="logo" style="bottom:60px">ROOST</div>
+</section>
+
+<!-- 2: group chat -->
+<section class="slide" id="s2">
+  <div class="kicker">IT'S A GROUP CHAT</div>
+  <h1>Text your crew.<br><em>They get to work.</em></h1>
+  <div class="sub">Say what you want in plain words. Watch it go from plan to build to tested — right on your phone.</div>
+  <div class="phone" style="width:500px;left:500px;top:520px"><img src="chat.png"></div>
+  <div class="bubble" style="left:80px;top:620px">Add a --json flag to the avatar generator</div>
+  <div class="card" style="left:80px;top:840px;width:380px"><b>Type @</b> to pick who answers — <b>@Ollie</b> for the hard stuff.<br><br><b>Type /</b> for quick actions like /plan and /deploy.</div>
+  <div class="logo">ROOST</div>
+</section>
+
+<!-- 3: how Pip works -->
+<section class="slide" id="s3">
+  <div class="kicker">HOW IT WORKS</div>
+  <h1>Pip picks the<br><em>right model</em> for you.</h1>
+  <div style="position:relative;margin-top:44px">
+    <div class="card" style="position:relative;display:flex;align-items:center;gap:22px"><img src="/crew/pip-peek.webp" style="width:110px;image-rendering:pixelated"><div><span class="num">1</span>You send a message. <b>Pip</b>, the dispatcher, sizes it up.</div></div>
+    <div style="display:flex;gap:18px;margin:20px 0">
+      <div class="node" style="flex:1"><img src="/crew/wren-idle.webp"><div class="t">QUICK</div>Sonnet</div>
+      <div class="node" style="flex:1"><img src="/crew/ollie-idle.webp"><div class="t">EVERYDAY</div>Opus</div>
+      <div class="node" style="flex:1"><img src="/crew/ollie-tier4.webp"><div class="t">HARD</div>Opus, deep thinking</div>
+    </div>
+    <div class="card" style="position:relative;display:flex;align-items:center;gap:22px"><img src="/crew/juno-review1.webp" onerror="this.src='/crew/juno-idle.webp'" style="width:110px;image-rendering:pixelated"><div><span class="num">2</span>Big job? The <b>other company's</b> AI reviews the plan first.</div></div>
+    <div class="card" style="position:relative;display:flex;align-items:center;gap:22px;margin-top:20px"><img src="/crew/bram-cheer.webp" style="width:110px;image-rendering:pixelated"><div><span class="num">3</span>Tests run. <b>You approve.</b> It ships.</div></div>
+    <div style="margin-top:22px;font-size:26px;color:#c3cbf2"><span class="pill">$20</span><span class="pill">$100</span><span class="pill">$200</span> Pip fits the work to your plan. Claude only, Codex only, or both — all work.</div>
+  </div>
+</section>
+
+<!-- 4: you approve -->
+<section class="slide" id="s4">
+  <div class="kicker">YOU'RE IN CONTROL</div>
+  <h1>They build.<br><em>You approve.</em></h1>
+  <div class="sub">Nothing risky happens without a tap. When the tests pass, it's stamped VERIFIED and ready to ship.</div>
+  <div class="phone" style="width:430px;left:80px;top:590px"><img src="approval.png"></div>
+  <div class="phone" style="width:430px;left:570px;top:640px"><img src="verified.png"></div>
+</section>
+
+<!-- 5: smart about your plan -->
+<section class="slide" id="s5">
+  <div class="kicker">SMART ABOUT YOUR PLAN</div>
+  <h1>Get the most from<br><em>what you already pay for.</em></h1>
+  <div class="sub">Tell Roost your plan. Pip spends it wisely — and tells you when your week is running hot or cold.</div>
+  <div class="phone" style="width:920px;left:80px;top:600px;border-radius:22px;padding:22px"><img src="plan.png" style="border-radius:10px"></div>
+  <div class="card" style="left:80px;top:1060px;width:920px"><b>Per-project usage</b> from Claude's and Codex's own logs — see which project, and which model, used your week.</div>
+  <div class="logo">ROOST</div>
+</section>
+
+<!-- 6: free & install -->
+<section class="slide" id="s6">
+  <div class="kicker">FREE · PRIVATE · OPEN SOURCE</div>
+  <h1>To install it,<br><em>just ask your AI.</em></h1>
+  <div class="sub">Paste this into Claude Code or Codex:</div>
+  <div class="ask" style="top:560px"><span class="p">&gt;</span> Install Roost from github.com/gjohnsonmb1-afk/roost</div>
+  <div class="card" style="left:80px;top:820px;width:920px">
+    ✔ Runs on <b>your</b> computer — Mac, Windows or Linux<br>
+    ✔ Uses the Claude or Codex plan you already have<br>
+    ✔ Your code stays yours — reached privately with Tailscale<br>
+    ✔ Free, forever
+  </div>
+  <div style="position:absolute;left:80px;right:80px;top:1105px;display:flex;justify-content:space-between">
+    <img src="/crew/ollie-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/bram-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/wren-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/moss-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/nell-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/juno-idle.webp" style="width:120px;image-rendering:pixelated"><img src="/crew/bly-idle.webp" style="width:120px;image-rendering:pixelated">
+  </div>
+  <img class="crew" src="/crew/pip-cheer.webp" style="width:180px;right:80px;top:120px">
+  <div class="logo">ROOST</div>
+  <div class="url">github.com/gjohnsonmb1-afk/roost</div>
+</section>
+
+<!-- README diagram (wide) -->
+<section class="slide wide" id="diagram">
+  <div class="kicker">HOW PIP WORKS</div>
+  <div class="flow" style="left:70px;top:150px">
+    <div class="node" style="width:230px"><img src="/crew/pip-peek.webp"><div class="t">YOU → PIP</div>Pip reads your message and sizes it up</div>
+    <div class="arrow">→</div>
+    <div>
+      <div class="tier"><img src="/crew/wren-idle.webp"><div><b>QUICK QUESTION OR CHORE</b>a lighter model</div></div>
+      <div class="tier"><img src="/crew/ollie-idle.webp"><div><b>EVERYDAY WORK</b>a strong model</div></div>
+      <div class="tier"><img src="/crew/ollie-tier4.webp"><div><b>HARD PROBLEM</b>the strongest, thinking deeply</div></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:230px"><img src="/crew/juno-idle.webp"><div class="t">SECOND OPINION</div>Big jobs: the other company's AI reviews the plan</div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:230px"><img src="/crew/bram-cheer.webp"><div class="t">TESTS · YOU · SHIP</div>Checks run, you approve, it goes live</div>
+  </div>
+  <div style="position:absolute;left:70px;right:70px;bottom:60px;display:flex;gap:18px;font-size:22px;line-height:1.35">
+    <div class="card" style="position:relative;flex:1"><b>$20 plan</b><br>Haiku · Sonnet · Opus for the hard stuff</div>
+    <div class="card" style="position:relative;flex:1"><b>$100 plan</b><br>Sonnet for chores · Opus for real work</div>
+    <div class="card" style="position:relative;flex:1"><b>$200 plan</b><br>Opus everywhere, thinking harder</div>
+    <div class="card" style="position:relative;flex:1.2"><b>One or both</b><br>Claude only, Codex only, or both. With one, reviews use a fresh crew member.</div>
+  </div>
+</section>
+</body></html>
