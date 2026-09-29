@@ -1174,6 +1174,7 @@ describe('no emoji anywhere -- Roost draws its own icons', () => {
   // rule too -- except Daily Word's share text, which is pasted OUTSIDE Roost
   // where the coloured squares are the universal way to share a result.
   const files = (readdirSync(join(root, 'web/src'), { recursive: true }) as string[])
+    .map((f) => f.replace(/\\/g, '/'))
     .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f) && f !== 'games/wordle/logic.ts');
   // The pictographic block, plus the misc-symbol code points iOS gives emoji
   // presentation (gear, scales, bolt, coffee, sparkles, star). Typographic

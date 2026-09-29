@@ -51,7 +51,7 @@ export function runGate(command: string, cwd: string, timeoutMs = GATE_TIMEOUT_M
   return new Promise((resolve) => {
     // The string reaches a shell -- which is why it may only ever come from a
     // maintainer-authored source, never from an agent's output.
-    execFile(...shellArgv(command), { cwd, windowsHide: true, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 }, (err: any, stdout, stderr) => {
+    execFile(...shellArgv(command), { cwd, windowsHide: true, windowsVerbatimArguments: true, timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 }, (err: any, stdout, stderr) => {
       const timedOut = !!err?.killed && err?.signal === 'SIGTERM';
       resolve({
         command,

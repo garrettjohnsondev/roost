@@ -28,7 +28,10 @@ export async function createProject(parent: string, name: string, visibility: Vi
   const git = (...a: string[]) => run('git', a, { cwd: path });
   await git('init', '-b', 'main');
   await git('add', '-A');
-  await git('commit', '-m', 'First commit, from Roost');
+  // A fresh machine may have no git identity yet; commit as Roost then
+  // rather than fail (CI, 2026-09-29).
+  const named = await run('git', ['config', 'user.email'], { cwd: path }).then((r) => !!r.stdout.trim(), () => false);
+  await git(...(named ? [] : ['-c', 'user.name=Roost', '-c', 'user.email=roost@localhost']), 'commit', '-m', 'First commit, from Roost');
   steps.push('First commit');
   let repoUrl: string | null = null;
   if (visibility !== 'none') {

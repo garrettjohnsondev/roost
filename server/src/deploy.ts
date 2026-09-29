@@ -241,7 +241,7 @@ export function isRunning(cwd: string): boolean {
 function step(cwd: string, command: string, onOut: (s: string) => void): Promise<number> {
   return new Promise((resolve) => {
     const [shell, shellArgs] = loginShellArgv(command);
-    const child = spawn(shell, shellArgs, { cwd, windowsHide: true, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
+    const child = spawn(shell, shellArgs, { cwd, windowsHide: true, windowsVerbatimArguments: true, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
     const entry = live.get(cwd);
     if (entry) entry.child = child;
     const timer = setTimeout(() => {

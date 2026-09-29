@@ -72,10 +72,10 @@ describe('running commands', () => {
     expect(shellArgv('npm test', 'linux')).toEqual(['/bin/sh', ['-c', 'npm test']]);
     const [sh, args] = shellArgv('npm test', 'win32');
     expect(sh).toMatch(/cmd\.exe$/i);
-    expect(args).toEqual(['/d', '/s', '/c', 'npm test']);
+    expect(args).toEqual(['/d', '/s', '/c', '"npm test"']);
     expect(loginShellArgv('x', 'darwin', { SHELL: '/bin/zsh' })).toEqual(['/bin/zsh', ['-lc', 'x']]);
     expect(loginShellArgv('x', 'darwin', {})[0]).toBe('/bin/zsh');
-    expect(loginShellArgv('x', 'win32', {})[1]).toEqual(['/d', '/s', '/c', 'x']);
+    expect(loginShellArgv('x', 'win32', {})[1]).toEqual(['/d', '/s', '/c', '"x"']);
   });
 
   it('finds codex.cmd on Windows and prefers its JS entry under node', () => {

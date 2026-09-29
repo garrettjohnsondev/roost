@@ -89,7 +89,11 @@ export function volumeShortcuts(plat: Plat = process.platform, fs: FsProbe = rea
 /** argv for running a command line through the platform shell. POSIX keeps
  *  /bin/sh -c; Windows has no /bin/sh, so cmd.exe /d /s /c. */
 export function shellArgv(command: string, plat: Plat = process.platform): [string, string[]] {
-  return plat === 'win32' ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', command]] : ['/bin/sh', ['-c', command]];
+  // cmd /s strips one outer pair of quotes and runs the rest verbatim, so the
+  // line is wrapped once and passed with windowsVerbatimArguments (Node would
+  // otherwise escape inner quotes as \", which cmd doesn't understand -- CI,
+  // 2026-09-29: `node -e "console.log('fine')"` printed nothing).
+  return plat === 'win32' ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${command}"`]] : ['/bin/sh', ['-c', command]];
 }
 
 /** The deploy runner's shell: the user's login shell on Mac/Linux (so PATH

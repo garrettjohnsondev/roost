@@ -1,4 +1,4 @@
-import { type ChildProcessByStdio, spawn } from 'node:child_process';
+import { type ChildProcessByStdio, execFileSync, spawn } from 'node:child_process';
 import { shellArgv } from './platform.js';
 import type { Readable } from 'node:stream';
 import { realpathSync } from 'node:fs';
@@ -161,6 +161,7 @@ export class LiveManager {
     const [sh, shArgs] = shellArgv(command);
     const child = spawn(sh, shArgs, {
       windowsHide: true,
+      windowsVerbatimArguments: true,
       cwd,
       env: { ...process.env, PORT: String(port) },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -208,6 +209,8 @@ export class LiveManager {
     if (!entry) return false;
     entry.state = 'stopped';
     if (entry.child) {
+      // On Windows the shell's child outlives a kill of cmd.exe; end the whole tree.
+      if (process.platform === 'win32' && entry.child.pid) { try { execFileSync('taskkill', ['/pid', String(entry.child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ } }
       entry.child.kill('SIGTERM');
       const child = entry.child;
       setTimeout(() => {
