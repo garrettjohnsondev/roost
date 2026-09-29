@@ -332,12 +332,19 @@ switch (command) {
     // confirmed healthy, so a push failure (offline, no remote) never blocks
     // or reverts a deploy that already succeeded -- it only means GitHub
     // catches up next time.
-    console.log('Also: pushing to GitHub');
-    try {
-      run('git push');
-      console.log('     pushed.');
-    } catch (e) {
-      console.error(`     could not push (deploy still succeeded): ${e.message ?? e}`);
+    // Only when this checkout has commits of its own to share: someone who
+    // installed Roost (or updated to a release tag) has none, and a push from
+    // them would just fail (install test, 2026-09-29).
+    let ahead = 0;
+    try { ahead = Number(execSync('git rev-list --count @{upstream}..HEAD', { cwd: repoRoot, stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim()) || 0; } catch { ahead = 0; }
+    if (ahead > 0) {
+      console.log('Also: pushing to GitHub');
+      try {
+        run('git push');
+        console.log('     pushed.');
+      } catch (e) {
+        console.error(`     could not push (deploy still succeeded): ${e.message ?? e}`);
+      }
     }
     break;
   }

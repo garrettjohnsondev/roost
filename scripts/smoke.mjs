@@ -25,7 +25,14 @@ const CHROME = [
 
 let puppeteer;
 try { puppeteer = (await import('puppeteer-core')).default; } catch { skip('puppeteer-core is not installed'); }
-if (!CHROME) skip('Google Chrome is not installed (set CHROME_PATH)');
+// No Chrome at all on someone's computer is not a broken build: say so and
+// carry on (install test, 2026-09-29). A CHROME_PATH that was set but is
+// missing still fails a required run -- that is CI misconfigured.
+if (!CHROME) {
+  if (process.env.CHROME_PATH) skip('CHROME_PATH is set but Chrome is not there');
+  console.log('smoke: skipped — Google Chrome is not installed, so the screen check could not run (install Chrome to enable it)');
+  process.exit(0);
+}
 try { await fetch(BASE + '/api/config', { signal: AbortSignal.timeout(3000) }); } catch { skip(`no Roost server at ${BASE}`); }
 
 function skip(why) {
