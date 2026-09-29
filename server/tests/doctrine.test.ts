@@ -820,7 +820,10 @@ describe('the names are the interface: @-mentions and the handoff', () => {
   it('same vendor switches the model for the turn; other vendor is a one-shot that lands as their turn', () => {
     const m = s.slice(s.indexOf('private async askByName('), s.indexOf('private async deliver('));
     expect(m).toMatch(/if \(suite === this\.agent && how === 'mention'\) \{[\s\S]*?await this\.adapter\.setModel\(model\);/);
-    expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, images, cwd: this\.cwd, capability: 'all', role: how, persona: name/);
+    expect(m).toMatch(/runAgentTask\(\{\s*agent: suite, model, prompt, images, cwd: this\.cwd, capability: planOnly \? 'read-only' : 'all', role: how, persona: name/);
+    // Plan mode wins over a name you asked for (#37): read-only, on both vendors.
+    expect(m).toMatch(/const planOnly = this\.mode === 'plan' && how === 'mention';/);
+    expect(m).toMatch(/await this\.adapter\.setReadOnly\?\.\(planOnly\)/);
     expect(m).toMatch(/this\.pushEvent\(\{ type: 'consult', phase: how === 'build' \? 'handoff' : how, agent: suite, crew: member/);
     // Images travel now (dispatch.ts); the "cannot see attached images"
     // notice that used to be pinned here would be a lie if it came back.
@@ -1582,8 +1585,8 @@ describe('one status line, not six bars (item 35)', () => {
 
 describe('the rest of the screenshot (item 36)', () => {
   const chat = read('web/src/ChatView.tsx');
-  it('the mode badge says what the next message does: a sticky name is "direct", not the mode', () => {
-    expect(chat).toMatch(/\{session\.meta\?\.sticky \? \(\s*<span className="mode-tag direct"/);
+  it('the mode badge says what the next message does: a sticky name is "direct", except in plan mode, which wins (#37)', () => {
+    expect(chat).toMatch(/\{session\.meta\?\.sticky \? \(\s*session\.meta\.mode === 'plan' \? \(\s*<span className="mode-tag plan"[\s\S]{0,300}<span className="mode-tag direct"/);
   });
   it('the header line keeps only what the next message does, and a dropped connection', () => {
     // 2026-09-25: who, on what model, at what effort is on every reply, so

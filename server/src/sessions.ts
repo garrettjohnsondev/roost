@@ -1111,6 +1111,8 @@ export class Session {
         if (m !== 'chat' && m !== 'auto' && m !== 'plan' && m !== 'build') break;
         this.mode = m;
         this.modeExplicit = true;
+        // Leaving plan mode lifts the look-don't-touch it put on a named crew member (#37).
+        if (m !== 'plan') await this.adapter.setReadOnly?.(false);
         if ((m === 'auto' || m === 'build') && this.model !== 'auto') {
           this.routedModel = this.model || undefined;
           this.model = 'auto';
@@ -1394,6 +1396,12 @@ export class Session {
     const { model, exact } = modelForPersona(persona, suite, modelRegistry().all(), route);
     if (!exact) this.notice(`${name}'s usual model is not in the roster right now — using ${model}.`);
 
+    // Plan mode wins (#37, decided 2026-09-29): a name you asked for still
+    // answers, but in plan mode they plan and wait for your go -- nothing is
+    // edited or run. It used to route around plan mode, with full auto on.
+    const planOnly = this.mode === 'plan' && how === 'mention';
+    if (suite === this.agent && how === 'mention') await this.adapter.setReadOnly?.(planOnly);
+    const planHint = planOnly ? "(Plan mode is on: read and think, then reply with a plan. Don't edit files or run anything that changes the project — wait for the owner to say go.)" : '';
     if (suite === this.agent && how === 'mention') {
       // Same vendor: this session becomes theirs for the turn. Auto mode
       // re-triages on the next message (lastTier cleared).
@@ -1406,8 +1414,8 @@ export class Session {
         else this.model = model;
         this.lastTier = undefined;
       }
-      if (!quiet) this.notice(`${name} takes this one — you asked by name.`);
-      await this.deliver(text, images);
+      if (!quiet) this.notice(`${name} takes this one — you asked by name.${planOnly ? ' Plan mode: they plan, nothing changes until you say go.' : ''}`);
+      await this.deliver(text, images, planHint);
       return;
     }
 
@@ -1427,10 +1435,10 @@ export class Session {
     const from = fromMember.name;
     const prompt = promptOverride ?? (how === 'handoff'
       ? composeHandoffPrompt(name, from, context, this.pendingConsult?.planPath ?? this.lastPlanPath)
-      : composeMentionPrompt(name, text, context)) + (how === 'mention' && askGuidance(this.ask) ? `\n\n${askGuidance(this.ask)}` : '');
+      : composeMentionPrompt(name, planHint ? `${text}\n\n${planHint}` : text, context)) + (how === 'mention' && askGuidance(this.ask) ? `\n\n${askGuidance(this.ask)}` : '');
     this.pushEvent({ type: 'status', state: 'working', message: how === 'handoff' ? `${name} is picking the job up from ${from}…` : how === 'build' ? `${name} is building the plan…` : `${name} is on it…`, crew: member, ts: now() });
     const run = runAgentTask({
-      agent: suite, model, prompt, images, cwd: this.cwd, capability: 'all', role: how, persona: name,
+      agent: suite, model, prompt, images, cwd: this.cwd, capability: planOnly ? 'read-only' : 'all', role: how, persona: name,
       timeoutMs: 20 * 60_000, maxChars: 24_000, onCall: (d) => this.ledgerCall(d, how),
     });
     this.activeMention = run;
@@ -1554,8 +1562,8 @@ export class Session {
     }
   }
 
-  private async deliver(text: string, images?: UserImage[]): Promise<void> {
-    const note = askGuidance(this.ask);
+  private async deliver(text: string, images?: UserImage[], extra = ''): Promise<void> {
+    const note = [askGuidance(this.ask), extra].filter(Boolean).join('\n\n');
     await this.adapter.sendUserMessage(note ? `${text}\n\n${note}` : text, images, note ? text : undefined);
     this.broadcastMeta();
   }

@@ -343,6 +343,7 @@ export class CodexAdapter implements AgentAdapter {
           approvalPolicy: APPROVAL_TO_POLICY[this.approvals],
           model: this.model || null,
           effort: this.effort || null,
+          ...(this.readOnly ? { sandboxPolicy: { type: 'readOnly' } } : {}),
         }, 10 * 60_000);
     void request.catch((err) => {
       this.emit({ type: 'error', message: `Codex turn failed: ${err?.message ?? err}`, ts: now() });
@@ -370,6 +371,12 @@ export class CodexAdapter implements AgentAdapter {
 
   async setApprovals(approvals: ApprovalSetting): Promise<void> {
     this.approvals = approvals; // applied on the next turn/start
+  }
+
+  private readOnly = false;
+  /** Plan mode (#37): the next turn runs in a read-only sandbox. */
+  async setReadOnly(on: boolean): Promise<void> {
+    this.readOnly = on;
   }
 
   async interrupt(): Promise<void> {

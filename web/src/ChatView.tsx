@@ -385,7 +385,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   asked for sticks and goes straight to them, around plan and
                   build -- so "PLAN" while Ollie edits files was a lie. */}
               {session.meta?.sticky ? (
-                <span className="mode-tag direct" title={`Messages go straight to ${session.meta.sticky}; the ${session.meta.mode ?? 'session'} mode is not applied until you clear them.`}>with {session.meta.sticky}</span>
+                session.meta.mode === 'plan' ? (
+                  <span className="mode-tag plan" title={`Plan mode: ${session.meta.sticky} plans and waits for your go — nothing is edited.`}>plan · {session.meta.sticky}</span>
+                ) : (
+                  <span className="mode-tag direct" title={`Messages go straight to ${session.meta.sticky}.`}>with {session.meta.sticky}</span>
+                )
               ) : session.meta?.mode ? (
                 <span className={`mode-tag ${session.meta.mode}`}>{session.meta.mode}</span>
               ) : null}{' '}

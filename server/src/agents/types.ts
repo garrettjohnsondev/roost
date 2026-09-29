@@ -50,6 +50,8 @@ export interface AgentAdapter {
   setModel(model: string): Promise<void>;
   setEffort(effort: string): Promise<void>;
   setApprovals(approvals: ApprovalSetting): Promise<void>;
+  /** Plan mode (#37): look, don't touch -- no file edits, no changing commands. */
+  setReadOnly?(on: boolean): Promise<void>;
   resolveApproval(requestId: string, decision: 'allow' | 'allow-session' | 'deny'): void;
   /** Your reply to a question the engine asked through its own tool (Claude's
    *  AskUserQuestion). null: skipped. Engines without such a tool ask in text. */

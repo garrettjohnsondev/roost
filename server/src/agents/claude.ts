@@ -370,8 +370,18 @@ export class ClaudeAdapter implements AgentAdapter {
     await this.q.applyFlagSettings({ effortLevel: (effort || null) as any });
   }
 
+  private readOnly = false;
+  /** Plan mode (#37): the SDK's own 'plan' permission mode -- it can read and
+   *  think but not edit or run anything that changes the project. */
+  async setReadOnly(on: boolean): Promise<void> {
+    if (this.readOnly === on) return;
+    this.readOnly = on;
+    if (typeof this.q?.setPermissionMode === 'function') await this.q.setPermissionMode(on ? 'plan' : APPROVAL_TO_PERMISSION_MODE[this.approvals]);
+  }
+
   async setApprovals(approvals: ApprovalSetting): Promise<void> {
     this.approvals = approvals;
+    if (this.readOnly) return; // plan mode holds until it is lifted
     if (typeof this.q?.setPermissionMode === 'function') {
       await this.q.setPermissionMode(APPROVAL_TO_PERMISSION_MODE[approvals]);
     } else {
