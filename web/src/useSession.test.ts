@@ -104,3 +104,13 @@ describe('your message shows the instant you send it', () => {
     expect(apply([], { type: 'user_message', text: 'from the Mac', imageCount: 0, ts: 1 })).toHaveLength(1);
   });
 });
+
+describe('the working line names who is actually working', () => {
+  it('keeps the crew a status is about, and drops it when work stops', () => {
+    const ollie: CrewInfo = { name: 'Ollie', role: 'chat', roleLabel: 'Chat', tier: 'flagship', color: '#2f3a72', initial: 'O', sprite: 'ollie', agent: 'claude', model: 'opus' };
+    let core = reduceSessionEvent(initialCore(), { type: 'status', state: 'working', message: 'Ollie is on it…', crew: ollie, ts });
+    expect(core.statusCrew?.name).toBe('Ollie');
+    core = reduceSessionEvent(core, { type: 'status', state: 'idle', ts });
+    expect(core.statusCrew).toBeNull();
+  });
+});

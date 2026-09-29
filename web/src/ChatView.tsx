@@ -1346,7 +1346,7 @@ function JobTracker({ session }: { session: SessionState }) {
   // so the path is never empty while the work has started but nobody has said
   // anything yet (2026-09-25: "the character wasn't visible... then all of a
   // sudden they were").
-  const walker = t.who ?? session.meta?.crew;
+  const walker = t.who ?? (session.status === 'working' ? session.statusCrew : null) ?? session.meta?.crew;
   const skippedTest = t.outcome === 'yours' && t.steps.some((s) => s.key === 'test' && s.state === 'todo');
   const pose: Pose = walk ? 'side'
     : justFinished ? (t.outcome === 'failed' ? 'think' : 'cheer')
@@ -1470,7 +1470,7 @@ function doingNow(name: string, last: ChatItem | undefined): string {
 function WorkingIndicator({ session }: { session: SessionState }) {
   const last = session.items[session.items.length - 1];
   const producing = (last?.kind === 'assistant' && !last.complete) || (last?.kind === 'tool' && !last.done);
-  const crew = session.triaging ? PIP : session.meta?.crew ?? PIP;
+  const crew = session.triaging ? PIP : session.statusCrew ?? session.meta?.crew ?? PIP;
   const pose: Pose = !session.triaging && producing ? 'type' : 'think';
   // Local copy, so it shows without waiting on the server's matching status.
   // Never a face with no words (item 36): when the server has not said what

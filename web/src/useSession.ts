@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SessionSocket } from './api';
-import type { ChatItem, ClientMessage, ServerEvent, SessionMeta, UsageInfo, ContextInfo } from './types';
+import type { ChatItem, ClientMessage, ServerEvent, SessionMeta, UsageInfo, ContextInfo, CrewInfo } from './types';
 
 export interface SessionState {
   items: ChatItem[];
@@ -22,6 +22,8 @@ export interface SessionState {
   closedReason: string | null;
   /** Free-text detail attached to the latest status event (e.g. consult progress). */
   statusMessage: string | null;
+  /** Who the latest status is about ("Ollie is on it…"), when the server says. */
+  statusCrew?: CrewInfo | null;
   /** Auto mode only: Pip is deciding who takes the message. Set LOCALLY the
    *  instant ↑ is tapped -- before any round trip -- because triage is a real
    *  model call and waiting on the server for the first sign of life is the
@@ -158,6 +160,8 @@ export interface SessionCore {
   meta: SessionMeta | null;
   status: SessionState['status'];
   statusMessage: string | null;
+  /** Who the latest status is about ("Ollie is on it…"), when the server says. */
+  statusCrew?: CrewInfo | null;
   usage: UsageInfo | null;
   approvals: Array<NonNullable<SessionState['pendingApproval']>>;
   /** The engine's own context window, as last reported. null = no data. */
@@ -213,7 +217,10 @@ export function reduceSessionEvent(prev: SessionCore, event: ServerEvent): Sessi
       // to the item reducer's default case and was dropped on the floor.
       return { ...prev, context: event.context };
     case 'status':
-      return { ...prev, status: event.state, statusMessage: event.message ?? null };
+      // The status names who is working -- a crew member asked by name from
+      // the other vendor is not the session's own crew (2026-09-29: Nell's
+      // face beside "Ollie is on it…").
+      return { ...prev, status: event.state, statusMessage: event.message ?? null, statusCrew: event.state === 'working' ? (event.crew ?? prev.statusCrew ?? null) : null };
     case 'routed':
       // Pip has handed off. The status line at this moment is his "picking who
       // takes this", and left in place it would sit under the worker's face
@@ -265,6 +272,7 @@ export function useSession(sessionId: string | null): SessionState {
     pendingApprovalCount: core.approvals.length,
     closedReason,
     statusMessage: core.statusMessage,
+    statusCrew: core.statusCrew,
     triaging,
     context: core.context,
     replayedCount: core.replayedCount,
