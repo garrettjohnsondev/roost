@@ -1,15 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkImagePath, imageRoots } from '../src/images.js';
 
 // A project root OUTSIDE the temp folders, so "outside the roots" is testable.
-const home = mkdtempSync(join(process.env.HOME ?? '/Users', '.roost-img-test-'));
+const home = mkdtempSync(join(homedir(), '.roost-img-test-'));
 const project = join(home, 'project');
 const elsewhere = join(home, 'elsewhere');
 let roots: string[];
 
+let canLink = false;
 beforeAll(() => {
   mkdirSync(project, { recursive: true });
   mkdirSync(elsewhere, { recursive: true });
@@ -18,8 +19,12 @@ beforeAll(() => {
   writeFileSync(join(project, 'logo.svg'), '<svg onload="alert(1)"/>');
   writeFileSync(join(elsewhere, 'private.png'), 'png');
   writeFileSync(join(elsewhere, 'id_rsa'), 'key');
-  symlinkSync(join(elsewhere, 'id_rsa'), join(project, 'sneaky.png'));
-  symlinkSync(join(elsewhere, 'private.png'), join(project, 'linked.png'));
+  // Creating symlinks needs admin or developer mode on Windows.
+  try {
+    symlinkSync(join(elsewhere, 'id_rsa'), join(project, 'sneaky.png'));
+    symlinkSync(join(elsewhere, 'private.png'), join(project, 'linked.png'));
+    canLink = true;
+  } catch { canLink = false; }
   const t = mkdtempSync(join(tmpdir(), 'roost-img-'));
   writeFileSync(join(t, 'sheet.png'), 'png');
   roots = imageRoots([project], join(home, 'data'));
@@ -42,7 +47,8 @@ describe('the phone sees images, and only images, from where agents write them',
   it('refuses an image outside the roots', () => {
     expect(checkImagePath(join(elsewhere, 'private.png'), roots)).toMatchObject({ ok: false, status: 403 });
   });
-  it('follows symlinks before deciding: a link named .png to a key, or to an outside image, is refused', () => {
+  it('follows symlinks before deciding: a link named .png to a key, or to an outside image, is refused', (ctx) => {
+    if (!canLink) ctx.skip();
     expect(checkImagePath(join(project, 'sneaky.png'), roots)).toMatchObject({ ok: false, status: 403 });
     expect(checkImagePath(join(project, 'linked.png'), roots)).toMatchObject({ ok: false, status: 403 });
   });

@@ -5,18 +5,21 @@
 //
 //   node scripts/setup.mjs            # everything
 //   node scripts/setup.mjs --check    # just say what's missing
+//   node scripts/setup.mjs --check --ci   # CI: only Node and git are required
 //
 // It never signs in for you and never changes anything outside this folder
 // except the background service (LaunchAgent / systemd user unit / logon task).
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { homedir, platform } from 'node:os';
+import { existsSync } from 'node:fs';
+import { platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const OS = platform(); // 'darwin' | 'win32' | 'linux'
 const checkOnly = process.argv.includes('--check');
+// A CI runner has no agents signed in and no Tailscale; those are reported, not fatal.
+const ci = process.argv.includes('--ci');
 const PORT = 8790;
 
 const ok = (s) => console.log(`  ✓ ${s}`);
@@ -75,7 +78,9 @@ else {
 
 if (checkOnly) {
   say(problems.length ? `\nStill needed: ${problems.join(', ')}` : '\nEverything is ready.');
-  process.exit(problems.length ? 1 : 0);
+  const fatal = ci ? problems.filter((p) => p === 'node' || p === 'git') : problems;
+  if (ci && fatal.length !== problems.length) say('(--ci: agents and Tailscale are not required here)');
+  process.exit(fatal.length ? 1 : 0);
 }
 if (problems.includes('node') || problems.includes('git')) {
   say('\nFix the basics above, then run this again.');
@@ -88,29 +93,13 @@ run('npm run build');
 ok('built');
 
 say('\n5. Starting Roost in the background');
-const entry = join(root, 'server', 'dist', 'index.js');
-if (OS === 'darwin') {
-  run('node scripts/service.mjs install');
-  ok('running as a LaunchAgent (starts when you log in)');
-} else if (OS === 'linux') {
-  const unitDir = join(homedir(), '.config', 'systemd', 'user');
-  mkdirSync(unitDir, { recursive: true });
-  writeFileSync(join(unitDir, 'roost.service'), [
-    '[Unit]', 'Description=Roost', 'After=network-online.target', '',
-    '[Service]', `WorkingDirectory=${root}`, `ExecStart=${process.execPath} ${entry}`, 'Restart=always', 'RestartSec=5',
-    `Environment=PATH=${dirname(process.execPath)}:/usr/local/bin:/usr/bin:/bin`, '',
-    '[Install]', 'WantedBy=default.target', '',
-  ].join('\n'));
-  run('systemctl --user daemon-reload');
-  run('systemctl --user enable --now roost.service');
-  out(`loginctl enable-linger ${process.env.USER ?? ''}`);
-  ok('running as a systemd user service (starts at boot)');
-} else if (OS === 'win32') {
-  // A logon task runs node hidden in the background; /F replaces an old one.
-  const cmd = `"${process.execPath}" "${entry}"`;
-  run(`schtasks /Create /F /SC ONLOGON /RL LIMITED /TN Roost /TR "cmd /c cd /d \\"${root}\\" && ${cmd.replace(/"/g, '\\"')}"`, { shell: 'cmd.exe' });
-  run('schtasks /Run /TN Roost', { shell: 'cmd.exe' });
-  ok('running as a logon task named Roost (starts when you sign in)');
+// One service manager for every OS: LaunchAgent (Mac), systemd --user unit
+// (Linux), logon Scheduled Task with a hidden supervisor (Windows).
+if (OS === 'darwin' || OS === 'linux' || OS === 'win32') {
+  run(`"${process.execPath}" scripts/service.mjs install`);
+  ok(OS === 'darwin' ? 'running as a LaunchAgent (starts when you log in)'
+    : OS === 'linux' ? 'running as a systemd user service (starts at boot)'
+    : 'running as a logon task named Roost (starts when you sign in)');
 } else {
   no(`${OS} isn't supported yet — start it yourself with: npm start`);
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { imageUrl } from './imagePaths';
 
-const fileName = (p: string) => p.split('/').pop() ?? p;
+const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 /** Pictures an agent mentioned, as thumbnails under what it said. A tap
  *  opens the viewer. A temp file that has since been cleared says so,

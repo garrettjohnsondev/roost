@@ -1,7 +1,7 @@
 import type { PreviewFile, PreviewResult } from './types';
 
 function FileRow({ file }: { file: PreviewFile }) {
-  const name = file.path.split('/').pop() ?? file.path;
+  const name = file.path.split(/[\\/]/).pop() ?? file.path;
   const dir = file.path.slice(0, file.path.length - name.length);
   return (
     <div className="preview-file">

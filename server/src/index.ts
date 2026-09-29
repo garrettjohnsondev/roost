@@ -3,6 +3,7 @@ import { callLedger } from './ledger.js';
 import { estimateWeights } from './quotaWeights.js';
 import { logDecision, readDecisions, summarizeDecisions } from './decisions.js';
 import { execFile } from 'node:child_process';
+import { baseName, tailscaleCandidates, volumeShortcuts } from './platform.js';
 import { createServer } from 'node:http';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -72,18 +73,7 @@ const token = process.env.ROOST_TOKEN ?? process.env.POCKET_TOKEN;
  *  shortcuts and to default new setups onto external storage (e.g. a project SSD)
  *  instead of the user's home folder. */
 function listVolumeShortcuts(): Array<{ name: string; path: string }> {
-  const shortcuts: Array<{ name: string; path: string }> = [];
-  try {
-    for (const v of readdirSync('/Volumes', { withFileTypes: true })) {
-      if (!v.name.startsWith('.')) {
-        const full = join('/Volumes', v.name);
-        if (realpathSync(full) !== '/') shortcuts.push({ name: v.name, path: full });
-      }
-    }
-  } catch {
-    /* no /Volumes on this platform */
-  }
-  return shortcuts;
+  return volumeShortcuts();
 }
 
 function primaryVolume(): string | null {
@@ -556,7 +546,7 @@ app.post('/api/deploy/run', (req, res) => {
     res.status(409).json({ error: 'a deploy is already running for this project' });
     return;
   }
-  const name = cwd.split('/').pop() ?? cwd;
+  const name = baseName(cwd);
   void startDeploy(dataDir(), cwd, recipe, (r) => {
     const words = r.phase === 'passed' ? 'deployed' : r.phase === 'gate-failed' ? 'not deployed: the check failed' : `deploy failed (exit ${r.exitCode})`;
     sendNotification(`deploy:${cwd}`, `${name}: ${words}`, r.output.trim().split('\n').slice(-3).join('\n'));
@@ -1011,7 +1001,7 @@ keepalive.unref();
 void getLiveModels(config.projects[0] ?? repoRoot);
 
 function printTailscaleUrl(port: number) {
-  const candidates = ['tailscale', '/Applications/Tailscale.app/Contents/MacOS/Tailscale'];
+  const candidates = tailscaleCandidates();
   const tryNext = (i: number) => {
     if (i >= candidates.length) {
       console.log('[roost] tailscale CLI not found — find your Mac\'s address in the Tailscale menu bar app');

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Manage Roost as a macOS LaunchAgent: auto-starts at login, restarts on crash.
+// Manage Roost as a background service: auto-starts at login, restarts on crash.
+//   macOS: a LaunchAgent.  Linux: a systemd --user unit.  Windows: a logon
+//   Scheduled Task running a hidden node supervisor (docs/WINDOWS.md).
 //   npm run service:install | service:uninstall | service:status
 //   node scripts/service.mjs rollback | restart
 //
@@ -10,8 +12,9 @@
 // 2026-09-24: a build that crashed every session went live with nothing between
 // it and the phone, and nothing on the phone could undo it.
 
-import { execSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, openSync, rmSync, writeFileSync, renameSync, readFileSync } from 'node:fs';
+import { execSync, execFileSync, spawn } from 'node:child_process';
+import { existsSync, mkdirSync, openSync, rmSync, writeFileSync, renameSync, readFileSync, appendFileSync } from 'node:fs';
+import { servicePaths, systemdUnit, windowsLauncher, schtasksCreateArgs, TASK_NAME, UNIT_NAME } from './platform.mjs';
 import { promote, rollback, readMeta, restoreServer, serveCandidate } from './releases.mjs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -22,11 +25,13 @@ const LABEL = 'com.roost.server';
 /** The pre-rename label. Booted out on install, or the old service keeps
  *  running on the same port and the new one silently fails to bind. */
 const OLD_LABEL = 'com.pocket.server';
+const OS = process.platform;
 const plistPath = join(homedir(), 'Library', 'LaunchAgents', `${LABEL}.plist`);
-const logPath = join(homedir(), 'Library', 'Logs', 'roost.log');
+const paths = servicePaths(OS, process.env, homedir());
+const logPath = paths.log;
 const oldLogPath = join(homedir(), 'Library', 'Logs', 'pocket.log');
 const nodeBin = process.execPath;
-const uid = process.getuid();
+const uid = process.getuid?.() ?? 0; // no getuid on Windows
 const serverEntry = join(repoRoot, 'server', 'dist', 'index.js');
 
 const sh = (cmd, opts = {}) => execSync(cmd, { stdio: 'pipe', encoding: 'utf8', ...opts }).trim();
@@ -37,6 +42,12 @@ const shQuiet = (cmd) => {
     return '';
   }
 };
+/** argv form, no shell: paths with spaces need no quoting on any OS. */
+const exe = (file, args) => execFileSync(file, args, { stdio: 'pipe', encoding: 'utf8', windowsHide: true }).trim();
+const exeQuiet = (file, args) => { try { return exe(file, args); } catch { return ''; } };
+/** Blocking sleep without `sleep`, which Windows does not have. */
+const sleepMs = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const tailLog = (n) => { try { return readFileSync(logPath, 'utf8').trimEnd().split(/\r?\n/).slice(-n).join('\n'); } catch { return ''; } };
 
 const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -64,6 +75,61 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
 `;
 
 
+// ---- Linux: systemd --user --------------------------------------------------
+const systemctl = (...a) => exe('systemctl', ['--user', ...a]);
+const unitText = () => systemdUnit({ nodeBin, serverEntry, repoRoot, log: logPath, home: homedir() });
+function linuxStart() {
+  mkdirSync(dirname(paths.unit), { recursive: true });
+  mkdirSync(paths.dir, { recursive: true });
+  const unchanged = existsSync(paths.unit) && readFileSync(paths.unit, 'utf8') === unitText();
+  if (!unchanged) { writeFileSync(paths.unit, unitText()); systemctl('daemon-reload'); systemctl('enable', UNIT_NAME); }
+  // KillMode=process in the unit: this restarts the server, not a deploy it spawned.
+  systemctl('restart', UNIT_NAME);
+  // Keep running after logout / start at boot; harmless if not allowed.
+  exeQuiet('loginctl', ['enable-linger', process.env.USER ?? '']);
+}
+
+// ---- Windows: logon task + hidden node supervisor ---------------------------
+const readPids = () => { try { return JSON.parse(readFileSync(paths.pids, 'utf8')); } catch { return {}; } };
+const alive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
+const winLauncherText = () => windowsLauncher({ nodeBin, serviceScript: fileURLToPath(import.meta.url), repoRoot });
+function winStart() {
+  mkdirSync(paths.dir, { recursive: true });
+  const unchanged = existsSync(paths.launcher) && readFileSync(paths.launcher, 'utf8') === winLauncherText();
+  const { supervisor, server } = readPids();
+  if (unchanged && alive(supervisor)) {
+    // Kill the server only (no /T): the supervisor starts it again, and a
+    // deploy this server spawned is not in the blast radius.
+    if (alive(server)) exeQuiet('taskkill', ['/PID', String(server), '/F']);
+    return;
+  }
+  writeFileSync(paths.launcher, winLauncherText());
+  exe('schtasks', schtasksCreateArgs(paths.launcher));
+  if (alive(supervisor)) exeQuiet('taskkill', ['/PID', String(supervisor), '/F']);
+  if (alive(server)) exeQuiet('taskkill', ['/PID', String(server), '/F']);
+  exe('schtasks', ['/Run', '/TN', TASK_NAME]);
+}
+/** The Windows supervisor: runs the server, restarts it 10s after it exits
+ *  (launchd's KeepAlive + ThrottleInterval), and logs to %LOCALAPPDATA%. */
+async function supervise() {
+  mkdirSync(paths.dir, { recursive: true });
+  for (;;) {
+    const log = openSync(logPath, 'a');
+    const child = spawn(nodeBin, [serverEntry], { cwd: repoRoot, stdio: ['ignore', log, log], windowsHide: true });
+    writeFileSync(paths.pids, JSON.stringify({ supervisor: process.pid, server: child.pid }));
+    const code = await new Promise((r) => { child.on('exit', r); child.on('error', () => r(null)); });
+    appendFileSync(logPath, `[supervisor] server exited (${code}); restarting in 10s\n`);
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+}
+
+/** Restart in place, whatever the platform (rollback, restart, rescue page). */
+function restartInPlace() {
+  if (OS === 'darwin') shQuiet(`launchctl kickstart -k gui/${uid}/${LABEL}`);
+  else if (OS === 'linux') { try { systemctl('restart', UNIT_NAME); } catch { /* not installed */ } }
+  else if (OS === 'win32') { try { winStart(); } catch { /* not installed */ } }
+}
+
 const loaded = () => !!shQuiet(`launchctl print gui/${uid}/${LABEL}`);
 
 /** (Re)start the service. Throws if launchd will not take it.
@@ -77,6 +143,8 @@ const loaded = () => !!shQuiet(`launchctl print gui/${uid}/${LABEL}`);
  *  the bootout path now, and that path runs in a detached process (see
  *  `finish-deploy`) so it outlives the server it replaces. */
 function start() {
+    if (OS === 'linux') return linuxStart();
+    if (OS === 'win32') return winStart();
     mkdirSync(dirname(plistPath), { recursive: true });
     const unchanged = existsSync(plistPath) && readFileSync(plistPath, 'utf8') === plist;
     if (unchanged && loaded()) {
@@ -94,7 +162,7 @@ function start() {
     let lastErr;
     let started = false;
     for (const delayMs of attempts) {
-      execSync(`sleep ${delayMs / 1000}`);
+      sleepMs(delayMs);
       try {
         sh(`launchctl bootstrap gui/${uid} ${plistPath}`);
         started = true;
@@ -152,7 +220,7 @@ async function waitForQuiet(maxMs) {
   return false;
 }
 async function waitUp(port, seconds) {
-  for (let i = 0; i < seconds * 2; i++) { if (await isUp(port, 1000)) return true; execSync('sleep 0.5'); }
+  for (let i = 0; i < seconds * 2; i++) { if (await isUp(port, 1000)) return true; sleepMs(500); }
   return false;
 }
 /** Run the smoke check in a child process. Async on purpose: the candidate
@@ -255,7 +323,7 @@ switch (command) {
     }
     console.log(`Installed and started ${LABEL} — ${meta?.commit}.`);
     console.log(`It now starts automatically at login and restarts if it crashes.`);
-    console.log(`Logs: tail -f ${logPath}`);
+    console.log(OS === 'win32' ? `Logs: Get-Content -Wait "${logPath}"` : `Logs: tail -f ${logPath}`);
 
     // Deploy going live and GitHub having the commit used to be two separate
     // steps, and the second one only happened if someone remembered to open
@@ -277,7 +345,7 @@ switch (command) {
     // Also run by the rescue page, detached, from inside the server it restarts.
     try {
       const r = rollback();
-      shQuiet(`launchctl kickstart -k gui/${uid}/${LABEL}`);
+      restartInPlace();
       console.log(`Rolled back to ${r.now.commit} (${r.now.subject}). The build it replaced is kept as "previous".`);
     } catch (e) {
       console.error(String(e.message ?? e));
@@ -286,7 +354,7 @@ switch (command) {
     break;
   }
   case 'restart': {
-    shQuiet(`launchctl kickstart -k gui/${uid}/${LABEL}`);
+    restartInPlace();
     console.log(`Restarted ${LABEL}.`);
     break;
   }
@@ -296,12 +364,41 @@ switch (command) {
     break;
   }
   case 'uninstall': {
-    shQuiet(`launchctl bootout gui/${uid}/${LABEL}`);
-    rmSync(plistPath, { force: true });
+    if (OS === 'linux') {
+      exeQuiet('systemctl', ['--user', 'disable', '--now', UNIT_NAME]);
+      rmSync(paths.unit, { force: true });
+      exeQuiet('systemctl', ['--user', 'daemon-reload']);
+    } else if (OS === 'win32') {
+      exeQuiet('schtasks', ['/Delete', '/F', '/TN', TASK_NAME]);
+      const { supervisor, server } = readPids();
+      for (const pid of [supervisor, server]) if (alive(pid)) exeQuiet('taskkill', ['/PID', String(pid), '/F']);
+      rmSync(paths.launcher, { force: true });
+      rmSync(paths.pids, { force: true });
+    } else {
+      shQuiet(`launchctl bootout gui/${uid}/${LABEL}`);
+      rmSync(plistPath, { force: true });
+    }
     console.log(`Stopped and removed ${LABEL}.`);
     break;
   }
+  case 'supervise': {
+    await supervise();
+    break;
+  }
+  case 'start': {
+    // Just (re)start the installed service -- no build, no smoke (CI, setup).
+    try { start(); console.log(`Started ${LABEL}.`); } catch (e) { console.error(String(e.message ?? e)); process.exit(1); }
+    break;
+  }
   case 'status': {
+    if (OS === 'linux' || OS === 'win32') {
+      const out = OS === 'linux'
+        ? (existsSync(paths.unit) ? exeQuiet('systemctl', ['--user', 'show', UNIT_NAME, '-p', 'ActiveState', '-p', 'MainPID']).replace(/\n/g, ' ') : '')
+        : exeQuiet('schtasks', ['/Query', '/TN', TASK_NAME, '/FO', 'LIST']) && (() => { const p = readPids(); return `task ${TASK_NAME} registered; supervisor ${alive(p.supervisor) ? p.supervisor : 'not running'}, server ${alive(p.server) ? p.server : 'not running'}`; })();
+      if (!out) console.log('Not installed. Run: npm run service:install');
+      else { console.log(`${LABEL}: ${out}`); console.log(`Recent log:\n${tailLog(6)}`); }
+      break;
+    }
     const out = shQuiet(`launchctl print gui/${uid}/${LABEL}`);
     if (!out) {
       console.log('Not installed. Run: npm run service:install');
@@ -309,11 +406,11 @@ switch (command) {
       const state = out.match(/state = .*/)?.[0] ?? '';
       const pid = out.match(/pid = .*/)?.[0] ?? '';
       console.log(`${LABEL}: ${state} ${pid ? `(${pid})` : ''}`);
-      console.log(`Recent log:\n${shQuiet(`tail -6 ${logPath}`)}`);
+      console.log(`Recent log:\n${tailLog(6)}`);
     }
     break;
   }
   default:
-    console.log('Usage: node scripts/service.mjs <install|uninstall|status|rollback|restart|releases>');
+    console.log('Usage: node scripts/service.mjs <install|uninstall|status|rollback|restart|start|releases>');
     process.exit(1);
 }

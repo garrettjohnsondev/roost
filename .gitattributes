@@ -1,0 +1,8 @@
+# LF everywhere, Windows included: tests read sources with \n-anchored
+# patterns, and scripts/*.mjs must not grow CRs on a Windows checkout.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.webp binary
+*.jpg binary
+*.woff2 binary

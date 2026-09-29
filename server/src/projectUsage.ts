@@ -1,6 +1,7 @@
 import { createReadStream, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { isUnder } from './platform.js';
 import { createInterface } from 'node:readline';
 import { dataDir } from './config.js';
 
@@ -155,7 +156,7 @@ export function projectUsage(projects: string[], now = Date.now()): ProjectUsage
   const c = loadCache();
   const from = dayKey(new Date(now - 7 * DAY).toISOString());
   const sorted = [...projects].sort((a, b) => b.length - a.length);
-  const owner = (cwd: string) => sorted.find((p) => cwd === p || cwd.startsWith(p.endsWith('/') ? p : `${p}/`));
+  const owner = (cwd: string) => sorted.find((p) => cwd === p || cwd.startsWith(p.endsWith('/') ? p : `${p}/`) || (/^[a-zA-Z]:[\\/]/.test(p) && isUnder(p, cwd, 'win32')));
   const out = new Map<string, ProjectUsage>();
   const total = { claude: 0, codex: 0 };
   for (const f of Object.values(c.files)) {

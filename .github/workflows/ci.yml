@@ -1,0 +1,96 @@
+name: CI
+
+# Roost on all three desktop OSes. The owner has no Windows machine: this job
+# is the proof that Windows works (docs/WINDOWS.md).
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: '1'
+      ROOST_TEST_PORT: '8795'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup check
+        run: node scripts/setup.mjs --check --ci
+
+      - name: Find Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Start the server (temp config)
+        run: |
+          CFG_DIR="$RUNNER_TEMP/roost-ci"
+          mkdir -p "$CFG_DIR"
+          node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({ port: Number(process.env.ROOST_TEST_PORT), projects: [process.cwd()] }))" "$CFG_DIR/roost.config.json"
+          ROOST_CONFIG="$CFG_DIR/roost.config.json" node server/dist/index.js > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:$ROOST_TEST_PORT/api/config" > /dev/null; then echo "server is up"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::the server did not answer /api/config within 60s"
+          cat "$RUNNER_TEMP/server.log"
+          exit 1
+
+      - name: Smoke (headless Chrome at 390px)
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          ROOST_SMOKE_REQUIRED: '1'
+        run: ROOST_SMOKE_URL="http://127.0.0.1:$ROOST_TEST_PORT" node scripts/smoke.mjs
+
+      - name: Server log
+        if: always()
+        run: cat "$RUNNER_TEMP/server.log" || true
+
+      # The background service on each OS: LaunchAgent / systemd --user /
+      # logon Scheduled Task. `start` registers and starts it without the
+      # deploy pipeline (no promote, no git push). A hosted runner may forbid
+      # a user service (no systemd user bus on Linux, no interactive logon on
+      # Windows), so those two report instead of failing the job.
+      - name: Service install / status / uninstall
+        continue-on-error: ${{ matrix.os != 'macos-latest' }}
+        run: |
+          set -x
+          node scripts/service.mjs start
+          up=0
+          for i in $(seq 1 45); do
+            if curl -fsS "http://127.0.0.1:8790/api/config" > /dev/null; then up=1; break; fi
+            sleep 1
+          done
+          node scripts/service.mjs status
+          node scripts/service.mjs uninstall
+          node scripts/service.mjs status
+          if [ "$up" != 1 ]; then echo "::error::the service did not come up on :8790"; exit 1; fi

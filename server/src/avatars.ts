@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { dataDir } from './config.js';
+import { cliSpawn } from './platform.js';
 
 const run = promisify(execFile);
 
@@ -11,7 +12,8 @@ const run = promisify(execFile);
  *  `execFile` silently ignores a `stdio` option, so this has to be spawn. */
 function runCodex(args: string[], cwd: string, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn('codex', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const c = cliSpawn('codex', args);
+    const child = spawn(c.command, c.args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], shell: c.shell, windowsHide: true });
     let err = '';
     child.stderr.on('data', (d) => { err += d; });
     child.stdout.resume();

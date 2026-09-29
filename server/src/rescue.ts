@@ -158,7 +158,7 @@ const RESCUE_HTML = `<!doctype html>
            : '<p class="dim">No previous version kept yet — the next deploy creates one.</p>');
       if (p) $('rollback').onclick = function () { if (confirm('Roll back to ' + p.commit + '? The server restarts; the current version is kept so you can come back to it.')) act('/api/rescue/rollback', 'Rolling back… the server restarts, then this page reloads.'); };
       $('sessions').innerHTML = s.sessions.length ? s.sessions.map(function (x) {
-        return '<div class="row"><div style="min-width:0"><b>' + esc(x.title) + '</b><span class="dim">' + esc(x.agent) + ' · ' + esc(x.cwd.split('/').pop()) + ' · ' + esc(x.state) + '</span></div>' +
+        return '<div class="row"><div style="min-width:0"><b>' + esc(x.title) + '</b><span class="dim">' + esc(x.agent) + ' · ' + esc(x.cwd.split(/[\\/]/).pop()) + ' · ' + esc(x.state) + '</span></div>' +
           '<div style="flex-shrink:0"><a class="btn" href="/?s=' + encodeURIComponent(x.id) + '">Open</a><button data-fresh="' + esc(x.id) + '">Start fresh</button></div></div>';
       }).join('') : '<p class="dim">No open sessions.</p>';
       Array.prototype.forEach.call(document.querySelectorAll('[data-fresh]'), function (b) {

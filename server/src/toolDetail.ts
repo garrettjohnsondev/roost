@@ -1,3 +1,4 @@
+import { pathParts } from './platform.js';
 /** One line saying what a tool call is DOING, for the thread's tool chip.
  *
  *  It was `JSON.stringify(input)`, so a shell command arrived as
@@ -9,7 +10,7 @@
 export function toolDetail(name: string, input: unknown): string {
   const i = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const s = (k: string) => (typeof i[k] === 'string' ? (i[k] as string).trim() : '');
-  const base = (p: string) => p.split('/').filter(Boolean).slice(-2).join('/');
+  const base = (p: string) => pathParts(p).slice(-2).join('/');
   switch (name) {
     case 'Bash':
       return s('command') || s('description') || fallback(i);

@@ -14,6 +14,9 @@ const tokenFile = join(tmp, '.roost-data', 'claude-oauth-token');
 afterAll(() => rmSync(tmp, { recursive: true, force: true }));
 beforeEach(() => { A.clearToken(); A.cancelSignIn(); });
 
+// Windows has no 0600 modes and no pty bridge; phone sign-in is off there.
+const onWindows = process.platform === 'win32';
+
 describe('isAuthFailure — telling a sign-in problem from any other failure', () => {
   it('recognises the ways an expired or missing sign-in is reported', () => {
     for (const m of [
@@ -49,7 +52,7 @@ describe('reading the CLI screen', () => {
 });
 
 describe('Roost’s own token', () => {
-  it('is readable by this user only', () => {
+  it.skipIf(onWindows)('is readable by this user only', () => {
     A.saveToken('sk-ant-oat01-abc_DEF-123');
     expect(statSync(tokenFile).mode & 0o777).toBe(0o600);
   });
@@ -69,7 +72,7 @@ describe('Roost’s own token', () => {
   });
 });
 
-describe('signing in from the phone — against a stand-in, never the real CLI', () => {
+describe.skipIf(onWindows)('signing in from the phone — against a stand-in, never the real CLI', () => {
   it('shows the link, takes the code, and keeps the token', async () => {
     const { flowId, url } = await A.startSignIn({ command: FAKE });
     expect(url).toMatch(/^https:\/\/claude\.com\/cai\/oauth\/authorize\?code=true/);

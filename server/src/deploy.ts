@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { loginShellArgv } from './platform.js';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { plain } from './claudeAuth.js';
@@ -239,8 +240,8 @@ export function isRunning(cwd: string): boolean {
 
 function step(cwd: string, command: string, onOut: (s: string) => void): Promise<number> {
   return new Promise((resolve) => {
-    const shell = process.env.SHELL || '/bin/zsh';
-    const child = spawn(shell, ['-lc', command], { cwd, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
+    const [shell, shellArgs] = loginShellArgv(command);
+    const child = spawn(shell, shellArgs, { cwd, windowsHide: true, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
     const entry = live.get(cwd);
     if (entry) entry.child = child;
     const timer = setTimeout(() => {

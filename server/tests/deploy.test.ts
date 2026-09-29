@@ -84,7 +84,7 @@ describe('running it: the check decides', () => {
   it('does not deploy when the check fails', async () => {
     const cwd = dir({});
     const data = mkdtempSync(join(tmpdir(), 'roost-data-'));
-    const r = await startDeploy(data, cwd, { command: 'touch deployed', check: 'exit 3', source: 't', confirmedAt: 0 });
+    const r = await startDeploy(data, cwd, { command: 'echo deployed', check: 'exit 3', source: 't', confirmedAt: 0 });
     expect(r.phase).toBe('gate-failed');
     expect(r.exitCode).toBe(3);
     expect(r.output).toMatch(/not deploying/);
@@ -94,7 +94,7 @@ describe('running it: the check decides', () => {
   it('deploys when the check passes, and keeps the output as evidence', async () => {
     const cwd = dir({});
     const data = mkdtempSync(join(tmpdir(), 'roost-data-'));
-    const r = await startDeploy(data, cwd, { command: 'echo shipped-it', check: 'true', source: 't', confirmedAt: 0 });
+    const r = await startDeploy(data, cwd, { command: 'echo shipped-it', check: 'exit 0', source: 't', confirmedAt: 0 });
     expect(r).toMatchObject({ phase: 'passed', exitCode: 0 });
     expect(r.output).toMatch(/check passed[\s\S]*shipped-it/);
   });

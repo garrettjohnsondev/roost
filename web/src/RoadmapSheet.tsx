@@ -48,7 +48,7 @@ export function RoadmapSheet({ initial, onClose }: { initial?: string; onClose: 
           <div className="map-projects">
             {projects.map((p) => (
               <button key={p} className={p === cwd ? 'chip active' : 'chip'} onClick={() => setCwd(p)}>
-                {shortPath(p).split('/').pop()}
+                {shortPath(p).split(/[\\/]/).pop()}
               </button>
             ))}
           </div>

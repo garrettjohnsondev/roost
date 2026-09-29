@@ -1,4 +1,5 @@
 import { composeReconcilePrompt } from './consult.js';
+import { pathParts } from './platform.js';
 import { writePlan, extractCriteria, newTaskId, type PlanFile } from './plans.js';
 import type { AskLevel, AskQuestion, Builder, SessionMode, UserImage } from './protocol.js';
 import { askGuidance } from './ask.js';
@@ -1198,7 +1199,7 @@ export class Session {
         const block = `\n\n## Parked ${stamp} — ${truncate(c.task, 80)}\n\n${rem.trim()}\n`;
         try {
           appendFileSync(file, (existsSync(file) ? '' : '# Roadmap\n') + block);
-          this.notice(`Parked the remainder in ${file.split('/').slice(-2).join('/')}.`);
+          this.notice(`Parked the remainder in ${pathParts(file).slice(-2).join('/')}.`);
           logDecision({ kind: 'review', sessionId: this.id, stage: 'park', taskId: c.taskId });
         } catch (err: any) {
           this.reportError(`Could not park the remainder (${String(err?.message ?? err)}).`);

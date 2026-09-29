@@ -8,6 +8,6 @@ export function fmtAgo(ts: number): string {
 }
 
 export function shortPath(path: string): string {
-  const parts = path.split('/').filter(Boolean);
+  const parts = path.split(/[\\/]/).filter(Boolean);
   return parts.slice(-2).join('/') || path;
 }

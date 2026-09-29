@@ -706,7 +706,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       {session.meta?.consultPending && (
         <div className="consult-bar">
           <span className="consult-bar-text">
-            Consult complete{session.meta.planPath ? ` — plan at ${session.meta.planPath.split('/').slice(-3).join('/')}` : ''} — proceed?
+            Consult complete{session.meta.planPath ? ` — plan at ${session.meta.planPath.split(/[\\/]/).slice(-3).join('/')}` : ''} — proceed?
           </span>
           <div className="consult-bar-actions">
             {session.meta.planHasRemainder && (

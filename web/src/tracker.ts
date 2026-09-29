@@ -86,7 +86,7 @@ export function phaseOfTool(t: Pick<Tool, 'name' | 'detail'>): 'look' | 'build' 
   return 'look'; // read, grep, glob, search, fetch, list
 }
 
-const base = (p: string) => p.trim().split(/[\s]/)[0].split('/').pop() ?? p;
+const base = (p: string) => p.trim().split(/[\s]/)[0].split(/[\\/]/).pop() ?? p;
 
 function detailFor(key: StepKey, tools: Tool[], running: Tool | null): string {
   const mine = tools.filter((t) => phaseOfTool(t) === key);

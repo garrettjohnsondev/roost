@@ -130,7 +130,7 @@ export function DeploySheet({
     }
   }
 
-  const name = cwd.split('/').pop() ?? cwd;
+  const name = cwd.split(/[\\/]/).pop() ?? cwd;
   const recipe = state?.recipe ?? null;
   const seed = proposal ?? state?.suggestion ?? null;
 

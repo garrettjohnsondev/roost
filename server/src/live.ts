@@ -1,4 +1,5 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process';
+import { shellArgv } from './platform.js';
 import type { Readable } from 'node:stream';
 import { realpathSync } from 'node:fs';
 import net from 'node:net';
@@ -157,7 +158,9 @@ export class LiveManager {
 
     const port = await findFreePort();
     const command = config.command.replaceAll('{port}', String(port));
-    const child = spawn('sh', ['-c', command], {
+    const [sh, shArgs] = shellArgv(command);
+    const child = spawn(sh, shArgs, {
+      windowsHide: true,
       cwd,
       env: { ...process.env, PORT: String(port) },
       stdio: ['ignore', 'pipe', 'pipe'],

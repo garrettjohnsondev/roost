@@ -47,8 +47,8 @@ describe('evidence is exit code and output, never a claim', () => {
   });
 
   it('passes only when every gate exits 0', async () => {
-    expect((await verifyTask({ cwd: tmp, checks: ['true', 'true'] })).passed).toBe(true);
-    const r = await verifyTask({ cwd: tmp, checks: ['true', 'false'] });
+    expect((await verifyTask({ cwd: tmp, checks: ['exit 0', 'exit 0'] })).passed).toBe(true);
+    const r = await verifyTask({ cwd: tmp, checks: ['exit 0', 'exit 1'] });
     expect(r.passed).toBe(false);
     expect(r.summary).toContain('1/2 gates passed');
   });
@@ -62,7 +62,7 @@ describe('evidence is exit code and output, never a claim', () => {
   });
 
   it('fails a run whose gate definitions changed since the task began', async () => {
-    const r = await verifyTask({ cwd: tmp, checks: ['true'], fingerprintAtStart: gateFingerprint(['npm test']) });
+    const r = await verifyTask({ cwd: tmp, checks: ['exit 0'], fingerprintAtStart: gateFingerprint(['npm test']) });
     expect(r.tampered).toBe(true);
     expect(r.passed).toBe(false);
   });

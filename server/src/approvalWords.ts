@@ -1,3 +1,4 @@
+import { relativeInside } from './platform.js';
 /** A permission request in plain words (2026-09-25).
  *
  *  The approval used to be a pop-up reading "Claude wants to use Bash" over the
@@ -22,6 +23,8 @@ const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : unde
 export function shortTarget(p: string | undefined, cwd?: string): string | undefined {
   if (!p) return undefined;
   if (cwd && p.startsWith(cwd.replace(/\/$/, '') + '/')) return p.slice(cwd.replace(/\/$/, '').length + 1);
+  // A Windows path (C:\\proj\\src\\a.ts): same idea, either slash, any case.
+  if (cwd && /^[a-zA-Z]:[\\/]/.test(cwd)) return relativeInside(cwd, p, 'win32') || p;
   return p;
 }
 

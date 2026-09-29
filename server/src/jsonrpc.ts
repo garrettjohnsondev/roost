@@ -1,5 +1,6 @@
 import { StringDecoder } from 'node:string_decoder';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { cliSpawn } from './platform.js';
 
 type Json = any;
 
@@ -37,7 +38,9 @@ export class JsonRpcProcess {
     // Both spellings, or the rename reopens the hole this line exists to close.
     delete env.ROOST_TOKEN;
     delete env.POCKET_TOKEN;
-    this.child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
+    // `codex` is codex.cmd on Windows; cliSpawn finds it (a no-op elsewhere).
+    const c = cliSpawn(command, args);
+    this.child = spawn(c.command, c.args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], shell: c.shell, windowsHide: true });
     this.child.stdout.on('data', (chunk: Buffer) => this.onStdoutData(chunk));
     this.child.stderr.on('data', (chunk: Buffer) => {
       const text = chunk.toString();

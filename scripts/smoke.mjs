@@ -13,11 +13,19 @@
 import { readFileSync, existsSync } from 'node:fs';
 
 const BASE = process.env.ROOST_SMOKE_URL ?? 'http://localhost:8790';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// CHROME_PATH wins (CI sets it); otherwise the usual install spot on each OS.
+const CHROME = [
+  process.env.CHROME_PATH,
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser',
+  process.env.PROGRAMFILES && `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
+  process.env['PROGRAMFILES(X86)'] && `${process.env['PROGRAMFILES(X86)']}\\Google\\Chrome\\Application\\chrome.exe`,
+  process.env.LOCALAPPDATA && `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
+].find((p) => p && existsSync(p)) ?? '';
 
 let puppeteer;
 try { puppeteer = (await import('puppeteer-core')).default; } catch { skip('puppeteer-core is not installed'); }
-if (!existsSync(CHROME)) skip('Google Chrome is not installed');
+if (!CHROME) skip('Google Chrome is not installed (set CHROME_PATH)');
 try { await fetch(BASE + '/api/config', { signal: AbortSignal.timeout(3000) }); } catch { skip(`no Roost server at ${BASE}`); }
 
 function skip(why) {
@@ -30,7 +38,9 @@ let sessions = [];
 try { const d = await (await fetch(BASE + '/api/sessions')).json(); sessions = (d.sessions ?? d).map((s) => s.id); } catch { /* none */ }
 const pages = [['home', '/'], ...fixtures.map((f) => [`fixture:${f}`, `/?fixture=${f}`]), ...sessions.map((id) => [`session:${id.slice(0, 8)}`, `/?s=${id}`])];
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: true });
+const browser = await puppeteer.launch({ executablePath: CHROME, headless: true,
+  // CI Linux runners have no user namespace sandbox.
+  args: process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : [] });
 const failures = [];
 for (const [name, path] of pages) {
   const page = await browser.newPage();

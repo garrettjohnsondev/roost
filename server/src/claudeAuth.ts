@@ -1,4 +1,5 @@
 import { spawn, execFile, type ChildProcess } from 'node:child_process';
+import { cliSpawn } from './platform.js';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -95,7 +96,8 @@ export interface ClaudeAuthStatus {
 
 function macLogin(): Promise<ClaudeAuthStatus['macLogin']> {
   return new Promise((resolve) => {
-    execFile('claude', ['auth', 'status'], { timeout: 10_000 }, (err, stdout) => {
+    const c = cliSpawn('claude', ['auth', 'status']);
+    execFile(c.command, c.args, { timeout: 10_000, shell: c.shell, windowsHide: true }, (err, stdout) => {
       if (err && !stdout) return resolve(null);
       try {
         const j = JSON.parse(stdout);

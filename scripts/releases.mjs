@@ -30,6 +30,19 @@ const prev = join(releasesDir, 'previous');
 const webDist = join(repoRoot, 'web', 'dist');
 const serverDist = join(repoRoot, 'server', 'dist');
 
+/** Plain directory renames and copies, never symlinks, so promote/rollback
+ *  work unchanged on Windows. A rename there fails with EPERM/EBUSY while a
+ *  file inside is open (the server streaming a page, an antivirus scan), so it
+ *  is retried briefly instead of stranding a half-swapped release. */
+function move(from, to) {
+  for (let i = 0; ; i++) {
+    try { return renameSync(from, to); } catch (e) {
+      if (process.platform !== 'win32' || i >= 20 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
+  }
+}
+
 export function readMeta(which) {
   try {
     return JSON.parse(readFileSync(join(releasesDir, which, 'meta.json'), 'utf8'));
@@ -60,8 +73,8 @@ export function promote() {
   cpSync(serverDist, join(staging, 'server'), { recursive: true });
   writeFileSync(join(staging, 'meta.json'), JSON.stringify({ ...commit(), at: new Date().toISOString(), smoke: 'passed' }, null, 2));
   rmSync(prev, { recursive: true, force: true });
-  if (existsSync(cur)) renameSync(cur, prev);
-  renameSync(staging, cur);
+  if (existsSync(cur)) move(cur, prev);
+  move(staging, cur);
   return readMeta('current');
 }
 
@@ -72,9 +85,9 @@ export function rollback() {
   if (!existsSync(join(prev, 'meta.json'))) throw new Error('there is no previous release to go back to');
   const swap = join(releasesDir, 'swap');
   rmSync(swap, { recursive: true, force: true });
-  renameSync(cur, swap);
-  renameSync(prev, cur);
-  renameSync(swap, prev);
+  move(cur, swap);
+  move(prev, cur);
+  move(swap, prev);
   rmSync(serverDist, { recursive: true, force: true });
   cpSync(join(cur, 'server'), serverDist, { recursive: true });
   return { now: readMeta('current'), was: readMeta('previous') };
