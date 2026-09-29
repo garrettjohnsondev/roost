@@ -2,7 +2,7 @@ import { priceConflicts } from './pricing.js';
 import { callLedger } from './ledger.js';
 import { estimateWeights } from './quotaWeights.js';
 import { logDecision, readDecisions, summarizeDecisions } from './decisions.js';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { baseName, tailscaleCandidates, volumeShortcuts } from './platform.js';
 import { createServer } from 'node:http';
 import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
@@ -40,6 +40,7 @@ import { Economy, crateOnSale } from './economy.js';
 import { CRATES, ITEMS, PAINTS, CERTS, RARITY_NAME, SLOTS, itemById } from './catalog.js';
 import { readOnDeck } from './onDeck.js';
 import { visit } from './visits.js';
+import { checkForUpdate, checkoutDir } from './updates.js';
 import { createProject } from './newProject.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
@@ -405,6 +406,17 @@ app.post('/api/visit', (req, res) => {
   const day = String(req.body?.day ?? '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return void res.status(400).json({ error: 'day must be yyyy-mm-dd' });
   res.json(visit(day));
+});
+
+// Updates (2026-09-29): tagged releases only, checked once a day.
+app.get('/api/update', async (req, res) => { res.json(await checkForUpdate(req.query.force === '1')); });
+app.post('/api/update/apply', async (_req, res) => {
+  const u = await checkForUpdate(true);
+  if (!u.available || !u.latest) return void res.status(400).json({ error: 'No update to install.' });
+  // Detached: the deploy restarts this very server.
+  const child = spawn(process.execPath, [join(checkoutDir(), 'scripts', 'update.mjs'), u.latest], { cwd: checkoutDir(), detached: true, stdio: 'ignore', windowsHide: true });
+  child.unref();
+  res.json({ ok: true, installing: u.latest });
 });
 
 // The arcade (#55): saves, bests and achievements, kept on the Mac.

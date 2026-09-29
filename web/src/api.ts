@@ -110,6 +110,8 @@ export const api = {
   economyCatalog: () => request<any>('/api/economy/catalog'),
   eco: (action: 'buy' | 'free' | 'open' | 'tradeup' | 'equip' | 'ghost', body: object = {}) =>
     request<{ result: any; state: any }>(`/api/economy/${action}`, { method: 'POST', body: JSON.stringify(body) }),
+  update: (force = false) => request<{ current: string | null; latest: string | null; notes: string; available: boolean; error?: string }>(`/api/update${force ? '?force=1' : ''}`),
+  applyUpdate: () => request<{ ok: true; installing: string }>('/api/update/apply', { method: 'POST' }),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
   gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
   gameScore: (id: string, score: number, lowerIsBetter = false) =>

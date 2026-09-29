@@ -369,6 +369,7 @@ export function SessionList(props: {
       </header>
 
       <ClaudeAuthBanner />
+      <UpdateCard />
       <CrewStrip sessions={sessions} />
 
       <LeftOff
@@ -760,6 +761,32 @@ function NewProjectSheet({ onClose, onMade }: { onClose: () => void; onMade: (pa
         )}
       </div>
     </div>
+  );
+}
+
+/** A new Roost release (2026-09-29): only versions the owner tagged as
+ *  ready, with their notes, and one tap to install. The install runs the
+ *  same checks as a deploy and keeps the current version if they fail. */
+function UpdateCard() {
+  const [u, setU] = useState<Awaited<ReturnType<typeof api.update>> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  useEffect(() => { api.update().then(setU).catch(() => {}); }, []);
+  if (!u?.available || !u.latest) return null;
+  return (
+    <section className="card update-card">
+      <h2>Roost {u.latest} is ready</h2>
+      {u.notes && <p className="update-notes">{u.notes}</p>}
+      {done ? (
+        <p className="section-hint">{done}</p>
+      ) : (
+        <button className="primary" disabled={busy} onClick={async () => {
+          setBusy(true);
+          try { await api.applyUpdate(); setDone('Updating — Roost will restart in a minute or two. If anything fails its checks, you stay on this version.'); }
+          catch (e: any) { setDone(String(e.message ?? e)); } finally { setBusy(false); }
+        }}>{busy ? 'Starting…' : `Update to ${u.latest}`}</button>
+      )}
+    </section>
   );
 }
 

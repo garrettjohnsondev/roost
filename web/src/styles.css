@@ -3929,3 +3929,4 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .look-wrap.breathing { animation: alive-breath var(--breath, 3.4s) steps(1, end) infinite; animation-delay: var(--offset, 0s); }
 .look-wrap.breathing > .crew-sprite.alive { animation: none; }
 @media (prefers-reduced-motion: reduce) { .look-wrap.breathing { animation: none; } }
+.update-card { border-color: var(--accent, #c9803a); } .update-notes { white-space: pre-line; font-size: 14px; line-height: 1.45; }
