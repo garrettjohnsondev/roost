@@ -3,6 +3,11 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/gjohnsonmb1-afk/roost/actions/workflows/ci.yml"><img src="https://github.com/gjohnsonmb1-afk/roost/actions/workflows/ci.yml/badge.svg" alt="Tests on Mac, Windows and Linux"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+<p align="center">
   <b>Stop babysitting your AI at your desk.</b><br>
   Roost turns Claude Code or Codex into a crew you text from your phone — and Pip, your AI project manager, sends every job to the right model.<br>
   Free &amp; open source · bring your own Claude or Codex plan · Mac, Windows &amp; Linux
@@ -81,6 +86,24 @@ You don't need both Claude and Codex — either one works on its own. Tell Roost
 <p align="center">
   <img src="docs/readme/games.png" alt="Roost Birds, Crew Kart and Bug Siege" width="100%">
 </p>
+
+## Common questions
+
+**Claude and Codex have their own phone apps now. Why this?** Those are great. Roost works with either or both, picks the right model for each job, runs your tests, waits for your approval, and keeps every project's progress in one place.
+
+**Is it safe to run AI from my phone?** Roost runs only on your own computer and only answers your own devices, over Tailscale. It isn't on the internet, and risky steps wait for your tap.
+
+**Am I approving code I can't read?** You see what changed, and the tests have already passed, before you tap yes. The full diff and history are one tap away.
+
+**Will it burn through my plan?** It's built to do the opposite: small jobs go to lighter models, and Pip warns you when your week is running hot.
+
+**Pixel art and games — is this a toy?** The crew makes it friendly. Underneath it's the real Claude Code and Codex, doing real work in your real repos.
+
+**Does it break Anthropic's or OpenAI's terms?** It uses the official Claude Agent SDK and the official Codex app-server, signed in as you. No scraping, no shared accounts.
+
+**Why Tailscale?** It's free, takes a couple of minutes, and it's what keeps Roost private to your own devices. The installer walks you through it.
+
+**Is this maintained?** Yes. Releases are tagged, updates are one tap, and every change is tested on Mac, Windows and Linux. [Issues and ideas are welcome](../../issues).
 
 ## Install it yourself
 
