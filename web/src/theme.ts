@@ -27,11 +27,27 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   });
 
   useEffect(() => apply(theme), [theme]);
+  // Switched from somewhere else (a chat's settings, 2026-09-30): follow it.
+  useEffect(() => {
+    const on = (e: Event) => setThemeState((e as CustomEvent<Theme>).detail);
+    window.addEventListener('roost:theme', on);
+    return () => window.removeEventListener('roost:theme', on);
+  }, []);
 
   const setTheme = (t: Theme) => {
-    localStorage.setItem(STORAGE_KEY, t);
+    try { localStorage.setItem(STORAGE_KEY, t); } catch { /* private mode */ }
     setThemeState(t);
   };
 
   return [theme, setTheme];
+}
+
+/** Switch the theme from anywhere; the app's useTheme follows. */
+export function switchTheme(t: Theme): void {
+  try { localStorage.setItem(STORAGE_KEY, t); } catch { /* private mode */ }
+  apply(t);
+  window.dispatchEvent(new CustomEvent<Theme>('roost:theme', { detail: t }));
+}
+export function currentTheme(): Theme {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
 }

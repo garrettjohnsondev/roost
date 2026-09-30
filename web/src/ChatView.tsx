@@ -13,6 +13,7 @@ import { ClaudeSignIn } from './ClaudeSignIn';
 import { Contained } from './ErrorBoundary';
 import { openCompanion } from './CompanionSheet';
 import { consultView } from './consultView';
+import { currentTheme, switchTheme } from './theme';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -874,6 +875,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         <div className="sheet-backdrop" onClick={() => setShowSettings(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h3>Session settings</h3>
+            <ThemeRow />
             {/* 2026-09-27: eight rows and ~30 buttons, where mode, "before
                 building" and effort all answered one question -- how careful
                 should the crew be? One choice now; the full set is in Fine-tune. */}
@@ -1591,6 +1593,23 @@ function ConsultTurn({ phase, text }: { phase: string; text: string }) {
           {open ? 'Hide the plan' : v.moreLabel}
         </button>
       )}
+    </div>
+  );
+}
+
+/** Light or dark, right in the chat's settings (2026-09-30). */
+function ThemeRow() {
+  const [t, setT] = useState(currentTheme());
+  return (
+    <div className="field theme-row">
+      <label>Look</label>
+      <div className="chips">
+        {(['light', 'dark'] as const).map((x) => (
+          <button key={x} className={t === x ? 'chip active' : 'chip'} onClick={() => { switchTheme(x); setT(x); }}>
+            {x === 'light' ? 'Light' : 'Dark'}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
