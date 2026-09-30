@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <b>Claude + Codex, working together.</b><br>
-  One app on your computer turns them into a crew you text from your phone — and Pip, your AI project manager, sends every job to the right AI.<br>
+  <b>Stop babysitting your AI at your desk.</b><br>
+  Roost turns Claude Code or Codex into a crew you text from your phone — and Pip, your AI project manager, sends every job to the right model.<br>
   Free &amp; open source · bring your own Claude or Codex plan · Mac, Windows &amp; Linux
 </p>
 
@@ -22,7 +22,7 @@
 
 ## What is Roost?
 
-AI coding agents like **Claude Code** and **Codex** can build real software. Each now has its own phone remote — but they don't work *together*, and you still start the work at your desk. Roost is one app for both: it picks the right AI for each job, has one review the other's plan, and lets you run whole projects from your phone.
+AI coding agents like **Claude Code** and **Codex** can build real software — but you still sit at your desk and babysit them. Roost lets you run whole projects from your phone instead: it picks the right model for each job, waits for your *yes* before anything risky, and if you have both Claude and Codex, big jobs get a second opinion from the other one.
 
 It runs quietly on your computer and turns your agents into a friendly crew you can text from your phone. You say what you want in plain words. They plan it, build it, test it, and check in with you before anything risky. You tap *yes*, and it ships.
 
