@@ -314,11 +314,30 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     return () => window.visualViewport?.removeEventListener('resize', onResize);
   }, []);
 
+  // Only YOUR finger lets go of the bottom (2026-09-29: "when I send a message
+  // it's not going all the way down"). On the phone, layout changes -- the
+  // composer shrinking after send, the keyboard, a card appearing -- fire
+  // scroll events of their own; one read as "you scrolled up" and unpinned
+  // the thread mid-reply. Now leaving the bottom counts only within a moment
+  // of a touch, wheel or key; anything else snaps back down.
+  const touchedAt = useRef(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const mark = () => { touchedAt.current = Date.now(); };
+    const opts = { passive: true } as AddEventListenerOptions;
+    for (const ev of ['touchstart', 'touchmove', 'wheel', 'keydown', 'pointerdown'] as const) el.addEventListener(ev, mark, opts);
+    return () => { for (const ev of ['touchstart', 'touchmove', 'wheel', 'keydown', 'pointerdown'] as const) el.removeEventListener(ev, mark); };
+  }, []);
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (!atBottom && Date.now() < glidingUntil.current) return;
+    if (!atBottom && pinned.current && Date.now() - touchedAt.current > 1500) {
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
     pinned.current = atBottom;
     if (atBottom && unseen) {
       seenCount.current = session.items.length;
