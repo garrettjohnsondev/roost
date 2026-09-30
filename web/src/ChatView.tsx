@@ -102,14 +102,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     });
     return () => { cancelled = true; };
   }, [cwd, deploy, fixture, session.status]); // re-asked when a reply ends: a deploy may have happened in it
-  // Continue from the home card (#46): a message queued for this chat is sent
-  // once it is connected and idle.
-  useEffect(() => {
-    if (fixture || !session.connected || session.status !== 'idle') return;
-    let say: string | null = null;
-    try { say = sessionStorage.getItem(`roost:say:${sessionId}`); if (say) sessionStorage.removeItem(`roost:say:${sessionId}`); } catch { /* private mode */ }
-    if (say) session.send({ type: 'user_message', text: say });
-  }, [session.connected, session.status, sessionId, fixture]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Continue from the home card (#46): the suggested message waits in the box
+  // for you to check and send -- it used to go out on its own (2026-09-30).
+  const [draft] = useState<string>(() => {
+    try { const d = sessionStorage.getItem(`roost:draft:${sessionId}`); if (d) sessionStorage.removeItem(`roost:draft:${sessionId}`); return d ?? ''; } catch { return ''; }
+  });
 
   // Ready to ship (2026-09-28): "it comes up and says passed and has deploy
   // but then it disappears fast and I feel rushed". The offer no longer lives
@@ -833,6 +830,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           </div>
         )}
         <Composer
+          initialText={draft}
           disabled={!session.connected}
           working={session.status === 'working'}
           onInterrupt={() => session.send({ type: 'interrupt' })}
@@ -2657,6 +2655,8 @@ const TIP_KEY = 'roost:tip-mentions';
 interface MentionTarget { name: string; color: string; sprite?: string; suite: 'claude' | 'codex'; tier: 'flagship' | 'worker'; model?: string }
 
 function Composer(props: {
+  /** Prefilled message (Continue from home). */
+  initialText?: string;
   disabled: boolean;
   working: boolean;
   onInterrupt: () => void;
@@ -2664,7 +2664,7 @@ function Composer(props: {
   crew?: MentionTarget[];
   placeholder?: string;
 }) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState(props.initialText ?? '');
   // "@" then letters at the end of the draft opens the crew; a tap completes
   // the name. Matched on the draft's tail, so a finished "@Nell " closes it.
   const atMatch = text.match(/(^|\s)@([A-Za-z]*)$/);

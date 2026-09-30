@@ -399,7 +399,9 @@ export function SessionList(props: {
               id = (await api.createSession({ agent: rp.lastAgent, cwd, resume: rp.lastResumeId, title: rp.lastTitle })).session.id;
             } catch (e: any) { setError(String(e.message ?? e)); return; } finally { setBusy(false); }
           }
-          if (say) try { sessionStorage.setItem(`roost:say:${id}`, say); } catch { /* private mode */ }
+          // Continue fills the message box; you send it (2026-09-30: a stale note
+          // went out on its own).
+          if (say) try { sessionStorage.setItem(`roost:draft:${id}`, say); } catch { /* private mode */ }
           onOpen(id);
         }}
       />

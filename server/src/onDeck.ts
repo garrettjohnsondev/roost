@@ -7,11 +7,15 @@ import { dataDir } from './config.js';
  *  the latest such line per project so the home card can offer Continue. */
 export interface OnDeck { text: string; at: number; crew?: string; sessionId?: string }
 
-const NEXT = /^(?:[-*>\s]*)(?:\*\*)?(?:next(?: up| step| steps)?|up next|on deck|still to do|what's next|remaining|left to do)(?:\*\*)?\s*(?:is|are|:|—|-|,)\s*(.+)$/im;
+// A real hand-off line only: "Next up: …", "Next step is …", "On deck: …".
+// A bare "Next, …" is narration ("Next, the label bug") -- it made a to-do out
+// of work already in hand, and Continue sent it (2026-09-30).
+const NEXT = /^(?:[-*>\s]*)(?:\*\*)?(?:(?:next up|next steps?|up next|on deck|still to do|what's next|left to do)(?:\*\*)?\s*(?:is|are|:|—|-)|next(?:\*\*)?\s*:(?:\*\*)?)\s*(.+)$/im;
 
 /** The "what's next" sentence in a reply, or null. One line, trimmed. */
 export function extractOnDeck(text: string): string | null {
-  const m = NEXT.exec(text);
+  // Only the end of a reply hands off; a "next" in the middle is the plan.
+  const m = NEXT.exec(text.slice(-700));
   if (!m) return null;
   let s = m[1].replace(/\*\*/g, '').replace(/`/g, '').trim();
   const stop = s.search(/(?<=[.!?])\s/);
@@ -38,4 +42,13 @@ export function noteOnDeck(cwd: string, entry: OnDeck): void {
     writeFileSync(`${file()}.tmp`, JSON.stringify(all));
     renameSync(`${file()}.tmp`, file());
   } catch { /* best effort: the card just won't show it */ }
+}
+
+/** Newer work in the project makes the old note stale: drop it. */
+export function clearOnDeck(cwd: string): void {
+  const all = readOnDeck();
+  if (!all[cwd]) return;
+  const { [cwd]: _gone, ...rest } = all;
+  cache = rest;
+  try { writeFileSync(`${file()}.tmp`, JSON.stringify(rest)); renameSync(`${file()}.tmp`, file()); } catch { /* best effort */ }
 }

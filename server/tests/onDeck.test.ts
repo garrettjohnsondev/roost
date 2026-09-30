@@ -11,5 +11,7 @@ describe("what's on deck, from the crew's own words", () => {
   it('ignores replies with no next step', () => {
     expect(extractOnDeck('Fixed the bug and deployed.')).toBeNull();
     expect(extractOnDeck('The next thing I noticed was odd.')).toBeNull();
+    // narration, not a hand-off (2026-09-30: Continue sent this, already done)
+    expect(extractOnDeck('Next, why some of the crew are asleep on the home screen in the morning.')).toBeNull();
   });
 });

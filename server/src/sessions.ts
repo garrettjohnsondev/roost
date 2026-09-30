@@ -35,7 +35,7 @@ import { truncate } from './util.js';
 import type { AgentAdapter, CallDelta } from './agents/types.js';
 import { ClaudeAdapter } from './agents/claude.js';
 import { CodexAdapter } from './agents/codex.js';
-import { extractOnDeck, noteOnDeck } from './onDeck.js';
+import { clearOnDeck, extractOnDeck, noteOnDeck } from './onDeck.js';
 import { dataDir, statePath, type AutoRouteConfig, type RoostConfig } from './config.js';
 import { sendNotification } from './notify.js';
 import { shouldRetriage, triage, type Tier, type TriageResult } from './router.js';
@@ -663,6 +663,9 @@ export class Session {
     // may drop a crate. Set by index.ts; unset in tests.
     if (event.type === 'verify' && event.report.passed && event.report.changed) onJobShipped?.(this.speakingCrewName());
     // What's on deck for this project (#46), in the crew's own words.
+    // You sent something new here: the old "next up" is stale until a reply
+    // names a fresh one (2026-09-30).
+    if (event.type === 'user_message') clearOnDeck(this.cwd);
     if (event.type === 'assistant_message' && event.text) {
       const next = extractOnDeck(event.text);
       if (next) noteOnDeck(this.cwd, { text: next, at: now(), crew: event.crew?.name, sessionId: this.id });
