@@ -43,6 +43,9 @@ import { visit } from './visits.js';
 import { allowedPeer } from './netguard.js';
 import { checkForUpdate, checkoutDir } from './updates.js';
 import { startAgentsUpdate } from './agentsUpdate.js';
+import { hasNews, listNews, markSeen, saveNews, settingsFromCard, type ModelNews } from './modelDocs.js';
+import { proposalTask, readModelDocs } from './modelNews.js';
+import { startConsultStep } from './consult.js';
 import { createProject } from './newProject.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
@@ -740,6 +743,82 @@ app.post('/api/models/assign', (req, res) => {
   res.json({ ok: true, autoRoute: config.autoRoute, note: 'Applies to new sessions; open sessions keep the routes they started with.' });
 });
 
+// ---- a new model, read from its maker's docs (2026-09-29) ----------------------
+// For every model Pip actually routes to that has no card yet: read the
+// official pages, keep the card, apply the safe settings (tier effort the docs
+// recommend), and -- only on the owner's own checkout -- start a planned,
+// reviewed proposal for anything that needs code. Nothing is built without
+// Proceed. One model at a time; a failure just waits for the next refresh.
+let readingDocs = false;
+async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Promise<ModelNews[]> {
+  if (readingDocs) return [];
+  readingDocs = true;
+  const done: ModelNews[] = [];
+  try {
+    const reg = modelRegistry();
+    const reader: AgentKind | null = reg.presence('claude') !== 'absent' ? 'claude' : reg.presence('codex') !== 'absent' ? 'codex' : null;
+    if (!reader) return [];
+    const wanted = new Map<string, { agent: AgentKind; id: string; displayName: string }>();
+    const routed = force ? [force] : (['claude', 'codex'] as AgentKind[]).flatMap((a) => (['light', 'standard', 'heavy'] as const).map((t) => ({ agent: a, model: (config.autoRoute[a] as any)[t]?.model as string })));
+    for (const r of routed) {
+      if (!r.model) continue;
+      const card = reg.get(r.agent, r.model);
+      const id = card?.resolvedId ?? r.model;
+      if (!force && hasNews(dataDir(), r.agent, id)) continue;
+      wanted.set(`${r.agent}:${id}`, { agent: r.agent, id, displayName: card?.displayName ?? id });
+    }
+    // The first run reads the models already in use: cards and settings only.
+    // Proposals are for models that arrive after that (or a forced read).
+    const backfill = !force && listNews(dataDir()).length === 0;
+    for (const m of wanted.values()) {
+      const card = await readModelDocs({
+        agent: m.agent, id: m.id, displayName: m.displayName,
+        oneShot: (prompt) => startConsultStep(reader, config.projects[0] ?? process.cwd(), prompt, reader === 'claude' ? 'sonnet' : config.autoRoute.codex.standard.model, 'plan').promise,
+      }).catch((e) => { console.log(`[roost] reading ${m.id} docs failed: ${e?.message ?? e}`); return null; });
+      if (!card) continue;
+      const supported = reg.get(m.agent, m.id)?.efforts ?? [];
+      const { routes, changes } = settingsFromCard(card, config.autoRoute as any, supported, (a, model) => reg.get(a, model)?.resolvedId ?? model);
+      if (changes.length) {
+        config.autoRoute = routes as any;
+        try { saveConfig({ ...config, autoRoute: config.autoRoute }); } catch { /* applied live either way */ }
+        manager.applyRoutes(config.autoRoute);
+      }
+      let proposed: string | null = null;
+      const own = checkoutDir();
+      if (!backfill && (card.ideas.length || card.breaking.length) && config.projects.includes(own)) {
+        try {
+          const s = manager.create(reader, own, {});
+          s.title = `New model: ${card.displayName}`;
+          void s.handleClientMessage({ type: 'consult', text: proposalTask(card) });
+          proposed = s.id;
+        } catch (e: any) { console.log(`[roost] could not start the ${card.displayName} plan: ${e?.message ?? e}`); }
+      }
+      const news: ModelNews = { card, applied: changes, proposed, seen: false };
+      saveNews(dataDir(), news);
+      done.push(news);
+      console.log(`[roost] read ${card.displayName}'s docs: ${changes.length} setting(s) changed${proposed ? ', a plan is waiting for you' : ''}`);
+      sendNotification(`model-news:${m.id}`, `${card.displayName}: what's new`, [card.headline, changes.length ? `Roost changed: ${changes.map((c) => `${c.what} → ${c.to}`).join(', ')}` : '', proposed ? 'A plan for Roost is waiting for your Proceed.' : ''].filter(Boolean).join('\n'), { minIntervalMs: 60_000 });
+    }
+  } finally {
+    readingDocs = false;
+  }
+  return done;
+}
+
+app.get('/api/model-news', (_req, res) => {
+  res.json({ news: listNews(dataDir()) });
+});
+app.post('/api/model-news/seen', (req, res) => {
+  const { agent, model } = req.body ?? {};
+  if ((agent === 'claude' || agent === 'codex') && typeof model === 'string') markSeen(dataDir(), agent, model);
+  res.json({ ok: true });
+});
+app.post('/api/model-news/read', async (req, res) => {
+  const { agent, model } = req.body ?? {};
+  const force = (agent === 'claude' || agent === 'codex') && typeof model === 'string' ? { agent: agent as AgentKind, model } : undefined;
+  res.json({ news: await readNewModelDocs(force) });
+});
+
 /** Pip's routes on the newest model of each family, whatever the saved config
  *  names (2026-09-29): in memory only, so the saved config stays your intent
  *  and a new release moves the crew forward again next refresh. */
@@ -1099,7 +1178,7 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   }
   printTailscaleUrl(config.port);
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
-  startRegistryRefresh(config.projects[0] ?? process.cwd(), undefined, freshenLiveRoutes);
+  startRegistryRefresh(config.projects[0] ?? process.cwd(), undefined, () => { freshenLiveRoutes(); void readNewModelDocs(); });
   // New models arrive with new Claude/Codex software: keep it current (2026-09-29).
   startAgentsUpdate(config.projects[0] ?? process.cwd(), () => manager.list().some((s) => s.state === 'working'), freshenLiveRoutes);
 });

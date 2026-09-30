@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from './api';
+import { api, type ModelNewsItem } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
 import { GlobalSettings } from './GlobalSettings';
@@ -380,6 +380,7 @@ export function SessionList(props: {
 
       <ClaudeAuthBanner />
       <UpdateCard />
+      <ModelNewsCard onOpen={onOpen} />
       <CrewStrip sessions={sessions} />
 
       <LeftOff
@@ -771,6 +772,52 @@ function NewProjectSheet({ onClose, onMade }: { onClose: () => void; onMade: (pa
         )}
       </div>
     </div>
+  );
+}
+
+/** A new model, read from its maker's own docs (2026-09-29): what it is,
+ *  what Roost changed because of it, and a plan waiting for you when the docs
+ *  suggest code changes. One card per model until you say "Got it". */
+const TIER_WORDS: Record<string, string> = { light: 'Quick jobs', standard: 'Everyday jobs', heavy: 'Big jobs' };
+/** "codex light effort" -> "Quick jobs on Codex". */
+function appliedWords(what: string): string {
+  const [agent, tier] = what.split(' ');
+  return `${TIER_WORDS[tier] ?? tier} on ${agent === 'codex' ? 'Codex' : 'Claude'}`;
+}
+
+function ModelNewsCard({ onOpen }: { onOpen: (id: string) => void }) {
+  const [news, setNews] = useState<ModelNewsItem[]>([]);
+  useEffect(() => { api.modelNews().then((r) => setNews(r.news.filter((n) => !n.seen))).catch(() => {}); }, []);
+  const n = news[0];
+  if (!n) return null;
+  const c = n.card;
+  const facts = [c.contextTokens ? `${c.contextTokens >= 1e6 ? `${c.contextTokens / 1e6}M` : `${Math.round(c.contextTokens / 1000)}K`} context` : null, c.price ? `$${c.price.input} / $${c.price.output} per M tokens` : null, c.released].filter(Boolean);
+  const dismiss = () => { void api.modelNewsSeen(c.agent, c.model).catch(() => {}); setNews(news.slice(1)); };
+  return (
+    <section className="card model-news">
+      <div className="model-news-kicker">New model · from {c.agent === 'claude' ? "Anthropic's" : "OpenAI's"} docs</div>
+      <h2>{c.displayName}</h2>
+      <p className="model-news-headline">{c.headline}</p>
+      {facts.length > 0 && <p className="section-hint">{facts.join(' · ')}</p>}
+      {n.applied.length > 0 && (
+        <div className="model-news-block">
+          <b>Roost changed</b>
+          <ul>{n.applied.map((a) => <li key={a.what}>{appliedWords(a.what)} now think at <b>{a.to}</b>{a.from ? ` (was ${a.from})` : ''}</li>)}</ul>
+        </div>
+      )}
+      {(c.whatsNew.length > 0 || c.breaking.length > 0) && (
+        <div className="model-news-block">
+          <b>Worth knowing</b>
+          <ul>{[...c.breaking.slice(0, 2), ...c.whatsNew.slice(0, 3)].map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
+      )}
+      {c.effort.note && <p className="section-hint">{c.effort.note}</p>}
+      <div className="model-news-actions">
+        {n.proposed && <button className="primary" onClick={() => onOpen(n.proposed!)}>See the plan for Roost</button>}
+        {c.sources[0] && <a className="link" href={c.sources[0]} target="_blank" rel="noreferrer">Read the docs</a>}
+        <button className="link" onClick={dismiss}>Got it{news.length > 1 ? ` (${news.length - 1} more)` : ''}</button>
+      </div>
+    </section>
   );
 }
 

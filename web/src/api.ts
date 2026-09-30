@@ -111,6 +111,8 @@ export const api = {
   eco: (action: 'buy' | 'free' | 'open' | 'tradeup' | 'equip' | 'ghost', body: object = {}) =>
     request<{ result: any; state: any }>(`/api/economy/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   update: (force = false) => request<{ current: string | null; latest: string | null; notes: string; available: boolean; error?: string }>(`/api/update${force ? '?force=1' : ''}`),
+  modelNews: () => request<{ news: ModelNewsItem[] }>('/api/model-news'),
+  modelNewsSeen: (agent: string, model: string) => request<{ ok: boolean }>('/api/model-news/seen', { method: 'POST', body: JSON.stringify({ agent, model }) }),
   applyUpdate: () => request<{ ok: true; installing: string }>('/api/update/apply', { method: 'POST' }),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
   gameSave: (id: string, state: unknown) => request<{ ok: true }>(`/api/games/${id}/save`, { method: 'PUT', body: JSON.stringify({ state }) }),
@@ -191,4 +193,17 @@ export class SessionSocket {
     this.closedByUser = true;
     this.ws?.close();
   }
+}
+
+/** A new model, read from its maker's docs (server/src/modelDocs.ts). */
+export interface ModelNewsItem {
+  card: {
+    agent: 'claude' | 'codex'; model: string; displayName: string; headline: string; released: string | null;
+    contextTokens: number | null; price: { input: number; output: number } | null;
+    effort: { light: string | null; standard: string | null; heavy: string | null; note: string };
+    strengths: string[]; whatsNew: string[]; breaking: string[]; prompting: string[]; ideas: Array<{ title: string; why: string }>; sources: string[]; readAt: number;
+  };
+  applied: Array<{ what: string; from: string | null; to: string; source: string }>;
+  proposed: string | null;
+  seen: boolean;
 }
