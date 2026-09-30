@@ -208,3 +208,17 @@ describe('isContextOverflow — the stuck-session failure', () => {
       expect(isContextOverflow(m), m).toBe(false);
   });
 });
+
+import { measuredContext as mc } from '../src/context.js';
+describe('measuredContext (2026-09-30 stale meter after /compact)', () => {
+  it('prefers what the last call actually sent', () => {
+    const r = mc({ usedTokens: 600_000, maxTokens: 1_000_000, percent: 60, pressure: 'degrading' } as any, 43_000)!;
+    expect(r.percent).toBe(4);
+    expect(r.usedTokens).toBe(43_000);
+    expect(r.pressure).toBe('clear');
+  });
+  it('keeps the SDK reading when nothing was measured', () => {
+    const c = { usedTokens: 1, maxTokens: 10, percent: 10, pressure: 'clear' } as any;
+    expect(mc(c, null)).toBe(c);
+  });
+});

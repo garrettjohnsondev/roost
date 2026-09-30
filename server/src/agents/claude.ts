@@ -4,7 +4,7 @@ import { authedQuery, isAuthFailure } from '../claudeAuth.js';
 import { now, type ApprovalSetting, type ServerEvent, type ToolExpand, type UserImage } from '../protocol.js';
 import { noteClaudeRateLimit } from '../usage.js';
 import { claudeDeltas } from '../usageDelta.js';
-import { fromClaudeContextUsage, isContextOverflow, withAdvice } from '../context.js';
+import { fromClaudeContextUsage, measuredContext, isContextOverflow, withAdvice } from '../context.js';
 import { AsyncQueue, truncate } from '../util.js';
 import type { AgentAdapter, AgentAdapterOptions, CallDelta, PendingApproval } from './types.js';
 import { toolDetail } from '../toolDetail.js';
@@ -162,6 +162,13 @@ export class ClaudeAdapter implements AgentAdapter {
       case 'assistant': {
         // Mid-turn too (item 33): a 20-minute turn used to read one number
         // and then jump. Throttled; summary detail is a local estimate.
+        // What the last model call actually sent is the true size of the
+        // window (subagents have their own windows, so only the main thread).
+        const u = m.message?.usage;
+        if (u && !m.parent_tool_use_id) {
+          const sent = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+          if (sent > 0) this.lastSentTokens = sent;
+        }
         if (Date.now() - this.contextAt > 20_000) void this.reportContext();
         for (const block of m.message?.content ?? []) {
           if (block.type === 'text' && block.text) {
@@ -235,12 +242,16 @@ export class ClaudeAdapter implements AgentAdapter {
    *  no per-category token-count requests -- so it is cheap enough to run after
    *  every turn. Failures are silent: a missing meter must never break a chat. */
   private contextAt = 0;
+  /** Tokens the last main-thread model call sent (2026-09-30: after a
+   *  /compact, getContextUsage kept answering 60% while the real window was
+   *  ~43k tokens, and "60% after compacting (was 60%)" went out). */
+  private lastSentTokens: number | null = null;
   private async reportContext(): Promise<void> {
     this.contextAt = Date.now();
     try {
       if (typeof this.q?.getContextUsage !== 'function') return;
       const resp = await this.q.getContextUsage({ detail: 'summary' });
-      const ctx = withAdvice(fromClaudeContextUsage(resp));
+      const ctx = withAdvice(measuredContext(fromClaudeContextUsage(resp), this.lastSentTokens));
       if (ctx) this.emit({ type: 'context', context: ctx, ts: now() });
     } catch {
       /* the meter is advisory */

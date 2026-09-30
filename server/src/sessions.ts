@@ -721,7 +721,10 @@ export class Session {
     if (event.type === 'context' && event.context.percent != null) {
       // "And afterwards, every time" (Context board): after a compaction, the
       // next real reading says where it landed, next to where it started.
-      if (this.compactedFrom != null) {
+      // Only a reading that actually dropped counts: the first one after a
+      // compaction can still describe the old window, and "60% (was 60%)"
+      // reads as if compacting did nothing.
+      if (this.compactedFrom != null && event.context.percent < this.compactedFrom) {
         const who = crewMember(this.agent, this.routedModel ?? this.model, this.currentRole).name;
         this.notice(`${who} is at ${event.context.percent}% after compacting (was ${this.compactedFrom}%).`);
         this.compactedFrom = null;

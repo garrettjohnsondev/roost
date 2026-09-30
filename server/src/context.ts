@@ -124,6 +124,14 @@ export function fromClaudeContextUsage(resp: any): Omit<ContextState, 'advice'> 
   };
 }
 
+/** The SDK's summary can lag a compaction by a whole turn; what the last model
+ *  call actually sent cannot. When both exist, the measured number wins. */
+export function measuredContext<T extends { usedTokens: number | null; maxTokens: number | null; percent: number | null; pressure: any }>(ctx: T | null, sent: number | null): T | null {
+  if (!ctx || !sent || !ctx.maxTokens) return ctx;
+  const percent = Math.min(100, Math.round((100 * sent) / ctx.maxTokens));
+  return { ...ctx, usedTokens: sent, percent, pressure: pressureFor(percent) };
+}
+
 /** Codex reports a context window and a per-turn breakdown rather than a
  *  category table; `last` is what currently occupies the window. */
 export function fromCodexTokenUsage(last: any, modelContextWindow: number | null | undefined): Omit<ContextState, 'advice'> | null {

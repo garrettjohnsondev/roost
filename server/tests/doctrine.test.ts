@@ -1544,7 +1544,7 @@ describe('one agent, one identity (item 32)', () => {
 
 describe('percentages that move (item 33)', () => {
   it('context is measured during a turn, throttled, not only at its end', () => {
-    expect(read('server/src/agents/claude.ts')).toMatch(/case 'assistant': \{[\s\S]{0,300}if \(Date\.now\(\) - this\.contextAt > 20_000\) void this\.reportContext\(\);/);
+    expect(read('server/src/agents/claude.ts')).toMatch(/case 'assistant': \{[\s\S]{0,900}if \(Date\.now\(\) - this\.contextAt > 20_000\) void this\.reportContext\(\);/);
   });
   it('the fuel line is read after a turn ends, at most every two minutes, and every session re-sends it', () => {
     expect(read('server/src/usage.ts')).toMatch(/if \(Date\.now\(\) - lastSoon < 120_000\) return false;/);
