@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from './api';
 
 /** "Want a buzz on your phone?" (2026-09-30). Phone notifications (ntfy) were
@@ -86,14 +87,27 @@ export function NotifySetup({ onClose, onDone }: { onClose: () => void; onDone: 
     : 'https://apps.apple.com/app/ntfy/id1625396347';
   const copy = async () => {
     if (!topic) return;
-    try { await navigator.clipboard.writeText(topic); setCopied(true); } catch { /* shown on screen anyway */ }
+    // Roost is plain http over the tailnet, where iPhone has no
+    // navigator.clipboard -- so the old select-and-copy route is the fallback.
+    try { await navigator.clipboard.writeText(topic); setCopied(true); return; } catch { /* fall through */ }
+    const t = document.createElement('textarea');
+    t.value = topic;
+    t.setAttribute('readonly', '');
+    t.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+    document.body.appendChild(t);
+    t.focus();
+    t.setSelectionRange(0, topic.length);
+    try { setCopied(document.execCommand('copy')); } catch { /* */ }
+    t.remove();
   };
   const send = async () => {
     setTest('sending');
     try { await api.testNotification(); setTest('sent'); } catch (e: any) { setTest(String(e?.message ?? e)); }
   };
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
+  // On document.body, above the message box: inside the thread it sat under
+  // the composer and its Done button was hidden (2026-09-30).
+  return createPortal(
+    <div className="sheet-backdrop notify-setup-backdrop" onClick={onClose}>
       <div className="sheet notify-setup-sheet" onClick={(e) => e.stopPropagation()}>
         <h2>A buzz when the crew needs you</h2>
         <ol className="notify-steps">
@@ -104,7 +118,7 @@ export function NotifySetup({ onClose, onDone }: { onClose: () => void; onDone: 
           <li>
             <span>In ntfy, tap <b>+</b> and paste this topic:</span>
             <div className="notify-topic-row">
-              <code className="mono-note">{topic ?? '…'}</code>
+              <code className="mono-note" style={{ userSelect: 'all', WebkitUserSelect: 'all' }}>{topic ?? '…'}</code>
               <button className="chip" disabled={!topic} onClick={copy}>{copied ? 'Copied ✓' : 'Copy'}</button>
             </div>
           </li>
@@ -119,6 +133,7 @@ export function NotifySetup({ onClose, onDone }: { onClose: () => void; onDone: 
         <p className="section-hint">Keep the topic to yourself: it works like a password. Notifications show a chat's title, never what was said. Turn them off any time in Settings.</p>
         <button className="primary" onClick={onDone}>{test === 'sent' ? 'It buzzed — done' : 'Done'}</button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

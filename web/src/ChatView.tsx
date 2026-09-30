@@ -288,7 +288,13 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       seenCount.current = session.items.length;
       if (unseen) setUnseen(0);
     } else {
-      const n = Math.max(0, session.items.length - seenCount.current);
+      // Only new crew replies count -- not every command or note, and never
+      // history reloading after a restart ("507 new" while reading, 2026-09-30).
+      if (seenCount.current > session.items.length) seenCount.current = 0;
+      let n = 0;
+      for (let i = Math.max(seenCount.current, session.replayedCount); i < session.items.length; i++) {
+        if (session.items[i].kind === 'assistant') n++;
+      }
       if (n !== unseen) setUnseen(n);
     }
   }, [session.items, session.status, recap, unseen]);

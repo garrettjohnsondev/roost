@@ -3995,3 +3995,5 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .notify-topic-row { display:flex; gap:8px; align-items:center; }
 .notify-topic-row code { flex:1; overflow-wrap:anywhere; }
 .notify-steps a.chip { text-decoration:none; display:inline-block; }
+.notify-setup-backdrop { z-index: 1000; }
+.notify-setup-sheet { max-height: 90dvh; overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
