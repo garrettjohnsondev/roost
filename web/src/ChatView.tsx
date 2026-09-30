@@ -1227,6 +1227,19 @@ function SpriteAvatarBase({ crew, pose, size, className, alive }: { crew: CrewIn
   const [noTier, setNoTier] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   if (alive && pose === 'idle') return <AliveSprite crew={crew} size={size} className={className} />;
+  // Dressed crew keep their outfit while they work (2026-09-29: "Ollie is
+  // propped out but his working animation is bare bones"). The working poses
+  // were only ever drawn plain, so a dressed member working is their outfit
+  // drawing with a working motion: a busy bob, and sparks while typing.
+  const working = pose === 'type' || pose === 'think' || PHASE_POSES.has(pose);
+  if (working && tier > 0 && !noTier) {
+    return (
+      <span className={`crew-sprite dressed-work pose-${pose} moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
+        <img src={`/crew/${crew.sprite}-tier${tier}.webp`} alt="" onError={() => setNoTier(true)} />
+        {pose === 'think' ? <span className="work-dots" aria-hidden="true"><i /><i /><i /></span> : <span className="work-spark" aria-hidden="true" />}
+      </span>
+    );
+  }
   if (PHASE_POSES.has(pose)) {
     if (noPhase) pose = 'type';
     else {

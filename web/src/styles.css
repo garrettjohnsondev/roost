@@ -3939,3 +3939,17 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .help-sheet p, .help-sheet li { font-size: 15px; line-height: 1.45; }
 .help-sheet ul { padding-left: 18px; }
 .segmented + .section-hint { margin-top: 10px; }
+
+/* Dressed crew at work (2026-09-29): the outfit drawing, busy. */
+.crew-sprite.dressed-work { position: relative; }
+.crew-sprite.dressed-work img { width: 100%; height: 100%; image-rendering: pixelated; animation: dressed-bob 0.56s steps(2, end) infinite; }
+.crew-sprite.dressed-work.pose-think img { animation-duration: var(--beat, 0.9s); animation-name: dressed-tilt; }
+@keyframes dressed-bob { 0% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
+@keyframes dressed-tilt { 0% { transform: rotate(0); } 50% { transform: rotate(-4deg) translateY(-3%); } }
+.crew-sprite.dressed-work .work-spark { position: absolute; right: 2%; bottom: 12%; width: 18%; height: 18%; background: #ffd35a; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: dressed-spark 0.56s steps(2, end) infinite; }
+@keyframes dressed-spark { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.2; transform: scale(0.6) translateY(-30%); } }
+.crew-sprite.dressed-work .work-dots { position: absolute; right: -4%; top: -2%; display: flex; gap: 8%; width: 40%; }
+.crew-sprite.dressed-work .work-dots i { flex: 1; aspect-ratio: 1; background: #c3cbf2; border-radius: 1px; animation: typing-dot 1.2s steps(1, end) infinite; }
+.crew-sprite.dressed-work .work-dots i:nth-child(2) { animation-delay: 0.4s; }
+.crew-sprite.dressed-work .work-dots i:nth-child(3) { animation-delay: 0.8s; }
+@media (prefers-reduced-motion: reduce) { .crew-sprite.dressed-work img, .crew-sprite.dressed-work .work-spark, .crew-sprite.dressed-work .work-dots i { animation: none; } }

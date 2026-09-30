@@ -295,7 +295,9 @@ describe('the only things that repeat are states that persist', () => {
     // .crate-* / .locker-*: the crate opening and shop, on screen only there.
     // .rotate-phone: the turn-your-phone hint; gone the moment you turn it.
     // .look-wrap.breathing: the same crew breath, moved out to carry worn items.
-    const sanctioned = [/look-wrap\.breathing/, /rotate-phone/, /^\.aura/, /crate|locker|hub-/, /rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
+    // .dressed-work: a dressed crew member working (2026-09-29) -- the same
+    // cause as .four, it loops only while they are typing or thinking.
+    const sanctioned = [/dressed-work/, /look-wrap\.breathing/, /rotate-phone/, /^\.aura/, /crate|locker|hub-/, /rocket-ready/, /^\.(snake|game-|arcade)/, /crew-sprite\.alive/, /^\.seat:not\(\.working\)$/, /crew-strip-member\.sleep/, /pose-peek/, /expiry-block\.expiring/, /frame-[ab]/, /\.four \.f[0-3]$/, /typing-dots/, /spin|pulse|working|loading/, /^\.amb-/, /tool-caret/];
     const unsanctioned = looping.filter((sel) => !sanctioned.some((re) => re.test(sel)));
     expect(unsanctioned, `looping without a stated cause: ${unsanctioned.join(', ')}`).toEqual([]);
   });
@@ -369,7 +371,7 @@ describe('one drawing on screen at a time', () => {
 
   it('draws only the pose itself when a pose is held', () => {
     const c = read('web/src/ChatView.tsx');
-    const s = c.slice(c.indexOf('function SpriteAvatarBase('), c.indexOf('function SpriteAvatarBase(') + 3200);
+    const s = c.slice(c.indexOf('function SpriteAvatarBase('), c.indexOf('function SpriteAvatarBase(') + 4600);
     // held branch renders exactly one <img>, with no idle frame beneath it
     // (the four-frame working branch returns earlier, item 38)
     const at = s.lastIndexOf(') : (');
