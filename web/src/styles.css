@@ -3967,3 +3967,6 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .model-news-block li { margin: 2px 0; }
 .model-news-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 .model-news-suggest { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* A new version is ready (2026-09-30): offered, never forced mid-chat. */
+.fresh-banner { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; padding: 10px 16px; border-radius: 2px; border: 2px solid var(--accent, #f5b93a); background: #0d1124; color: #fff; font: inherit; font-size: 14px; box-shadow: 0 6px 20px #0008; }
