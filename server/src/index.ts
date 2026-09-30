@@ -756,8 +756,12 @@ async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Pr
   const done: ModelNews[] = [];
   try {
     const reg = modelRegistry();
-    const reader: AgentKind | null = reg.presence('claude') !== 'absent' ? 'claude' : reg.presence('codex') !== 'absent' ? 'codex' : null;
-    if (!reader) return [];
+    // A model list loads without a sign-in, so "present" isn't enough: the
+    // reader must be able to answer. Unsigned-in runs hung six times over and
+    // starved the CI machine (2026-09-30: Linux smoke timeouts).
+    const claudeReady = reg.presence('claude') === 'present' && (await authStatus().catch(() => null))?.using !== 'none';
+    const reader: AgentKind | null = claudeReady ? 'claude' : reg.presence('codex') === 'present' ? 'codex' : null;
+    if (!reader || process.env.ROOST_NO_MODEL_DOCS === '1') return [];
     const wanted = new Map<string, { agent: AgentKind; id: string; displayName: string }>();
     const routed = force ? [force] : (['claude', 'codex'] as AgentKind[]).flatMap((a) => (['light', 'standard', 'heavy'] as const).map((t) => ({ agent: a, model: (config.autoRoute[a] as any)[t]?.model as string })));
     for (const r of routed) {
@@ -771,11 +775,15 @@ async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Pr
     // Proposals are for models that arrive after that (or a forced read).
     const backfill = !force && listNews(dataDir()).length === 0;
     for (const m of wanted.values()) {
-      const card = await readModelDocs({
+      let stop: (() => void) | undefined;
+      const read = readModelDocs({
         agent: m.agent, id: m.id, displayName: m.displayName,
-        oneShot: (prompt) => startConsultStep(reader, config.projects[0] ?? process.cwd(), prompt, reader === 'claude' ? 'sonnet' : config.autoRoute.codex.standard.model, 'plan').promise,
-      }).catch((e) => { console.log(`[roost] reading ${m.id} docs failed: ${e?.message ?? e}`); return null; });
-      if (!card) continue;
+        oneShot: (prompt) => { const run = startConsultStep(reader, config.projects[0] ?? process.cwd(), prompt, reader === 'claude' ? 'sonnet' : config.autoRoute.codex.standard.model, 'plan'); stop = run.cancel; return run.promise; },
+      });
+      const timeout = new Promise<null>((res) => setTimeout(() => res(null), 120_000).unref?.());
+      const card = await Promise.race([read, timeout]).catch((e) => { console.log(`[roost] reading ${m.id} docs failed: ${e?.message ?? e}`); return null; });
+      // One failure means the reader can't answer right now: stop, try next refresh.
+      if (!card) { stop?.(); console.log(`[roost] model docs: stopped at ${m.id}; will try again later`); break; }
       const supported = reg.get(m.agent, m.id)?.efforts ?? [];
       const { routes, changes, suggestions } = settingsFromCard(card, config.autoRoute as any, supported, (a, model) => reg.get(a, model)?.resolvedId ?? model);
       if (changes.length) {
