@@ -920,8 +920,10 @@ registerRescue(app, { sessions: () => manager.list().map(({ id, title, agent, cw
 // build that passed the smoke check, not whatever was built most recently.
 const webDist = webRoot();
 if (existsSync(webDist)) {
-  app.use(express.static(webDist));
-  app.get(/^\/(?!api|ws).*/, (_req, res) => res.sendFile(join(webDist, 'index.html')));
+  // The page itself is never cached, so a new release is seen the moment it
+  // is live (2026-09-29); the hashed assets it points at can cache forever.
+  app.use(express.static(webDist, { setHeaders: (res, path) => { if (path.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); } }));
+  app.get(/^\/(?!api|ws).*/, (_req, res) => { res.setHeader('Cache-Control', 'no-cache'); res.sendFile(join(webDist, 'index.html')); });
 }
 
 const httpServer = createServer(app);

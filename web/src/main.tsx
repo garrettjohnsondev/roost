@@ -65,3 +65,6 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </ErrorBoundary>,
 );
+
+import { watchForNewVersion } from './freshness';
+watchForNewVersion();
