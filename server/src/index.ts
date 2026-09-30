@@ -42,6 +42,7 @@ import { readOnDeck } from './onDeck.js';
 import { visit } from './visits.js';
 import { allowedPeer } from './netguard.js';
 import { checkForUpdate, checkoutDir } from './updates.js';
+import { startAgentsUpdate } from './agentsUpdate.js';
 import { createProject } from './newProject.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
 import { PLANS, advise, isPlan, planRoutes, planWords } from './subscription.js';
@@ -1084,4 +1085,6 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   printTailscaleUrl(config.port);
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
   startRegistryRefresh(config.projects[0] ?? process.cwd());
+  // New models arrive with new Claude/Codex software: keep it current (2026-09-29).
+  startAgentsUpdate(config.projects[0] ?? process.cwd(), () => manager.list().some((s) => s.state === 'working'));
 });
