@@ -93,3 +93,12 @@ describe("who's in this chat", () => {
     expect(crewInChat(items).map((x) => x.name)).toEqual(['Ollie', 'Wren']);
   });
 });
+
+import { turnErrored } from './ChatView';
+describe('a failed turn never offers Deploy', () => {
+  it('sees an error since your last message', () => {
+    const items = [{ kind: 'user', text: 'go', imageCount: 0, ts: 1 }, { kind: 'error', message: 'max turns', ts: 2 }, { kind: 'verify', report: {}, ts: 3 }] as any;
+    expect(turnErrored(items, 2)).toBe(true);
+    expect(turnErrored([items[0], items[2]] as any, 1)).toBe(false);
+  });
+});

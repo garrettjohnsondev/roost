@@ -40,6 +40,7 @@ import { Economy, crateOnSale } from './economy.js';
 import { CRATES, ITEMS, PAINTS, CERTS, RARITY_NAME, SLOTS, itemById } from './catalog.js';
 import { readOnDeck } from './onDeck.js';
 import { visit } from './visits.js';
+import { allowedPeer } from './netguard.js';
 import { checkForUpdate, checkoutDir } from './updates.js';
 import { createProject } from './newProject.js';
 import { projectUsage, scanUsage } from './projectUsage.js';
@@ -1056,6 +1057,15 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
+// Only this computer and the tailnet may connect -- not the café Wi-Fi
+// (netguard.ts). Checked per connection, so it covers the API, the socket,
+// static files and live previews alike.
+httpServer.on('connection', (socket) => {
+  if (!allowedPeer(socket.remoteAddress)) {
+    console.warn(`[roost] refused a connection from ${socket.remoteAddress} (not this computer or your tailnet; set ROOST_ALLOW_LAN=1 to allow)`);
+    socket.destroy();
+  }
+});
 httpServer.listen(config.port, '0.0.0.0', () => {
   console.log(`[roost] listening on http://localhost:${config.port}`);
   console.log(`[roost] projects: ${config.projects.join(', ')}`);

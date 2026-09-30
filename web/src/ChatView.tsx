@@ -110,7 +110,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const lastPass = React.useMemo(() => {
     for (let i = session.items.length - 1; i >= 0; i--) {
       const it = session.items[i];
-      if (it.kind === 'verify' && it.report.passed && it.report.changed) return it.ts;
+      if (it.kind === 'verify' && it.report.passed && it.report.changed && !turnErrored(session.items, i)) return it.ts;
     }
     return 0;
   }, [session.items]);
@@ -642,7 +642,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                 </Contained>
               ) : seg.kind === 'item' ? (
                 <Contained key={seg.index} what="This message" retryOn={session.items[seg.index]}>
-                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} asking={awaitingReply(session.items, seg.index, session.status)} />
+                  <Message item={session.items[seg.index]} crew={session.meta?.crew} chapterCrew={ch.crew} me={me} fresh={seg.index >= session.replayedCount} aside={isNarration(session.items, seg.index, ch.end)} asking={awaitingReply(session.items, seg.index, session.status)} errored={turnErrored(session.items, seg.index)} />
                 </Contained>
               ) : (
                 <Contained key={`run-${seg.start}`} what="These tool calls">
@@ -1881,7 +1881,19 @@ function CrewChip({ crew, sub }: { crew: CrewInfo; sub?: string }) {
   );
 }
 
-function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean }) {
+/** Did this turn fail before its checks ran? (2026-09-29: "Ollie could not
+ *  take this", then a green PASSED card offering Deploy -- the tests passed
+ *  only because nothing new was built.) Looks back to the last thing you said. */
+export function turnErrored(items: ChatItem[], at: number): boolean {
+  for (let i = at - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.kind === 'user') return false;
+    if (it.kind === 'error') return true;
+  }
+  return false;
+}
+
+function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, asking = false, errored = false }: { item: ChatItem; crew?: CrewInfo; chapterCrew?: CrewInfo[]; me?: Me | null; fresh?: boolean; aside?: boolean; asking?: boolean; errored?: boolean }) {
   const deploy = React.useContext(DeployContext);
   const dev = useDevMode();
   // Their celebration (games wave 1): the burst a crew member wears for a pass.
@@ -2038,7 +2050,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
               <Markdown text={r.review.text} />
             </div>
           )}
-          {r.passed && r.changed && deploy && (
+          {r.passed && r.changed && !errored && deploy && (
             <button className="deploy-go" onClick={() => deploy.open()}>Deploy</button>
           )}
         </div>

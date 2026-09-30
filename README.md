@@ -111,8 +111,8 @@ Roost itself is free and open source (MIT). You bring the AI: it runs on **your 
 ## Privacy and security
 
 - Everything runs on **your computer**. Your code never leaves it except to the model providers you already use.
-- Your phone reaches it over **Tailscale**, a private network of just your own devices. Nothing is exposed to the internet.
-- Roost runs commands on your machine by design, so keep it tailnet-only. Don't port-forward it.
+- Your phone reaches it over **Tailscale**, a private network of just your own devices. Roost only accepts connections from your computer itself and your tailnet — not from the internet, and not from other people on the same Wi-Fi.
+- Roost runs commands on your machine by design, so don't port-forward it. (On a trusted home network without Tailscale you can set `ROOST_ALLOW_LAN=1`, at your own risk.)
 - Approvals default to *ask first*. Full auto is a switch you flip on purpose.
 
 ## Known limits
