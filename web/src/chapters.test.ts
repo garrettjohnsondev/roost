@@ -124,7 +124,7 @@ describe('where a job ends (item 31)', () => {
   it('a failed verify no longer holds every later task in one job (the 2026-09-24 day)', () => {
     const items = [u('Fix the login bug', 0), a('Fixed.', 1), failed(2), u('Look at this screenshot', 3), a('I see six bars.', 4), u('Write up an md on the animations', 5), a('Written.', 6)];
     const ch = chaptersOf(items);
-    expect(ch.map((c) => c.name)).toEqual(['login bug', 'this screenshot', 'up an md on the']);
+    expect(ch.map((c) => c.name)).toEqual(['login bug', 'this screenshot', 'up an md']);
     expect(ch[0].status).toBe('needs-work');
     expect(ch[1].status).toBe('open');
   });

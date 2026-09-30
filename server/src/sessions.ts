@@ -220,6 +220,8 @@ export class Session {
   private editedThisTurn = false;
   /** The tree as it was when you last sent something (treeState.ts). */
   private treeAtTurnStart: Promise<string | null> | null = null;
+  /** True while autoCheck announces its own idle (see there). */
+  private checksIdle = false;
   private checking = false;
   /** Bumped by every message you send, so a check that outlives its turn
    *  does not mark the next turn idle. */
@@ -679,7 +681,7 @@ export class Session {
     }
     if (event.type === 'question_answered' && this.pendingQuestion?.requestId === event.requestId) this.pendingQuestion = undefined;
     if (event.type === 'tool_start' && /edit|write|patch|create|delete|rename|notebook/i.test(event.name)) this.editedThisTurn = true;
-    const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild;
+    const turnEnded = event.type === 'status' && event.state === 'idle' && !this.inNotice && !this.crossBuild && !this.checksIdle;
     if (turnEnded) this.proceeding = false;
     // Did the code map earn its keep? One row per finished turn (turnStats.ts).
     this.turnTally.observe(event);
@@ -1613,7 +1615,13 @@ export class Session {
     } finally {
       this.checking = false;
       // A new turn may have started while the checks ran; it owns the status.
-      if (seq === this.turnSeq) this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+      // The checks' own "idle" is not a turn ending: read as one, the commit
+      // they just made looked like a fresh change and the checks ran twice --
+      // two PASSED cards (2026-09-29).
+      if (seq === this.turnSeq) {
+        this.checksIdle = true;
+        try { this.pushEvent({ type: 'status', state: 'idle', ts: now() }); } finally { this.checksIdle = false; }
+      }
     }
   }
 
@@ -1653,7 +1661,8 @@ export class Session {
     } catch (err: any) {
       this.reportError(`Verification failed to run: ${String(err?.message ?? err)}`);
     } finally {
-      this.pushEvent({ type: 'status', state: 'idle', ts: now() });
+      this.checksIdle = true; // the same double-check guard as autoCheck
+      try { this.pushEvent({ type: 'status', state: 'idle', ts: now() }); } finally { this.checksIdle = false; }
     }
   }
 

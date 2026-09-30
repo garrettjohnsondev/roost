@@ -29,7 +29,7 @@ export interface Chapter {
   tail?: number;
 }
 
-const TAIL_KINDS = new Set<ChatItem['kind']>(['notice', 'milestone', 'error']);
+const TAIL_KINDS = new Set<ChatItem['kind']>(['notice', 'milestone', 'error', 'verify']);
 
 export function chaptersOf(items: ChatItem[]): Chapter[] {
   const out: Chapter[] = [];
@@ -204,7 +204,10 @@ export function chapterName(text: string, words = 5): string {
   const stripped = s.replace(VERB, '');
   // keep the verb only if removing it would leave nothing
   s = stripped.trim() ? stripped : s;
-  const cut = s.split(' ').filter(Boolean).slice(0, words).join(' ').replace(/[.,;:!?…]+$/, '');
+  let cut = s.split(' ').filter(Boolean).slice(0, words).join(' ').replace(/[.,;:!?…]+$/, '');
+  // Five words can stop mid-phrase: "dark mode toggle to the" (2026-09-29).
+  // Drop the dangling little words at the end.
+  cut = cut.replace(/(?:\s+(?:to|the|a|an|of|for|on|in|at|with|and|or|so|into|onto|from|my|our|your|this|that))+$/i, '');
   return cut || 'Untitled job';
 }
 

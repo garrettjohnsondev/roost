@@ -569,7 +569,7 @@ describe('a message you sent is never silently dropped', () => {
     // ...and it is checked BEFORE the plan/build branch, or it would never be reached there.
     expect(body.indexOf('if (this.proceeding)')).toBeLessThan(body.indexOf("this.mode === 'plan' || this.mode === 'build'"));
     expect(s).toMatch(/this\.proceeding = true;/);
-    expect(s).toMatch(/const turnEnded = event\.type === 'status' && event\.state === 'idle' && !this\.inNotice && !this\.crossBuild;\s*if \(turnEnded\) this\.proceeding = false;/);
+    expect(s).toMatch(/const turnEnded = event\.type === 'status' && event\.state === 'idle' && !this\.inNotice && !this\.crossBuild && !this\.checksIdle;\s*if \(turnEnded\) this\.proceeding = false;/);
   });
 
   it('holds a message sent mid-plan, echoes it, and folds it into Proceed', () => {
@@ -674,7 +674,7 @@ describe('a job that edited files is checked when it ends', () => {
     expect(m).toMatch(/if \(checks === null\) return;/);
   });
   it('never marks a newer turn idle', () => {
-    expect(m).toMatch(/if \(seq === this\.turnSeq\) this\.pushEvent\(\{ type: 'status', state: 'idle'/);
+    expect(m).toMatch(/if \(seq === this\.turnSeq\) \{\s*this\.checksIdle = true;\s*try \{ this\.pushEvent\(\{ type: 'status', state: 'idle'/); // and that idle is not a turn end (2026-09-29: checks ran twice)
   });
 })
 

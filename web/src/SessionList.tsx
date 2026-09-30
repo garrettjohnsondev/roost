@@ -79,7 +79,10 @@ function CrewStrip({ sessions }: { sessions: SessionMeta[] }) {
   const poseOf = (name: string): Pose => {
     if (sessions.some((s) => s.state === 'working' && s.crew?.name === name)) return 'type';
     if (sessions.some((s) => s.crew?.name === name || s.recentCrew?.some((c) => c.name === name))) return 'idle';
-    return 'sleep';
+    // Off duty sleeps only at night (2026-09-29: a sleepy crew on a sunny
+    // morning read as a bug). By day the whole crew is up and about.
+    const h = new Date().getHours();
+    return h >= 22 || h < 6 ? 'sleep' : 'idle';
   };
   const visitable = crew.filter((c) => bubbleFor(c.name, poseOf(c.name)));
   // Hooks before any early return -- the first cut had this below the
