@@ -253,7 +253,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     const el = scrollRef.current;
     if (!el) return;
     if (pinned.current) {
-      const smooth = placed.current && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      // Glide only when YOU just sent something; everything else snaps, so
+      // the end of a reply (typing bubble out, reply in, the job folding)
+      // no longer bounces the view up and back down (2026-09-29).
+      const lastIsYours = session.items[session.items.length - 1]?.kind === 'user';
+      const smooth = placed.current && lastIsYours && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       if (smooth) {
         glidingUntil.current = Date.now() + 700;
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
@@ -268,6 +272,22 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       if (n !== unseen) setUnseen(n);
     }
   }, [session.items, session.status, recap, unseen]);
+
+  // Pinned means glued: whenever anything in the thread changes size -- a
+  // bubble growing in, the typing dots leaving, a job folding -- snap to the
+  // bottom in the same frame, instead of letting the browser drift and then
+  // correcting (the "jumps up then back down", 2026-09-29).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const glue = () => { if (pinned.current && Date.now() >= glidingUntil.current) el.scrollTop = el.scrollHeight; };
+    const ro = new ResizeObserver(glue);
+    const watch = () => { for (const c of Array.from(el.children)) ro.observe(c); };
+    watch();
+    const mo = new MutationObserver(() => { watch(); glue(); });
+    mo.observe(el, { childList: true });
+    return () => { ro.disconnect(); mo.disconnect(); };
+  }, []);
 
   // 2026-09-26: "where I was on your last message was not all the way at the
   // bottom" when the keyboard opened. Being pinned re-scrolls to the bottom
