@@ -38,9 +38,14 @@ export function composePlannerPrompt(task: string, context: string, fuel = ''): 
 
 /** The reviewer is STARVED: task, plan and criteria only. Including the
  *  author's reasoning made cross-context review worse than self-review. */
-export function composeCriticPrompt(task: string, plan: string, criteria: string[] = []): string {
+/** Names (2026-09-29): the plan and its review are shown as a conversation
+ *  between two crew members, so each speaks to the other by name. */
+export interface ConsultNames { planner: string; reviewer: string }
+
+export function composeCriticPrompt(task: string, plan: string, criteria: string[] = [], names?: ConsultNames): string {
   return [
     'Another AI coding agent proposed a plan for this codebase. Review it (you may read files, change NOTHING).',
+    names ? `You are ${names.reviewer}; the plan is ${names.planner}'s. Your review is shown to the user as your reply to ${names.planner} in a chat: open with one short, plain line addressed to ${names.planner} by name (for example "${names.planner}, one real gap:" or "${names.planner}, this holds up."), then your findings.` : '',
     `The task:\n${task}`,
     '',
     criteria.length ? `Acceptance criteria the plan must satisfy:\n${criteria.map((c) => `- ${c}`).join('\n')}\n` : '',
@@ -57,7 +62,7 @@ export function composeCriticPrompt(task: string, plan: string, criteria: string
 /** Reconcile: the author filters the reviewer's findings against the task and
  *  the criteria BEFORE anyone acts on them. Without this step, review findings
  *  become scope creep -- a reviewer asked for gaps will find them. */
-export function composeReconcilePrompt(task: string, plan: string, critique: string, criteria: string[] = []): string {
+export function composeReconcilePrompt(task: string, plan: string, critique: string, criteria: string[] = [], names?: ConsultNames): string {
   return [
     'You wrote a plan; an independent reviewer critiqued it. Reconcile the two (read-only, change NOTHING).',
     `The task:\n${task}`,
@@ -70,6 +75,7 @@ export function composeReconcilePrompt(task: string, plan: string, critique: str
     'For EACH finding in the review decide: ACCEPT (it identifies a real problem with meeting the task or the criteria -- amend the plan) or REJECT (out of scope, contradicts the criteria, already covered, or a matter of taste -- leave the plan alone).',
     'Output the amended plan with the same sections as before (Approach, Files, Steps, Acceptance criteria, Risks), then a final section:',
     '## Reconciliation — one line per finding: ACCEPTED or REJECTED, and why, in under 20 words each.',
+    names ? `The Reconciliation section is shown to the user as your reply to ${names.reviewer} in a chat: begin it with one short, plain line addressed to ${names.reviewer} by name (for example "Good catch, ${names.reviewer} — taking that." or "${names.reviewer}, keeping this one, because…").` : '',
     'Do not add work the task did not ask for. Keep it under 600 words.',
   ]
     .filter(Boolean)

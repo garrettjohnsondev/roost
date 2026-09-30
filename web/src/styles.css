@@ -3955,3 +3955,5 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 @media (prefers-reduced-motion: reduce) { .crew-sprite.dressed-work img, .crew-sprite.dressed-work .work-spark, .crew-sprite.dressed-work .work-dots i { animation: none; } }
 
 .field .sub-label { display: block; margin-top: 12px; }
+
+.consult-more { display: block; margin-top: 8px; font-size: 14px; }

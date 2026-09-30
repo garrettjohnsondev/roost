@@ -12,6 +12,7 @@ import { segmentsOf, summarizeRun, workSegments } from './toolruns';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import { Contained } from './ErrorBoundary';
 import { openCompanion } from './CompanionSheet';
+import { consultView } from './consultView';
 import { api } from './api';
 import { fmtAgo, shortPath } from './format';
 import { GitSheet } from './GitSheet';
@@ -1577,6 +1578,23 @@ function toBottom(el: HTMLElement) {
   if (Math.abs(el.scrollTop - max) > 1) el.scrollTop = max;
 }
 
+/** One turn of the planning conversation: what this crew member is saying,
+ *  with the full plan behind a tap (consultView.ts). */
+function ConsultTurn({ phase, text }: { phase: string; text: string }) {
+  const [open, setOpen] = useState(false);
+  const v = consultView(phase, text);
+  return (
+    <div className={`consult-msg ${phase}`}>
+      <Markdown text={open && v.more ? `${v.say}\n\n---\n\n${v.more}` : v.say} />
+      {v.more && (
+        <button className="link consult-more" onClick={() => setOpen(!open)}>
+          {open ? 'Hide the plan' : v.moreLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function WorkingIndicator({ session }: { session: SessionState }) {
   const last = session.items[session.items.length - 1];
   const producing = (last?.kind === 'assistant' && !last.complete) || (last?.kind === 'tool' && !last.done);
@@ -2176,7 +2194,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
       const badges = (
         <>
           <span className={`consult-phase ${item.phase}`}>{phaseLabel}</span>
-          {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict}</span>}
+          {verdict && <span className={`verdict-badge ${verdict === 'SOLID' ? 'solid' : 'changes'}`}>{verdict === 'SOLID' ? 'Looks solid' : 'Needs changes'}</span>}
           {item.reviewStrength && (
             <span className="review-strength" title="How independent this reviewer is from the author">{STRENGTH_WORDS[item.reviewStrength] ?? item.reviewStrength}</span>
           )}
@@ -2187,9 +2205,7 @@ function Message({ item, crew, chapterCrew, me, fresh = false, aside = false, as
           <>
             {item.phase === 'handoff' && item.from && <HandoffPass from={item.from} to={item.crew} fresh={fresh} />}
             <CrewRow crew={item.crew} pose="idle" head={badges}>
-              <div className={`consult-msg ${item.phase}`}>
-                <Markdown text={item.text} />
-              </div>
+              <ConsultTurn phase={item.phase} text={item.text} />
             </CrewRow>
           </>
         );

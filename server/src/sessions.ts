@@ -1263,6 +1263,7 @@ export class Session {
     // Unknown size runs the full conference: the gate never skips on a guess.
     const sized = this.sizeGate ? await triage(task, this.agent, this.autoRoute.light?.model, (d) => this.ledgerCall(d, 'triage')) : null;
     const skipReview = sized?.size === 'small';
+    const names = { planner: crewMember(this.agent, plannerModel, 'planner').name, reviewer: crewMember(other, reviewerModel, 'reviewer').name };
     logDecision({ kind: 'review', sessionId: this.id, planner: { agent: this.agent, model: plannerModel }, reviewer: { agent: other, model: reviewerModel }, strength: resolved.strength, size: sized?.size ?? null, skipped: skipReview });
     try {
       const context = this.transcript
@@ -1298,7 +1299,7 @@ export class Session {
       } else {
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is reviewing the plan (${strengthLabel.toLowerCase()})…`, ts: now() });
         try {
-          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan, criteria), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, plan, criteria, names), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
           critique = sanitizeAgentOutput(await this.activeConsult.promise).text;
         } catch (err: any) {
           if (this.consultCancelled) throw err;
@@ -1318,7 +1319,7 @@ export class Session {
       while (!skipReview && rounds < this.maxReviewRounds && !currentCritique.startsWith('(Critique unavailable')) {
         rounds += 1;
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(this.agent, plannerModel, 'planner').name} is reconciling the review against the requirements…`, ts: now() });
-        this.activeConsult = startConsultStep(this.agent, this.cwd, composeReconcilePrompt(task, reconciled, currentCritique, criteria), plannerModel, 'reconcile', (d) => this.ledgerCall(d, 'reconcile'));
+        this.activeConsult = startConsultStep(this.agent, this.cwd, composeReconcilePrompt(task, reconciled, currentCritique, criteria, names), plannerModel, 'reconcile', (d) => this.ledgerCall(d, 'reconcile'));
         reconciled = sanitizeAgentOutput(await this.activeConsult.promise).text;
         this.pushEvent({ type: 'consult', phase: 'reconcile', agent: this.agent, crew: crewMember(this.agent, plannerModel, 'planner'), text: reconciled, ts: now() });
         planFile = { ...planFile, critique: currentCritique, reconciled, rounds, updatedAt: now() };
@@ -1328,7 +1329,7 @@ export class Session {
         if (!needsChanges || rounds >= this.maxReviewRounds) break;
         this.pushEvent({ type: 'status', state: 'working', message: `${crewMember(other, reviewerModel, 'reviewer').name} is re-reviewing (round ${rounds + 1})…`, ts: now() });
         try {
-          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, reconciled, criteria), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
+          this.activeConsult = startConsultStep(other, this.cwd, composeCriticPrompt(task, reconciled, criteria, names), reviewerModel, 'critique', (d) => this.ledgerCall(d, 'review'));
           currentCritique = sanitizeAgentOutput(await this.activeConsult.promise).text;
           this.pushEvent({ type: 'consult', phase: 'critique', agent: other, crew: crewMember(other, reviewerModel, 'reviewer'), reviewStrength: strengthLabel, text: currentCritique, ts: now() });
         } catch (err: any) {
