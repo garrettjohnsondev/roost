@@ -3,6 +3,7 @@ import { useOutfitTier } from './outfits';
 import { useDevMode } from './devMode';
 import { PAINT_FILTER, anchorFor, useLook } from './economy/looks';
 import { buzz } from './haptics';
+import { NotifyNudge } from './NotifyNudge';
 import { rotFor, expiringBlocks, typeSteps, typeDurationMs, thinkBeatMs, effortWord, asleepOnIdle } from './motion';
 import { nameColor } from './color';
 import { chaptersOf, groupChaptersByDay, type Chapter } from './chapters';
@@ -773,6 +774,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
           <WorkingIndicator session={session} />
         )}
         {session.status === 'connecting' && !session.closedReason && <div className="working-indicator">starting agent…</div>}
+        {!fixture && <NotifyNudge status={session.status} enabledAtStart={Boolean(config.notifications?.topic)} />}
       </div>
       {unseen > 0 && (
         <button className="new-below" onClick={jumpDown}>

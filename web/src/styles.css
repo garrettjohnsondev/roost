@@ -3983,3 +3983,15 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .hs-card ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
 .hs-key { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; vertical-align: middle; font-weight: 700; }
 .welcome-choices { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+/* "Want a buzz on your phone?" after a finished job (NotifyNudge.tsx). */
+.notify-nudge { display:flex; gap:12px; align-items:flex-start; margin:12px 0; padding:12px 14px; border:1px solid var(--seam); border-radius:2px; background:var(--surface-2); }
+.notify-nudge img { width:44px; height:44px; image-rendering:pixelated; flex:none; }
+.notify-nudge > div { display:flex; flex-direction:column; gap:4px; }
+.notify-nudge span { color:var(--muted); font-size:0.92em; }
+.notify-nudge-actions { display:flex; gap:12px; align-items:center; margin-top:6px; }
+.notify-steps { padding-left:1.2em; display:flex; flex-direction:column; gap:14px; margin:12px 0; }
+.notify-steps li > span { display:block; margin-bottom:6px; }
+.notify-topic-row { display:flex; gap:8px; align-items:center; }
+.notify-topic-row code { flex:1; overflow-wrap:anywhere; }
+.notify-steps a.chip { text-decoration:none; display:inline-block; }

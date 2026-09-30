@@ -1,3 +1,4 @@
+import { randomTopic } from './NotifyNudge';
 import { useEffect, useState } from 'react';
 import { setDevMode, useDevMode } from './devMode';
 import { CrewEditor } from './CrewEditor';
@@ -7,11 +8,6 @@ import { AvatarPicker } from './AvatarPicker';
 import { ClaudeSignIn } from './ClaudeSignIn';
 import type { NotificationConfig, ModelsResponse, Me } from './types';
 
-function randomTopic(): string {
-  const bytes = new Uint8Array(6);
-  crypto.getRandomValues(bytes);
-  return 'roost-' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 /** Dev mode (#52): show the machinery instead of folding it away. */
 function DevModeSetting() {
