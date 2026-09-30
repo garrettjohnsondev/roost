@@ -264,6 +264,18 @@ switch (command) {
     console.log('3/5  promoting it to the current release');
     const meta = promote();
     console.log(`     ${meta.commit} — ${meta.subject}`);
+    // A deploy run by hand (or by the crew in a chat) is still a deploy: log
+    // it where the app's Deploy button looks, or the chat keeps offering to
+    // ship what is already live (2026-09-29).
+    try {
+      const store = join(repoRoot, '.roost-data', 'deploy.json');
+      const s = existsSync(store) ? JSON.parse(readFileSync(store, 'utf8')) : {};
+      const now = Date.now();
+      s.recipes ??= {};
+      s.lastRuns = { ...(s.lastRuns ?? {}), [repoRoot]: { phase: 'passed', command: 'node scripts/service.mjs install', check: null, startedAt: now, endedAt: now, exitCode: 0, output: `${meta.commit} — ${meta.subject}` } };
+      writeFileSync(store + '.tmp', JSON.stringify(s, null, 2));
+      renameSync(store + '.tmp', store);
+    } catch { /* the deploy happened either way */ }
 
     // Steps 4–5 restart the server this script may be running under (a deploy
     // run by an agent inside Roost is the server's descendant). They run in a
