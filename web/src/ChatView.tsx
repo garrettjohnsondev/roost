@@ -242,6 +242,18 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // arrives meanwhile is counted on a pill that takes you back down. Pinned
   // is a ref, not state: it changes on every scroll tick and must not re-render.
   const pinned = useRef(true);
+  // After a reply ends the thread can SHRINK (typing dots leave, a job folds
+  // into its chapter). iPhone Safari then left the view scrolled past the end:
+  // a blank screen with the messages above (2026-09-29). Aim at the exact
+  // last position, and repaint if we were beyond it.
+  const settleTimers = useRef<number[]>([]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    for (const t of settleTimers.current) clearTimeout(t);
+    if (!el || session.status === 'working') return;
+    settleTimers.current = [120, 450, 1200].map((ms) => window.setTimeout(() => { if (pinned.current) toBottom(el); }, ms));
+    return () => { for (const t of settleTimers.current) clearTimeout(t); };
+  }, [session.status]);
   const seenCount = useRef(0);
   const [unseen, setUnseen] = useState(0);
 
@@ -268,8 +280,8 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
         glidingUntil.current = Date.now() + 700;
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
         // Land exactly on the bottom even if the thread grew during the glide.
-        setTimeout(() => { if (pinned.current) el.scrollTop = el.scrollHeight; }, 720);
-      } else el.scrollTop = el.scrollHeight;
+        setTimeout(() => { if (pinned.current) toBottom(el); }, 720);
+      } else toBottom(el);
       if (session.items.length) placed.current = true;
       seenCount.current = session.items.length;
       if (unseen) setUnseen(0);
@@ -286,7 +298,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const glue = () => { if (pinned.current && Date.now() >= glidingUntil.current) el.scrollTop = el.scrollHeight; };
+    const glue = () => { if (pinned.current && Date.now() >= glidingUntil.current) toBottom(el); };
     const ro = new ResizeObserver(glue);
     // The box itself too: a card appearing under the thread (Deploy?, the
     // working line, the composer growing) shrinks the visible area, which
@@ -308,7 +320,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     const el = scrollRef.current;
     if (!el || !window.visualViewport) return;
     const onResize = () => {
-      if (pinned.current) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+      if (pinned.current) requestAnimationFrame(() => { toBottom(el); });
     };
     window.visualViewport.addEventListener('resize', onResize);
     return () => window.visualViewport?.removeEventListener('resize', onResize);
@@ -335,7 +347,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (!atBottom && Date.now() < glidingUntil.current) return;
     if (!atBottom && pinned.current && Date.now() - touchedAt.current > 1500) {
-      el.scrollTop = el.scrollHeight;
+      toBottom(el);
       return;
     }
     pinned.current = atBottom;
@@ -347,7 +359,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   const jumpDown = () => {
     pinned.current = true;
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) toBottom(el);
     seenCount.current = session.items.length;
     setUnseen(0);
   };
@@ -1514,6 +1526,14 @@ function doingNow(name: string, last: ChatItem | undefined): string {
   }
   if (last?.kind === 'assistant' && !last.complete) return `${name} is writing…`;
   return `${name} is thinking…`;
+}
+
+/** Scroll a thread to its true last position. Past it (the thread just got
+ *  shorter) iOS can keep painting blank space, so step back in, then land. */
+function toBottom(el: HTMLElement) {
+  const max = Math.max(0, el.scrollHeight - el.clientHeight);
+  if (el.scrollTop > max + 1) el.scrollTop = Math.max(0, max - 1);
+  if (Math.abs(el.scrollTop - max) > 1) el.scrollTop = max;
 }
 
 function WorkingIndicator({ session }: { session: SessionState }) {

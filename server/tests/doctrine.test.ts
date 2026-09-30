@@ -681,7 +681,7 @@ describe('the thread follows the work only while you are at the bottom', () => {
   // jumps me down when there's something new."
   const c = read('web/src/ChatView.tsx');
   it('auto-scrolls only when pinned, and counts what arrives otherwise', () => {
-    expect(c).toMatch(/if \(pinned\.current\) \{[\s\S]{0,700}el\.scrollTo\(\{ top: el\.scrollHeight, behavior: 'smooth' \}\)[\s\S]{0,260}else el\.scrollTop = el\.scrollHeight;/); // glides after the first placement (2026-09-28)
+    expect(c).toMatch(/if \(pinned\.current\) \{[\s\S]{0,700}el\.scrollTo\(\{ top: el\.scrollHeight, behavior: 'smooth' \}\)[\s\S]{0,260}else toBottom\(el\);/); // glides after the first placement (2026-09-28)
     // Our own glide can't unpin you, and sending re-pins (2026-09-28).
     // Glide only on your own send; size changes snap while pinned (2026-09-29).
     expect(c).toMatch(/const smooth = false && placed\.current && lastIsYours/);
