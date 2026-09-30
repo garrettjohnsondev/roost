@@ -257,7 +257,9 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       // the end of a reply (typing bubble out, reply in, the job folding)
       // no longer bounces the view up and back down (2026-09-29).
       const lastIsYours = session.items[session.items.length - 1]?.kind === 'user';
-      const smooth = placed.current && lastIsYours && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      // No glides at all now: every change snaps, and the bubbles' own grow-in
+      // animations carry the motion ("still jumping around crazy").
+      const smooth = false && placed.current && lastIsYours;
       if (smooth) {
         glidingUntil.current = Date.now() + 700;
         el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
@@ -282,6 +284,10 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     if (!el || typeof ResizeObserver === 'undefined') return;
     const glue = () => { if (pinned.current && Date.now() >= glidingUntil.current) el.scrollTop = el.scrollHeight; };
     const ro = new ResizeObserver(glue);
+    // The box itself too: a card appearing under the thread (Deploy?, the
+    // working line, the composer growing) shrinks the visible area, which
+    // hid the last lines until the next update pulled them back.
+    ro.observe(el);
     const watch = () => { for (const c of Array.from(el.children)) ro.observe(c); };
     watch();
     const mo = new MutationObserver(() => { watch(); glue(); });
