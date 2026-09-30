@@ -3974,3 +3974,12 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 /* 2026-09-30: the crew picker's round, clipped avatar shares this class name,
    and in the thread it cut off ears and hats whenever a sprite bobbed. */
 .messages .crew-row-face, .working-indicator .crew-row-face { border-radius: 0; overflow: visible; }
+
+/* First run (2026-09-30): add to home screen, drawn; first project. */
+.hs-how { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 6px; text-align: left; }
+.hs-card { border: 2px solid var(--seam, #2a3358); border-radius: 2px; padding: 10px 10px 6px; opacity: 0.75; }
+.hs-card.on { border-color: var(--accent, #f5b93a); opacity: 1; }
+.hs-os { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent, #f5b93a); margin-bottom: 6px; }
+.hs-card ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.hs-key { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; vertical-align: middle; font-weight: 700; }
+.welcome-choices { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }

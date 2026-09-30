@@ -945,7 +945,9 @@ app.post('/api/client-error', (req, res) => {
 });
 
 app.get('/api/me', (_req, res) => {
-  res.json({ me: loadMe() });
+  // `set`: someone has actually told us their name. The default reads "You",
+  // which hid the first-run welcome from every new install (2026-09-30).
+  res.json({ me: loadMe(), set: existsSync(join(dataDir(), 'me.json')) });
 });
 
 app.post('/api/me', (req, res) => {

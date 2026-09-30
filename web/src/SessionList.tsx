@@ -166,7 +166,7 @@ interface Resumable {
   updatedAt: number;
 }
 
-function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => void }) {
+export function FolderBrowser(props: { onPick: (path: string) => void; onClose: () => void }) {
   const [dir, setDir] = useState<{
     path: string;
     parent: string | null;
@@ -247,6 +247,8 @@ export function SessionList(props: {
   useEffect(() => { api.onDeck().then((r) => setOnDeck(r.onDeck)).catch(() => {}); }, []);
   const [showSettings, setShowSettings] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
+  const [openedFresh, setOpenedFresh] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [agent, setAgent] = useState<AgentKind>('claude');
   // A configured project outranks the bare external volume: first run used to
   // land on a disk root with "Start session" pointed at it.
@@ -275,7 +277,7 @@ export function SessionList(props: {
         if (alive && tries > 1) setTimeout(() => retry(call, done, tries - 1), 1000);
       });
     };
-    retry(api.sessions, (r) => setSessions(r.sessions));
+    retry(api.sessions, (r) => { setSessions(r.sessions); setSessionsLoaded(true); });
     retry(api.gitSummaries, (r) => setGitSummaries(r.summaries));
     retry(api.recent, (r) => {
       setRecent(r.projects);
@@ -353,6 +355,99 @@ export function SessionList(props: {
   const activeCwds = new Set(sessions.map((s) => s.cwd));
   const visibleRecent = (recent ?? []).filter((p) => !activeCwds.has(p.path));
 
+  // A new install has no open chats: the one thing to do is start one, so the
+  // card leads the page, already open (2026-09-30 cold-install walkthrough:
+  // it sat collapsed at the very bottom).
+  const fresh = sessionsLoaded && sessions.length === 0;
+  useEffect(() => { if (fresh && !openedFresh) { setShowNewSession(true); setOpenedFresh(true); } }, [fresh, openedFresh]);
+  const startCard = (
+      <section className="card">
+        <button className="new-session-toggle" onClick={() => setShowNewSession((v) => !v)}>
+          <h2>Start something</h2>
+          <span className="ghost">{showNewSession ? '︿' : '﹀'}</span>
+        </button>
+        {showNewSession && (
+          <>
+            <div className="field">
+              <label>Agent</label>
+              <div className="segmented">
+                {(['claude', 'codex'] as const).map((a) => (
+                  <button key={a} className={agent === a ? 'seg active' : 'seg'} onClick={() => setAgent(a)}>
+                    {a === 'claude' ? 'Claude Code' : 'Codex'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="field">
+              <label>Project</label>
+              <div className="project-row">
+                <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
+                  {projects.map((p) => (
+                    <option key={p} value={p}>
+                      {shortPath(p)}
+                    </option>
+                  ))}
+                </select>
+                <button className="chip" onClick={() => setShowBrowser(true)}>
+                  ＋ Add
+                </button>
+                <button className="chip" onClick={() => setShowNewProject(true)}>
+                  New
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <label>Model</label>
+              <div className="chips">
+                <button className={model === 'auto' ? 'chip active' : 'chip'} onClick={() => setModel('auto')}>
+                  <Icon name="bolt" /> Auto
+                </button>
+                {agentConfig.models.map((m) => (
+                  <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
+                    {m.label}
+                  </button>
+                ))}
+                {!agentConfig.models.some((m) => m.id === 'default') && (
+                  <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
+                    default
+                  </button>
+                )}
+              </div>
+            </div>
+            {resumable.length > 0 && (
+              <div className="field">
+                <label>Continue a previous session</label>
+                <div className="resume-list">
+                  <button className={resume === null ? 'resume-row active' : 'resume-row'} onClick={() => setResume(null)}>
+                    <span className="resume-title">Start fresh</span>
+                  </button>
+                  {visibleResumable.map((s) => (
+                    <button
+                      key={s.id}
+                      className={resume?.id === s.id ? 'resume-row active' : 'resume-row'}
+                      onClick={() => setResume(s)}
+                    >
+                      <span className="resume-title">{s.title}</span>
+                      <span className="resume-time">{fmtAgo(s.updatedAt)}</span>
+                    </button>
+                  ))}
+                  {resumable.length > 5 && !showAllResumable && (
+                    <button className="link" onClick={() => setShowAllResumable(true)}>
+                      Show {resumable.length - 5} more
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {error && <div className="error-note">{error}</div>}
+            <button className="primary" disabled={busy || !cwd} onClick={create}>
+              {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
+            </button>
+          </>
+        )}
+      </section>
+  );
+
   return (
     <div className="page">
       <header className="page-header">
@@ -379,6 +474,7 @@ export function SessionList(props: {
       </header>
 
       <ClaudeAuthBanner />
+      {fresh && startCard}
       <UpdateCard />
       <ModelNewsCard onOpen={onOpen} />
       <CrewStrip sessions={sessions} />
@@ -474,91 +570,7 @@ export function SessionList(props: {
         </section>
       )}
 
-      <section className="card">
-        <button className="new-session-toggle" onClick={() => setShowNewSession((v) => !v)}>
-          <h2>Start something</h2>
-          <span className="ghost">{showNewSession ? '︿' : '﹀'}</span>
-        </button>
-        {showNewSession && (
-          <>
-            <div className="field">
-              <label>Agent</label>
-              <div className="segmented">
-                {(['claude', 'codex'] as const).map((a) => (
-                  <button key={a} className={agent === a ? 'seg active' : 'seg'} onClick={() => setAgent(a)}>
-                    {a === 'claude' ? 'Claude Code' : 'Codex'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="field">
-              <label>Project</label>
-              <div className="project-row">
-                <select value={cwd} onChange={(e) => setCwd(e.target.value)}>
-                  {projects.map((p) => (
-                    <option key={p} value={p}>
-                      {shortPath(p)}
-                    </option>
-                  ))}
-                </select>
-                <button className="chip" onClick={() => setShowBrowser(true)}>
-                  ＋ Add
-                </button>
-                <button className="chip" onClick={() => setShowNewProject(true)}>
-                  New
-                </button>
-              </div>
-            </div>
-            <div className="field">
-              <label>Model</label>
-              <div className="chips">
-                <button className={model === 'auto' ? 'chip active' : 'chip'} onClick={() => setModel('auto')}>
-                  <Icon name="bolt" /> Auto
-                </button>
-                {agentConfig.models.map((m) => (
-                  <button key={m.id} className={model === m.id ? 'chip active' : 'chip'} onClick={() => setModel(m.id)}>
-                    {m.label}
-                  </button>
-                ))}
-                {!agentConfig.models.some((m) => m.id === 'default') && (
-                  <button className={model === '' ? 'chip active' : 'chip'} onClick={() => setModel('')}>
-                    default
-                  </button>
-                )}
-              </div>
-            </div>
-            {resumable.length > 0 && (
-              <div className="field">
-                <label>Continue a previous session</label>
-                <div className="resume-list">
-                  <button className={resume === null ? 'resume-row active' : 'resume-row'} onClick={() => setResume(null)}>
-                    <span className="resume-title">Start fresh</span>
-                  </button>
-                  {visibleResumable.map((s) => (
-                    <button
-                      key={s.id}
-                      className={resume?.id === s.id ? 'resume-row active' : 'resume-row'}
-                      onClick={() => setResume(s)}
-                    >
-                      <span className="resume-title">{s.title}</span>
-                      <span className="resume-time">{fmtAgo(s.updatedAt)}</span>
-                    </button>
-                  ))}
-                  {resumable.length > 5 && !showAllResumable && (
-                    <button className="link" onClick={() => setShowAllResumable(true)}>
-                      Show {resumable.length - 5} more
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-            {error && <div className="error-note">{error}</div>}
-            <button className="primary" disabled={busy || !cwd} onClick={create}>
-              {busy ? 'Starting…' : resume ? 'Resume session' : 'Start session'}
-            </button>
-          </>
-        )}
-      </section>
+      {!fresh && startCard}
 
       {showNewProject && (
         <NewProjectSheet
@@ -717,7 +729,7 @@ function ProjectUsageCard() {
 
 /** A new project from the phone (#45): a folder next to your other projects,
  *  a first commit, and a GitHub repo if you want one. */
-function NewProjectSheet({ onClose, onMade }: { onClose: () => void; onMade: (path: string, projects: string[]) => void }) {
+export function NewProjectSheet({ onClose, onMade }: { onClose: () => void; onMade: (path: string, projects: string[]) => void }) {
   const [name, setName] = useState('');
   const [blurb, setBlurb] = useState('');
   const [vis, setVis] = useState<'private' | 'public' | 'none'>('private');
@@ -873,6 +885,10 @@ function Greeting() {
     const d = new Date();
     const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     api.visit(day).then(setStreak).catch(() => {});
+    // Named in the welcome: greet them by it straight away (2026-09-30).
+    const onName = (e: Event) => setName((e as CustomEvent<string>).detail);
+    window.addEventListener('roost:me', onName);
+    return () => window.removeEventListener('roost:me', onName);
   }, []);
   const h = new Date().getHours();
   const hello = h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Up late';

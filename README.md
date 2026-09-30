@@ -120,6 +120,14 @@ You don't need both Claude and Codex — either one works on its own. Tell Roost
 
 **Is this maintained?** Yes. Releases are tagged, updates are one tap, and every change is tested on Mac, Windows and Linux. [Issues and ideas are welcome](../../issues).
 
+## Getting started
+
+<p align="center">
+  <img src="docs/readme/getting-started.png" alt="Getting started in five steps: ask your AI to install Roost, connect your Claude or Codex plan, scan the QR code on your phone, add Roost to your Home Screen (iPhone: Share, Add to Home Screen; Android: menu, Add to Home screen), then pick a project and say what to build" width="100%">
+</p>
+
+**Don't skip step 4.** Added to your Home Screen, Roost opens full screen like an app, stays signed in, and can buzz you when the crew needs you. The first time you open it, a short welcome walks you through your name, your plan and your first project.
+
 ## Install it yourself
 
 Prefer to do it by hand? You need **Node 20+**, **git**, at least one of **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex](https://github.com/openai/codex)** signed in, and **[Tailscale](https://tailscale.com/download)** (free) on your computer and your phone.

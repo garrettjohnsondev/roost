@@ -100,7 +100,10 @@ function FuelSummary({ usage, prev, onExpand }: { usage: UsageSnapshot; prev: Us
         <h2>Fuel</h2>
         <button className="chip" onClick={onExpand}>Details</button>
       </div>
-      {rows.map(({ agent, u, tight, was }) => (
+      {/* Nothing measured yet (a new install): say when it fills in, rather
+          than two rows of "no data" that read as broken (2026-09-30). */}
+      {!rows.some((r) => r.tight) && <p className="section-hint">Fills in after your first job: how much of your plan's week is left.</p>}
+      {rows.some((r) => r.tight) && rows.map(({ agent, u, tight, was }) => (
         <div key={agent} className={`fuel-row${u.headroom === 'stale' ? ' usage-window-stale' : ''}`}>
           <div className="fuel-row-top">
             <span className={`fuel-agent ${agent}`}>{agent}</span>

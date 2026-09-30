@@ -86,7 +86,7 @@ export function App() {
       ) : (
         <SessionList config={config} onOpen={setActiveSession} theme={theme} onThemeChange={setTheme} onArcade={() => setArcade(true)} />
       )}
-      {welcome && <Welcome onDone={doneWelcome} />}
+      {welcome && <Welcome onDone={doneWelcome} onOpen={setActiveSession} />}
       {/* A crew member's card, from any face you tap (item 40). */}
       <CompanionHost />
     </>

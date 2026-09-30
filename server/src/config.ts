@@ -106,7 +106,9 @@ export interface RoostConfig {
 
 const DEFAULTS: RoostConfig = {
   port: 8790,
-  projects: [process.cwd()],
+  // None until you pick one: the default used to be Roost's own folder, so a
+  // new install's first chat worked on Roost itself (2026-09-30).
+  projects: [],
   sessionIdleTimeoutHours: 24,
   notifications: { url: 'https://ntfy.sh', topic: '' },
   autoRoute: {
