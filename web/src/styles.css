@@ -3953,3 +3953,5 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .crew-sprite.dressed-work .work-dots i:nth-child(2) { animation-delay: 0.4s; }
 .crew-sprite.dressed-work .work-dots i:nth-child(3) { animation-delay: 0.8s; }
 @media (prefers-reduced-motion: reduce) { .crew-sprite.dressed-work img, .crew-sprite.dressed-work .work-spark, .crew-sprite.dressed-work .work-dots i { animation: none; } }
+
+.field .sub-label { display: block; margin-top: 12px; }

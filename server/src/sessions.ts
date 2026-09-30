@@ -95,6 +95,7 @@ interface SessionOpts {
     jobAsk?: string;
     jobsDone?: string[];
       builder?: Builder;
+      builderModel?: string;
     sticky?: string;
     sessionAllowedTools?: string[];
   };
@@ -146,6 +147,7 @@ export class Session {
   private lastSurplusKey = '';
   /** Naming after the work (naming.ts). titleAuto is false once a person types a title. */
   builder: Builder = 'auto';
+  builderModel = 'auto';
   sticky?: string;
   titleAuto = true;
   jobAsk?: string;
@@ -257,6 +259,7 @@ export class Session {
     this.ask = opts.restore?.ask ?? 'quick';
     this.titleAuto = opts.restore?.titleAuto ?? (this.title === 'New session');
     this.builder = opts.restore?.builder ?? 'auto';
+    this.builderModel = opts.restore?.builderModel ?? 'auto';
     this.sticky = opts.restore?.sticky;
     this.sessionAllowedTools = opts.restore?.sessionAllowedTools ?? [];
     this.jobAsk = opts.restore?.jobAsk;
@@ -430,6 +433,7 @@ export class Session {
       planPath: this.pendingConsult?.planPath,
       planHasRemainder: this.pendingConsult ? hasRemainder(this.pendingConsult) : undefined,
       builder: this.builder,
+      builderModel: this.builderModel,
       sticky: this.sticky,
       agentSessionId: this.agentSessionId,
       resumedFrom: this.resumedFrom,
@@ -1063,7 +1067,7 @@ export class Session {
         const pick = this.chooseBuilder();
         logDecision({ kind: 'route', sessionId: this.id, stage: 'build', agent: pick.agent, builder: this.builder, reason: pick.reason });
         if (pick.agent !== this.agent) {
-          const name = personaFor(pick.agent, this.otherAutoRoute.heavy.model).name;
+          const name = personaFor(pick.agent, this.builderModel !== 'auto' ? this.builderModel : this.otherAutoRoute.heavy.model).name;
           this.notice(`Pip sent the build to ${name} on ${pick.agent} — ${pick.reason}.`);
           this.proceeding = true;
           this.crossBuild = true;
@@ -1176,6 +1180,11 @@ export class Session {
         break;
       case 'set_sticky':
         this.sticky = msg.name ?? undefined;
+        this.onChange?.();
+        this.broadcastMeta();
+        break;
+      case 'set_builder_model':
+        this.builderModel = typeof msg.model === 'string' && msg.model ? msg.model : 'auto';
         this.onChange?.();
         this.broadcastMeta();
         break;
@@ -1859,6 +1868,7 @@ interface PersistedSession {
   ask?: AskLevel;
   autoCompact?: boolean;
   builder?: Builder;
+  builderModel?: string;
   sticky?: string;
   titleAuto?: boolean;
   jobAsk?: string;
@@ -1922,6 +1932,7 @@ export class SessionManager {
       ask: s.ask,
       titleAuto: s.titleAuto,
       builder: s.builder,
+      builderModel: s.builderModel,
       sticky: s.sticky,
       jobAsk: s.jobAsk,
       jobsDone: s.jobsDone,
@@ -1984,6 +1995,7 @@ export class SessionManager {
             ask: entry.ask,
             titleAuto: entry.titleAuto,
             builder: entry.builder,
+            builderModel: entry.builderModel,
             sticky: entry.sticky,
             jobAsk: entry.jobAsk,
             jobsDone: entry.jobsDone,

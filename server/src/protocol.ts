@@ -47,6 +47,8 @@ export type ClientMessage =
   | { type: 'verify'; review?: boolean; criteria?: string }
   | { type: 'set_mode'; mode: SessionMode }
   | { type: 'set_builder'; builder: Builder }
+  /** The model the chosen other-vendor builder uses; 'auto' lets Pip pick (2026-09-29). */
+  | { type: 'set_builder_model'; model: string }
   | { type: 'park_remainder' }
   | { type: 'set_sticky'; name: string | null }
   | { type: 'context_action'; action: 'compact' | 'handoff'; remember?: boolean; to?: string }
@@ -178,6 +180,7 @@ export interface SessionMeta {
    *  until cleared (2026-09-24). */
   sticky?: string;
   builder?: Builder;
+  builderModel?: string;
   /** Armed when the engine's context is degrading and the person has not been
    *  asked yet at this level. Mirrors consultPending: server decides, UI renders. */
   contextOffer?: { reason: string; percent: number | null };

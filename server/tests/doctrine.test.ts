@@ -970,7 +970,8 @@ describe('the builder is the vendor with room -- item 23, the structural half', 
   });
   it('who builds is a per-session setting that survives a restart', () => {
     expect(s).toMatch(/builder: entry\.builder,/);
-    expect(read('web/src/ChatView.tsx')).toMatch(/<label>Who builds<\/label>/);
+    expect(s).toMatch(/builderModel: entry\.builderModel,/); // and with which model (2026-09-29)
+    expect(read('web/src/ChatView.tsx')).toMatch(/<label>Who builds the plan<\/label>/);
   });
 })
 

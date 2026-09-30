@@ -968,8 +968,11 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
               </div>
               <div className="field-hint">{ASK_CHOICES.find(([v]) => v === (session.meta!.ask ?? 'quick'))?.[2]}</div>
             </div>
+            {/* Only when a plan gets built (2026-09-29: "if I click Codex I
+                can't see any models"): otherwise this switch did nothing. */}
+            {(consultMode || session.meta.mode === 'build' || session.meta.mode === 'plan') && (
             <div className="field">
-              <label>Who builds</label>
+              <label>Who builds the plan</label>
               <div className="chips">
                 {(
                   [
@@ -988,10 +991,33 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
                   </button>
                 ))}
               </div>
-              <p className="section-hint">A consulted plan is built by this vendor. The other vendor builds as a one-shot briefed with the plan; the gates run on it the same way.</p>
+              <p className="section-hint">Once you say go, this company's AI builds the plan. The checks run the same either way.</p>
+              {(() => {
+                const b = session.meta!.builder ?? 'auto';
+                if (b === 'auto' || b === agent) return null;
+                const other = config[b];
+                if (!other?.models?.length) return null;
+                const cur = session.meta!.builderModel ?? 'auto';
+                return (
+                  <>
+                    <label className="sub-label">{b === 'codex' ? 'Codex' : 'Claude'} builds with</label>
+                    <div className="chips">
+                      <button className={cur === 'auto' ? 'chip active' : 'chip'} onClick={() => session.send({ type: 'set_builder_model', model: 'auto' })}>
+                        <Icon name="bolt" /> Auto
+                      </button>
+                      {uniqueModels(other.models).map((m) => (
+                        <button key={m.id} title={m.label} className={cur === m.id ? 'chip active' : 'chip'} onClick={() => session.send({ type: 'set_builder_model', model: m.id })}>
+                          {modelName(m.resolvedModel ?? m.id)}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
+            )}
             <div className="field">
-              <label>Model</label>
+              <label>Model for this chat ({agent === 'claude' ? 'Claude' : 'Codex'})</label>
               <div className="chips">
                 <button
                   className={isAuto ? 'chip active' : 'chip'}
