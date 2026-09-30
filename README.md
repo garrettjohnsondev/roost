@@ -23,6 +23,10 @@
   <img src="docs/readme/crew.gif" alt="The crew, idling, typing and cheering" width="760">
 </p>
 
+<p align="center">
+  <a href="docs/readme/roost-demo.mp4"><b>▶ Watch the 50-second demo</b></a> — a real job, from "add dark mode" to live, and Claude and Codex reviewing each other's plan.
+</p>
+
 ---
 
 ## What is Roost?
@@ -46,12 +50,13 @@ It runs quietly on your computer and turns your agents into a friendly crew you 
 
 You don't need both Claude and Codex — either one works on its own. Tell Roost which plan you pay for ($20, $100 or $200) and Pip spends it wisely, and warns you when your week is running hot or cold.
 
-## The benefits, simply
+## Benefits
 
 - **Step away from your desk.** Start a job, go to lunch, approve it from your phone.
-- **Get more from what you already pay for.** Pip matches each task to the right model for your plan.
-- **Stay in control.** Nothing risky happens without your tap. Every job shows its progress: *Plan → Build → Test → Done*.
-- **A second opinion built in.** Big jobs get reviewed by a different company's AI before any code changes.
+- **Get more from what you already pay for.** Pip matches each task to the right model and effort for your plan, and warns you when your week is running hot or cold.
+- **Always on the newest models.** New Claude and Codex models show up on their own, set up the way their makers' docs recommend.
+- **A second opinion built in.** On big jobs, one company's AI writes the plan and the other reviews it — you watch them talk it through.
+- **Stay in control.** Nothing risky happens without your tap. Every job shows *Plan → Build → Test → Done*, and nothing is called done until the tests pass.
 - **Private by design.** It runs on your computer. Your phone reaches it through Tailscale, a private network of just your devices.
 - **Free and open source.** No accounts, no fees — you bring your own Claude or Codex plan. Roost never sees your code, keys or bill.
 
@@ -66,12 +71,22 @@ You don't need both Claude and Codex — either one works on its own. Tell Roost
 - **Type `/`** for quick actions: `/plan` (plan first, nothing changes until you say go), `/deploy`, `/next` (what's left), `/pip` and `/help`.
 - **Tap any face** to see who they are, how they're feeling, and what they're wearing.
 
-## What's inside
+## Features
 
 **A crew, not a chat log**
 - Twelve pixel-art characters, each tied to a real model, with moods, levels and a wardrobe they earn from real work.
 - Every job reads like a story, with a big **VERIFIED** stamp when the checks pass.
 - "Where we left off" and "what's next" for every project, with one-tap **Continue**.
+
+**Claude and Codex, working together**
+- Pip, the AI project manager, sends every message to the right crew member, model and effort.
+- *Plan first* on big jobs: one company's AI writes the plan, the other pushes back, the first answers — and nothing is built until you tap Proceed.
+- `@` anyone on the crew, Claude or Codex, from the same chat.
+
+**Always current**
+- Roost keeps Claude's and Codex's own software up to date, so new models appear by themselves.
+- When a model is new, Roost reads its maker's official docs, applies the recommended effort for each kind of job, and shows you what changed — with a link to every source.
+- Roost updates itself from tagged releases, with one tap, and rolls back if a new version fails its checks.
 
 **Ship from your phone**
 - Live preview of your app, git changes and history, and a Deploy button that waits for you when the checks pass.
