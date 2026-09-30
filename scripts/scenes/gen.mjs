@@ -259,7 +259,12 @@ async function draw(cwd, file, prompt, label, image) {
   // another image, so the reference goes FIRST and a flag closes the list,
   // and the prompt stays the last positional. (First run: "No prompt
   // provided via stdin" for every pose.)
-  const args = ['exec', ...(image ? ['-i', image] : []), '-s', 'workspace-write', '--skip-git-repo-check', '-C', cwd, prompt];
+  // The model only calls image_gen, so a light one does it (2026-09-30: not a
+  // frontier model for drawing). GEN_MODEL overrides.
+  // gpt-6-luna can't reach image_gen (tested 2026-09-30: "did not return an
+  // image"); gpt-6.1-sol, the workhorse -- not frontier Astra -- can.
+  const model = process.env.GEN_MODEL || 'gpt-6.1-sol';
+  const args = ['exec', ...(image ? ['-i', image] : []), '-m', model, '-c', 'model_reasoning_effort="low"', '-s', 'workspace-write', '--skip-git-repo-check', '-C', cwd, prompt];
   const t0 = Date.now();
   try { await run(args, cwd, label); } catch (e) { console.log(`${label}: FAILED ${e.message}`); return; }
   const ok = existsSync(join(cwd, file));
@@ -341,6 +346,32 @@ if (mode === 'poses') {
       const kit = outfitKit(name, tier);
       const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE}\n\nThe attached image is this exact character's idle frame. Draw the SAME character in the SAME idle pose -- identical body shape, colours, outline weight, eye style, proportions, features, position and size in the frame -- and ADD ONLY these accessories, drawn in the same chunky pixel-art style with the same dark one-pixel outline: ${kit}. The accessories are the ONLY difference from the attached frame; the body colour stays exactly as attached.\n\n${r.desc}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; it must share EXACTLY the same colours and features as the attached frame. Use the image_gen tool directly with the attached image as the reference; do not write code.`;
       await draw(cwd, file, prompt, `${name}/tier${tier}`, existsSync(ref) ? ref : undefined);
+    }
+  }
+} else if (mode === 'outfitwork') {
+  // Dressed crew keep their animations (2026-09-30): every working pose -- the
+  // typing and thinking loops, the Done cheer, the ten phase-bar poses --
+  // drawn again WEARING the tier's outfit, from the tier's own idle drawing.
+  //   node scripts/scenes/gen.mjs outfitwork ollie:4 wren:2 nell:1
+  const BASE = [
+    ['type', 'WORKING HARD at an invisible keyboard: leaning slightly forward, both paws low in front as if typing, eyes looking down, focused'],
+    ['think', 'THINKING: one paw resting on its chin, eyes looking up and to the side, a small pondering expression'],
+    ['cheer', 'CHEERING: both arms thrown straight up in the air in celebration, eyes squeezed into happy curved arcs, a big open smile'],
+  ];
+  const ALL = [...BASE, ...WORK_POSES, ...PHASE_POSES, ...SCENE_POSES];
+  for (const arg of names) {
+    const [name, t] = arg.split(':');
+    const r = ROSTER[name];
+    const tier = Number(t);
+    const ref = join(SPRITE_RAW, 'outfits', name, `${name}-tier${tier}.png`);
+    if (!r || !tier || !existsSync(ref)) { console.log(`${arg}: no roster entry or no tier drawing`); continue; }
+    const cwd = join(SPRITE_RAW, 'outfits', name, `tier${tier}-work`);
+    const kit = outfitKit(name, tier);
+    for (const [pose, how] of ALL) {
+      const file = `${name}-tier${tier}-${pose}.png`;
+      const busy = /staff|crystal ball/i.test(kit) ? ' If the paws are busy with the pose, the staff may lean against the body or be left out and the crystal ball left out; the robe, crown, sunglasses and medallion always stay.' : '';
+      const prompt = `Use your built-in image_gen tool to generate ONE 1024x1024 image.\n\n${STYLE.replace('no clothing,\n', '').replace('no accessories of any kind other than described', 'no accessories other than the outfit described')}\n\nThe attached image is this exact character WEARING ITS OUTFIT (${kit}). Draw the SAME character -- identical body colours, outline weight, eye style, proportions, features AND THE SAME OUTFIT, drawn identically -- in a new pose, standing in the same place and at the same size as in the attached frame so the frames line up when played in sequence. Any prop is small and held close, inside the frame.${busy}\n\n${r.desc}, ${how}. Body: ${r.body}. -> save as ${file}\n\nThis is one frame of a sprite set; it must share EXACTLY the same colours, features and outfit as the attached frame and differ ONLY in the pose and any prop. Use the image_gen tool directly with the attached image as the reference; do not write code.`;
+      await draw(cwd, file, prompt, `${name}/tier${tier}/${pose}`, ref);
     }
   }
 } else if (mode === 'props') {

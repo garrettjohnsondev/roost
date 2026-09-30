@@ -805,6 +805,38 @@ async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Pr
   return done;
 }
 
+// ---- dressed crew art, drawn when someone levels into a new outfit (2026-09-30)
+// Checks every half hour: a crew member whose outfit tier has no dressed
+// working frames gets them drawn (scripts/outfit-art.mjs), one at a time.
+// Owner's machine only: it needs the original drawings in .roost-data/sprite-raw.
+const OUTFIT_LEVELS: Array<[number, number]> = [[15, 4], [10, 3], [6, 2], [3, 1]];
+const outfitTried = new Set<string>();
+let outfitRunning = false;
+function checkOutfitArt(): void {
+  if (outfitRunning || process.env.ROOST_NO_OUTFIT_ART === '1') return;
+  const script = join(checkoutDir(), 'scripts', 'outfit-art.mjs');
+  if (!existsSync(script) || !existsSync(join(dataDir(), 'sprite-raw', 'outfits'))) return;
+  const personas = allPersonas();
+  const life = readLife();
+  const companions = companionsFrom({ names: [...new Set(personas.map((p) => p.name))], ledger: readLedgerRows(), life, now: Date.now(), working: new Set(), profile: () => ({ suite: null, tier: null }), usedPercent: () => ({ vendor: 'claude', percent: null }) } as any);
+  const due: string[] = [];
+  for (const c of companions as Array<{ name: string; level: number }>) {
+    const tier = OUTFIT_LEVELS.find(([lv]) => c.level >= lv)?.[1];
+    const sprite = personas.find((p) => p.name === c.name)?.sprite;
+    if (!tier || !sprite) continue;
+    const key = `${sprite}:${tier}`;
+    if (outfitTried.has(key) || existsSync(join(webRoot(), 'crew', `${sprite}-tier${tier}-type.webp`))) continue;
+    outfitTried.add(key);
+    due.push(key);
+  }
+  if (!due.length) return;
+  outfitRunning = true;
+  console.log(`[roost] drawing dressed frames for ${due.join(', ')}`);
+  const child = spawn(process.execPath, [script, ...due], { cwd: checkoutDir(), detached: true, stdio: 'ignore', windowsHide: true });
+  child.on('exit', () => { outfitRunning = false; });
+  child.unref();
+}
+
 app.get('/api/model-news', (_req, res) => {
   res.json({ news: listNews(dataDir()) });
 });
@@ -1196,5 +1228,7 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
   startRegistryRefresh(config.projects[0] ?? process.cwd(), undefined, () => { freshenLiveRoutes(); void readNewModelDocs(); });
   // New models arrive with new Claude/Codex software: keep it current (2026-09-29).
+  setTimeout(checkOutfitArt, 5 * 60_000).unref?.();
+  setInterval(checkOutfitArt, 30 * 60_000).unref?.();
   startAgentsUpdate(config.projects[0] ?? process.cwd(), () => manager.list().some((s) => s.state === 'working'), freshenLiveRoutes);
 });

@@ -376,8 +376,9 @@ describe('one drawing on screen at a time', () => {
     // (the four-frame working branch returns earlier, item 38)
     const at = s.lastIndexOf(') : (');
     const held = s.slice(at, s.indexOf(')}', at));
-    expect((held.match(/<img/g) ?? []).length).toBe(1);
-    expect(held).not.toMatch(/-idle\.webp/);
+    // one frame component (2026-09-30: CrewFrame, dressed when drawn dressed)
+    expect((held.match(/<CrewFrame/g) ?? []).length).toBe(1);
+    expect(held).not.toMatch(/frame="idle"/);
   });
 
   it('gives each wake-up frame its own window and hides it outside', () => {
@@ -1625,7 +1626,7 @@ describe('the crew, alive (items 38–40)', () => {
   it('a working pose plays four drawings, slower, and falls back to two until all four exist', () => {
     expect(chat).toMatch(/type: \['type', 'type2', 'type3', 'type4'\]/);
     expect(chat).toMatch(/think: \['think', 'think2', 'think3', 'think4'\]/);
-    expect(chat).toMatch(/onError=\{\(\) => \(i === 0 \? setFailed\(true\) : setShort\(true\)\)\}/);
+    expect(chat).toMatch(/onGone=\{\(\) => \(i === 0 \? setFailed\(true\) : setShort\(true\)\)\}/);
     expect(css).toMatch(/\.crew-sprite\.four \{ --frame: 560ms; \}/);
     // one drawing at a time: four windows that tile the cycle
     expect(css).toMatch(/@keyframes work-frame-3 \{ 0%, 74\.99% \{ opacity: 0; \} 75%, 100% \{ opacity: 1; \} \}/);

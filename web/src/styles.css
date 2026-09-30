@@ -3970,3 +3970,7 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 
 /* A new version is ready (2026-09-30): offered, never forced mid-chat. */
 .fresh-banner { position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; padding: 10px 16px; border-radius: 2px; border: 2px solid var(--accent, #f5b93a); background: #0d1124; color: #fff; font: inherit; font-size: 14px; box-shadow: 0 6px 20px #0008; }
+
+/* 2026-09-30: the crew picker's round, clipped avatar shares this class name,
+   and in the thread it cut off ears and hats whenever a sprite bobbed. */
+.messages .crew-row-face, .working-indicator .crew-row-face { border-radius: 0; overflow: visible; }

@@ -2,6 +2,8 @@ import { nameSeed } from './ChatView';
 import { useState } from 'react';
 import { nameColor } from './color';
 import { openCompanion } from './CompanionSheet';
+import { CrewFrame } from './ChatView';
+import { useOutfitTier } from './outfits';
 import { DAY_TWINS, SCENES, isDaytime, sceneName, placeCrew, sceneImage, sceneIndexFor, type Ambient, type Placed } from './scenes';
 import type { CrewInfo } from './types';
 
@@ -45,6 +47,7 @@ export function SceneView({ awake, projectScene, onOverflow }: { awake: Array<{ 
 
 function Seated({ placed: { member, seat, working } }: { placed: Placed }) {
   const [poseMissing, setPoseMissing] = useState(false);
+  const tier = useOutfitTier(member.name);
   const pose = working ? 'type' : poseMissing ? 'idle' : seat.pose;
   // An idle fallback has its paws at its sides; a prop over them would float.
   const prop = working ? 'laptop' : poseMissing ? undefined : seat.prop;
@@ -59,7 +62,8 @@ function Seated({ placed: { member, seat, working } }: { placed: Placed }) {
   return (
     <span className={`seat${flip ? ' flip' : ''}${working ? ' working' : ''}`} style={style} title={`${member.name}${working ? ' — working' : ''} · tap for their card`} onClick={() => openCompanion(member)}>
       {member.sprite ? (
-        <img className="seat-sprite" src={`/crew/${member.sprite}-${pose}.webp`} alt="" onError={() => !poseMissing && setPoseMissing(true)} draggable={false} />
+        // Dressed in their outfit here too (2026-09-30: every scene showed the plain crew).
+        <CrewFrame className="seat-sprite" sprite={member.sprite} frame={pose} tier={tier} onGone={() => !poseMissing && setPoseMissing(true)} />
       ) : (
         <span className="seat-mono" style={{ background: nameColor(member.color) }}>{member.initial}</span>
       )}

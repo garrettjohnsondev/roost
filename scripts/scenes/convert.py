@@ -398,6 +398,65 @@ def itemsheet(args):
     print(f'/tmp/items-{cat}.png')
 
 
+OUTFIT_WORK = ['type', 'type2', 'type3', 'type4', 'think', 'think2', 'think3', 'think4', 'cheer',
+               'look1', 'look2', 'plan1', 'plan2', 'review1', 'review2', 'build1', 'build2', 'test1', 'test2',
+               'sit', 'side', 'hold', 'dance']
+
+
+def outfitwork(args):
+    """Dressed working frames (2026-09-30), drawn by `gen.mjs outfitwork` into
+    sprite-raw/outfits/<name>/tier<N>-work/. 1024 -> 256 by BOX, like the
+    tier idle, then set on the plain frame's foot line for the same pose so
+    dressed and plain frames stand in the same spot. Hue is checked against
+    the tier's own idle drawing. Args: name:tier ..."""
+    for arg in args:
+        name, tier = arg.split(':')
+        ref_raw = SPRITE_RAW / 'outfits' / name / f'{name}-tier{tier}.png'
+        ref_hue = mean_hue(Image.open(ref_raw)) if ref_raw.exists() else None
+        for pose in OUTFIT_WORK:
+            src = SPRITE_RAW / 'outfits' / name / f'tier{tier}-work' / f'{name}-tier{tier}-{pose}.png'
+            if not src.exists():
+                print(f'{name}/tier{tier}/{pose}: missing')
+                continue
+            big = Image.open(src).convert('RGBA')
+            hue = mean_hue(big)
+            gap = hue_gap(hue, ref_hue) if hue is not None and ref_hue is not None else None
+            im = big.resize((256, 256), Image.Resampling.BOX)
+            nb = _bbox(im)
+            if not nb:
+                print(f'{name}/tier{tier}/{pose}: empty, skipped')
+                continue
+            plain = CREW / f'{name}-{pose}.webp'
+            rb = _bbox(Image.open(plain).convert('RGBA')) if plain.exists() else None
+            if rb:
+                part = im.crop(nb)
+                out_im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+                out_im.paste(part, (nb[0], rb[3] - part.height), part)
+                im = out_im
+            im.save(CREW / f'{name}-tier{tier}-{pose}.webp', 'WEBP', lossless=True)
+            flag = ' DRIFT' if gap is not None and gap > 20 else ''
+            print(f'{name}/tier{tier}/{pose}: ok hue_gap={None if gap is None else round(gap, 1)}{flag} transparent={transparent(big)}')
+
+
+def outfitworksheet(args):
+    """Each dressed set beside its plain set, for the eye."""
+    rows = []
+    for arg in args:
+        name, tier = arg.split(':')
+        rows.append([CREW / f'{name}-{p}.webp' for p in OUTFIT_WORK])
+        rows.append([CREW / f'{name}-tier{tier}-{p}.webp' for p in OUTFIT_WORK])
+    out = Image.new('RGBA', (96 * len(OUTFIT_WORK), 96 * len(rows)), (20, 24, 48, 255))
+    for r, row in enumerate(rows):
+        for c, f in enumerate(row):
+            if f.exists():
+                im = Image.open(f).convert('RGBA').resize((96, 96), Image.Resampling.NEAREST)
+                out.paste(im, (96 * c, 96 * r), im)
+    dest = Path('/tmp/roost-shots/outfitwork-sheet.png')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    out.save(dest)
+    print(f'sheet: {dest}')
+
+
 if __name__ == '__main__':
     mode, *rest = sys.argv[1:]
-    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet, 'outfits': outfits, 'outfitsheet': outfitsheet, 'items': items, 'itemsheet': itemsheet}[mode](rest)
+    {'poses': poses, 'scene': scene, 'props': props, 'sheet': sheet, 'work': work, 'worksheet': worksheet, 'phase': phase, 'phasesheet': phasesheet, 'outfits': outfits, 'outfitsheet': outfitsheet, 'items': items, 'itemsheet': itemsheet, 'outfitwork': outfitwork, 'outfitworksheet': outfitworksheet}[mode](rest)

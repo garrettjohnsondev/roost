@@ -1246,6 +1246,19 @@ export function SpriteAvatar(props: { crew: CrewInfo; pose: Pose; size: number; 
   );
 }
 
+/** One drawn frame, in the crew member's outfit when that frame has been drawn
+ *  dressed (2026-09-30: "a consistent character identity problem" -- the
+ *  outfit showed only on the idle frame, so working, thinking, the phase bar,
+ *  the Done cheer and the scenes all showed the plain character). Tries the
+ *  outfit drawing first and falls back to the plain one if it isn't drawn. */
+export function CrewFrame({ sprite, frame, tier, className, onGone }: { sprite: string; frame: string; tier: number; className?: string; onGone?: () => void }) {
+  const [plain, setPlain] = useState(tier === 0);
+  useEffect(() => setPlain(tier === 0), [tier, frame]);
+  const dressed = frame === 'idle' ? `tier${tier}` : `tier${tier}-${frame}`;
+  const src = `/crew/${sprite}-${plain ? frame : dressed}.webp`;
+  return <img className={className} src={src} alt="" draggable={false} onError={() => (plain ? onGone?.() : setPlain(true))} />;
+}
+
 function SpriteAvatarBase({ crew, pose, size, className, alive }: { crew: CrewInfo; pose: Pose; size: number; className?: string; alive?: boolean }) {
   const [failed, setFailed] = useState(false);
   // A working pose plays four drawings (item 38) when all four are drawn;
@@ -1253,41 +1266,26 @@ function SpriteAvatarBase({ crew, pose, size, className, alive }: { crew: CrewIn
   const [short, setShort] = useState(false);
   const [noPhase, setNoPhase] = useState(false);
   const tier = useOutfitTier(crew.name);
-  const [noTier, setNoTier] = useState(false);
   if (!crew.sprite || failed) return <CrewAvatar crew={crew} size={size} />;
   if (alive && pose === 'idle') return <AliveSprite crew={crew} size={size} className={className} />;
-  // Dressed crew keep their outfit while they work (2026-09-29: "Ollie is
-  // propped out but his working animation is bare bones"). The working poses
-  // were only ever drawn plain, so a dressed member working is their outfit
-  // drawing with a working motion: a busy bob, and sparks while typing.
-  const working = pose === 'type' || pose === 'think' || PHASE_POSES.has(pose);
-  if (working && tier > 0 && !noTier) {
-    return (
-      <span className={`crew-sprite dressed-work pose-${pose} moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
-        <img src={`/crew/${crew.sprite}-tier${tier}.webp`} alt="" onError={() => setNoTier(true)} />
-        {pose === 'think' ? <span className="work-dots" aria-hidden="true"><i /><i /><i /></span> : <span className="work-spark" aria-hidden="true" />}
-      </span>
-    );
-  }
+  const sprite = crew.sprite;
   if (PHASE_POSES.has(pose)) {
     if (noPhase) pose = 'type';
     else {
-      const b = `/crew/${crew.sprite}`;
       return (
         <span className={`crew-sprite pose-${pose} phase moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
-          <img className="frame-a" src={`${b}-${pose}1.webp`} alt="" onError={() => setNoPhase(true)} />
-          <img className="frame-b" src={`${b}-${pose}2.webp`} alt="" onError={() => setNoPhase(true)} />
+          <CrewFrame className="frame-a" sprite={sprite} frame={`${pose}1`} tier={tier} onGone={() => setNoPhase(true)} />
+          <CrewFrame className="frame-b" sprite={sprite} frame={`${pose}2`} tier={tier} onGone={() => setNoPhase(true)} />
         </span>
       );
     }
   }
   const moving = pose === 'type' || pose === 'think';
-  const base = `/crew/${crew.sprite}`;
   if (moving && !short) {
     return (
       <span className={`crew-sprite four pose-${pose} moving${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
         {WORK_FRAMES[pose as 'type' | 'think'].map((f, i) => (
-          <img key={f} className={`f${i}`} src={`${base}-${f}.webp`} alt="" onError={() => (i === 0 ? setFailed(true) : setShort(true))} />
+          <CrewFrame key={f} className={`f${i}`} sprite={sprite} frame={f} tier={tier} onGone={() => (i === 0 ? setFailed(true) : setShort(true))} />
         ))}
       </span>
     );
@@ -1300,15 +1298,11 @@ function SpriteAvatarBase({ crew, pose, size, className, alive }: { crew: CrewIn
     <span className={`crew-sprite pose-${pose}${moving ? ' moving' : ''}${className ? ` ${className}` : ''}`} data-agent={crew.agent} style={{ width: size, height: size }}>
       {moving ? (
         <>
-          <img className="frame-a" src={`${base}-idle.webp`} alt="" onError={() => setFailed(true)} />
-          <img className="frame-b" src={`${base}-${pose}.webp`} alt="" />
+          <CrewFrame className="frame-a" sprite={sprite} frame="idle" tier={tier} onGone={() => setFailed(true)} />
+          <CrewFrame className="frame-b" sprite={sprite} frame={pose} tier={tier} />
         </>
       ) : (
-        <img
-          src={pose === 'idle' && tier > 0 && !noTier ? `${base}-tier${tier}.webp` : `${base}-${pose}.webp`}
-          alt=""
-          onError={() => (pose === 'idle' && tier > 0 && !noTier ? setNoTier(true) : setFailed(true))}
-        />
+        <CrewFrame sprite={sprite} frame={pose} tier={tier} onGone={() => setFailed(true)} />
       )}
     </span>
   );

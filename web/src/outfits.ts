@@ -29,7 +29,9 @@ export function nextUnlock(level: number | undefined): Unlock | null {
 }
 
 // One shared fetch of everyone's level, refreshed every few minutes.
-let levels: Record<string, number> = {};
+// Remembered on the phone, so outfits show from the first frame (2026-09-30).
+const LEVELS_KEY = 'roost:levels';
+let levels: Record<string, number> = (() => { try { return JSON.parse(localStorage.getItem(LEVELS_KEY) ?? '{}'); } catch { return {}; } })();
 let fetchedAt = 0;
 let inflight: Promise<void> | null = null;
 const listeners = new Set<() => void>();
@@ -40,6 +42,7 @@ function refresh(): void {
     .then((d) => {
       if (d?.companions) {
         levels = Object.fromEntries(d.companions.map((c: { name: string; level: number }) => [c.name, c.level]));
+        try { localStorage.setItem(LEVELS_KEY, JSON.stringify(levels)); } catch { /* private mode */ }
         listeners.forEach((l) => l());
       }
     })
