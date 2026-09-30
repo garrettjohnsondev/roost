@@ -16,7 +16,7 @@ import { LiveManager, fromPid, toPid } from './live.js';
 import { isLivePath, proxyRequest, proxyUpgrade, serveStatic, splitLivePath } from './liveProxy.js';
 import { modelForPersona, prettyModel } from './mentions.js';
 import { quotaStore } from './quota.js';
-import { modelRegistry, classify, auditRoutes } from './registry.js';
+import { modelRegistry, classify, auditRoutes, freshenRoutes } from './registry.js';
 import { capabilitiesFrom, reviewerFor, REVIEW_STRENGTH_LABEL } from './capabilities.js';
 import { generateAvatar, listCustom, avatarDir, AvatarGenError } from './avatars.js';
 import { refreshRegistry, startRegistryRefresh } from './registryFetch.js';
@@ -358,6 +358,7 @@ app.post('/api/plan', (req, res) => {
   config.plan = plan;
   config.autoRoute = autoRoute;
   manager.applyRoutes(autoRoute);
+  freshenLiveRoutes();
   logDecision({ kind: 'gate', rule: 'plan', plan } as any);
   res.json({ ok: true, plan, words: planWords(plan) });
 });
@@ -734,13 +735,27 @@ app.post('/api/models/assign', (req, res) => {
     return;
   }
   config.autoRoute = next;
+  freshenLiveRoutes();
   logDecision({ kind: 'gate', rule: 'model-assign', agent: a, tier: t, model: card.id });
   res.json({ ok: true, autoRoute: config.autoRoute, note: 'Applies to new sessions; open sessions keep the routes they started with.' });
 });
 
+/** Pip's routes on the newest model of each family, whatever the saved config
+ *  names (2026-09-29): in memory only, so the saved config stays your intent
+ *  and a new release moves the crew forward again next refresh. */
+function freshenLiveRoutes(): void {
+  const cards = modelRegistry().all();
+  const fresh = freshenRoutes(config.autoRoute, cards);
+  if (JSON.stringify(fresh) === JSON.stringify(config.autoRoute)) return;
+  console.log(`[roost] routes moved to current models: ${['light', 'standard', 'heavy'].map((t) => `${t} ${(fresh.codex as any)[t].model}`).join(', ')}`);
+  config.autoRoute = fresh;
+  manager.applyRoutes(fresh);
+}
+
 app.post('/api/models/refresh', async (_req, res) => {
   try {
     const changes = await refreshRegistry(config.projects[0] ?? process.cwd());
+    freshenLiveRoutes();
     res.json({ ok: true, changes });
   } catch (e: any) {
     res.status(500).json({ error: String(e?.message ?? e) });
@@ -1084,7 +1099,7 @@ httpServer.listen(config.port, '0.0.0.0', () => {
   }
   printTailscaleUrl(config.port);
   // Zero-token on both sides, so this costs nothing but keeps the roster live.
-  startRegistryRefresh(config.projects[0] ?? process.cwd());
+  startRegistryRefresh(config.projects[0] ?? process.cwd(), undefined, freshenLiveRoutes);
   // New models arrive with new Claude/Codex software: keep it current (2026-09-29).
-  startAgentsUpdate(config.projects[0] ?? process.cwd(), () => manager.list().some((s) => s.state === 'working'));
+  startAgentsUpdate(config.projects[0] ?? process.cwd(), () => manager.list().some((s) => s.state === 'working'), freshenLiveRoutes);
 });

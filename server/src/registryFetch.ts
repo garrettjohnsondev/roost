@@ -131,11 +131,11 @@ export async function refreshRegistry(cwd: string): Promise<RegistryChange[]> {
 }
 
 /** Refresh at startup and on a timer. Free, so cadence is a comfort choice. */
-export function startRegistryRefresh(cwd: string, everyMs = 6 * 60 * 60_000): () => void {
+export function startRegistryRefresh(cwd: string, everyMs = 6 * 60 * 60_000, onDone?: () => void): () => void {
   let stopped = false;
   const tick = () => {
     if (stopped) return;
-    refreshRegistry(cwd).catch((e) => console.log(`[roost] model refresh error: ${e?.message ?? e}`));
+    refreshRegistry(cwd).then(() => onDone?.(), (e) => console.log(`[roost] model refresh error: ${e?.message ?? e}`));
   };
   tick();
   const t = setInterval(tick, everyMs);

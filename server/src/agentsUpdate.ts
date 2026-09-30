@@ -11,7 +11,7 @@ import { refreshRegistry } from './registryFetch.js';
  *  shortly after start, then daily, run scripts/agents-update.mjs detached --
  *  it may restart Roost through the normal checked deploy, which waits for
  *  the crew to finish talking. `busy` defers a run while any session works. */
-export function startAgentsUpdate(cwd: string, busy: () => boolean, everyMs = 24 * 3600_000): void {
+export function startAgentsUpdate(cwd: string, busy: () => boolean, onModels?: () => void, everyMs = 24 * 3600_000): void {
   if (process.env.ROOST_NO_AGENT_UPDATES === '1') return;
   const script = join(checkoutDir(), 'scripts', 'agents-update.mjs');
   if (!existsSync(script)) return;
@@ -30,7 +30,7 @@ export function startAgentsUpdate(cwd: string, busy: () => boolean, everyMs = 24
     if (r.updated?.length) {
       console.log(`[roost] updated: ${r.updated.join(', ')}`);
       sendNotification('agents-update', 'New AI models are ready', `${r.updated.join(' · ')} — the model lists are refreshed.`, { minIntervalMs: 3600_000 });
-      refreshRegistry(cwd).catch(() => {});
+      refreshRegistry(cwd).then(() => onModels?.(), () => {});
     }
   });
   setTimeout(tick, 3 * 60_000).unref?.();

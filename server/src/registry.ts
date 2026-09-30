@@ -328,3 +328,55 @@ export function modelRegistry(): ModelRegistry {
   if (!singleton) singleton = new ModelRegistry();
   return singleton;
 }
+
+// ---------- keeping routes on current models (2026-09-29) ----------
+//
+// Claude routes use aliases ('sonnet', 'opus') that Anthropic moves forward
+// itself. Codex has no aliases: routes named gpt-5.6-luna/terra while the
+// Codex roster already called them "Older" and offered gpt-6-luna and
+// gpt-6.1-sol. So a Codex route is read as a FAMILY -- the last word of the id
+// (luna, terra, sol, astra) -- and resolves to that family's newest model that
+// the vendor does not call older, previous or legacy. A family with nothing
+// current left goes to the vendor's default. Unknown ids pass through.
+
+const STALE = /\b(older|previous|legacy|deprecated)\b/i;
+
+function versionOf(id: string): number[] {
+  return (/(\d+(?:\.\d+)*)/.exec(id)?.[1] ?? '0').split('.').map(Number);
+}
+function cmpVersion(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] ?? 0) - (b[i] ?? 0); if (d) return d; }
+  return 0;
+}
+const familyOf = (id: string) => /-([a-z]+)$/i.exec(id)?.[1]?.toLowerCase() ?? null;
+
+export function freshCodexModel(id: string, cards: ModelCard[]): string {
+  const roster = cards.filter((c) => c.agent === 'codex' && !c.hidden);
+  if (!roster.length) return id;
+  const card = roster.find((c) => c.id === id);
+  const current = (c: ModelCard) => !STALE.test(c.description) && !c.supersededBy;
+  if (card && current(card)) {
+    // Still current -- but a newer member of the same family wins.
+    const fam = familyOf(id);
+    const newest = roster.filter((c) => current(c) && fam && familyOf(c.id) === fam).sort((a, b) => cmpVersion(versionOf(b.id), versionOf(a.id)))[0];
+    return newest && cmpVersion(versionOf(newest.id), versionOf(id)) > 0 ? newest.id : id;
+  }
+  const fam = familyOf(id);
+  if (!card && !roster.some((c) => fam && familyOf(c.id) === fam)) return id;
+  const sameFamily = roster.filter((c) => current(c) && fam && familyOf(c.id) === fam).sort((a, b) => cmpVersion(versionOf(b.id), versionOf(a.id)))[0];
+  if (sameFamily) return sameFamily.id;
+  if (card?.supersededBy && roster.some((c) => c.id === card.supersededBy)) return freshCodexModel(card.supersededBy, cards);
+  return roster.find((c) => c.isVendorDefault)?.id ?? id;
+}
+
+/** The routes with every Codex model moved to its current one. */
+export function freshenRoutes<T extends { light: any; standard: any; heavy: any }>(routes: { claude: T; codex: T }, cards: ModelCard[]): { claude: T; codex: T } {
+  const fix = (agent: string, m: string) => (agent === 'codex' ? freshCodexModel(m, cards) : m);
+  const tierFix = (agent: string, t: any) => t && ({
+    ...t,
+    model: fix(agent, t.model),
+    ...(Array.isArray(t.candidates) ? { candidates: t.candidates.map((c: any) => ({ ...c, model: fix(c.agent, c.model) })) } : {}),
+  });
+  const side = (agent: string, r: T) => ({ ...r, light: tierFix(agent, r.light), standard: tierFix(agent, r.standard), heavy: tierFix(agent, r.heavy) }) as T;
+  return { claude: side('claude', routes.claude), codex: side('codex', routes.codex) };
+}
