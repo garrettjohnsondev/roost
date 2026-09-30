@@ -32,7 +32,7 @@ import { loadMe, saveMe } from './me.js';
 import { authStatus, cancelSignIn, clearToken, finishSignIn, startSignIn } from './claudeAuth.js';
 import { noteLogLine, registerRescue, webRoot } from './rescue.js';
 import { readRoadmap } from './roadmap.js';
-import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, lastRun, saveRecipe, startDeploy } from './deploy.js';
+import { composeDeployAsk, detectDeploy, forgetRecipe, getRecipe, isRunning, lastRun, saveRecipe, upToDate, startDeploy } from './deploy.js';
 import { companionsFrom, readLedgerRows, readLife, sinceSummary } from './companions.js';
 import type { AgentKind, ClientMessage } from './protocol.js';
 import { Games } from './games.js';
@@ -529,7 +529,8 @@ app.get('/api/deploy', (req, res) => {
   const cwd = guardProject(req, res);
   if (!cwd) return;
   const recipe = getRecipe(dataDir(), cwd);
-  res.json({ recipe, suggestion: recipe ? null : detectDeploy(cwd), run: lastRun(dataDir(), cwd), ask: composeDeployAsk(cwd) });
+  const run = lastRun(dataDir(), cwd);
+  res.json({ recipe, suggestion: recipe ? null : detectDeploy(cwd), run, upToDate: upToDate(cwd, run), ask: composeDeployAsk(cwd) });
 });
 
 app.post('/api/deploy/recipe', (req, res) => {

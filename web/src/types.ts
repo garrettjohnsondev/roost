@@ -508,5 +508,7 @@ export interface DeployState {
   recipe: DeployRecipe | null;
   suggestion: DeploySuggestion | null;
   run: DeployRun | null;
+  /** What's live is exactly what's in the folder: nothing to ship. */
+  upToDate?: boolean;
   ask: string;
 }

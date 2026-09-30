@@ -272,7 +272,7 @@ switch (command) {
       const s = existsSync(store) ? JSON.parse(readFileSync(store, 'utf8')) : {};
       const now = Date.now();
       s.recipes ??= {};
-      s.lastRuns = { ...(s.lastRuns ?? {}), [repoRoot]: { phase: 'passed', command: 'node scripts/service.mjs install', check: null, startedAt: now, endedAt: now, exitCode: 0, output: `${meta.commit} — ${meta.subject}` } };
+      s.lastRuns = { ...(s.lastRuns ?? {}), [repoRoot]: { phase: 'passed', command: 'node scripts/service.mjs install', check: null, startedAt: now, endedAt: now, exitCode: 0, output: `${meta.commit} — ${meta.subject}`, commit: meta.commit } };
       writeFileSync(store + '.tmp', JSON.stringify(s, null, 2));
       renameSync(store + '.tmp', store);
     } catch { /* the deploy happened either way */ }

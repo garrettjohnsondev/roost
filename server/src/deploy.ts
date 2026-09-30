@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { loginShellArgv } from './platform.js';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -55,6 +55,24 @@ export interface DeployRun {
   exitCode: number | null;
   /** The last lines of output, check and deploy together. */
   output: string;
+  /** The commit that went live (2026-09-29), so "is there anything unshipped?"
+   *  is answered by git, not by comparing clocks. */
+  commit?: string;
+}
+
+function gitOut(cwd: string, args: string[]): string | null {
+  try { return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 4000 }).trim(); } catch { return null; }
+}
+
+/** True when the last passed deploy shipped exactly what is in the folder now:
+ *  same commit, nothing uncommitted. Then there is nothing to offer to ship,
+ *  even if checks ran after the deploy (2026-09-29: a deploy mid-turn, then the
+ *  turn's own checks, kept the rocket lit). */
+export function upToDate(cwd: string, run: DeployRun | null): boolean {
+  if (!run || run.phase !== 'passed' || !run.commit) return false;
+  const head = gitOut(cwd, ['rev-parse', 'HEAD']);
+  if (!head || !head.startsWith(run.commit) && !run.commit.startsWith(head)) return false;
+  return gitOut(cwd, ['status', '--porcelain', '--untracked-files=no']) === '';
 }
 
 // ---- detection ------------------------------------------------------------------
@@ -262,7 +280,7 @@ function step(cwd: string, command: string, onOut: (s: string) => void): Promise
  *  finished run; poll lastRun() meanwhile. `onDone` is for a notification. */
 export async function startDeploy(dataDir: string, cwd: string, recipe: DeployRecipe, onDone?: (r: DeployRun) => void): Promise<DeployRun> {
   if (isRunning(cwd)) throw new Error('a deploy is already running for this project');
-  const r: DeployRun = { phase: recipe.check ? 'check' : 'deploy', command: recipe.command, check: recipe.check, startedAt: Date.now(), endedAt: null, exitCode: null, output: '' };
+  const r: DeployRun = { phase: recipe.check ? 'check' : 'deploy', command: recipe.command, check: recipe.check, startedAt: Date.now(), endedAt: null, exitCode: null, output: '', commit: gitOut(cwd, ['rev-parse', 'HEAD']) ?? undefined };
   live.set(cwd, { run: r, child: null });
   // Build tools colour their output; the phone showed the raw escape codes
   // ("[2mdist/ [22m…", 2026-09-27 audit). Plain text in, plain text shown.

@@ -82,6 +82,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
   // Until the last deploy is known, don't offer one: opening a chat you had
   // just shipped flashed Deploy until the check came back (2026-09-29).
   const [deployKnown, setDeployKnown] = useState(false);
+  const [upToDate, setUpToDate] = useState(false);
   const cwd = session.meta?.cwd;
   useEffect(() => {
     if (!cwd || fixture) return;
@@ -92,12 +93,13 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
       const run = state.run;
       setDeployBusy(!!run && (run.phase === 'check' || run.phase === 'deploy'));
       setLastLiveAt(run?.phase === 'passed' ? run.endedAt ?? run.startedAt : 0);
+      setUpToDate(!!state.upToDate);
       setDeployKnown(true);
     }).catch(() => {
       if (!cancelled) setDeployCommand(null);
     });
     return () => { cancelled = true; };
-  }, [cwd, deploy, fixture]);
+  }, [cwd, deploy, fixture, session.status]); // re-asked when a reply ends: a deploy may have happened in it
   // Continue from the home card (#46): a message queued for this chat is sent
   // once it is connected and idle.
   useEffect(() => {
@@ -118,7 +120,7 @@ export function ChatView(props: { sessionId: string; config: RoostConfigResponse
     }
     return 0;
   }, [session.items]);
-  const readyToShip = !fixture && deployKnown && lastPass > lastLiveAt && !deployBusy;
+  const readyToShip = !fixture && deployKnown && !upToDate && lastPass > lastLiveAt && !deployBusy;
   const [shipLater, setShipLater] = useState(0);
   const shipCard = readyToShip && shipLater !== lastPass && !deploy;
   // A question from the crew, answered one at a time like texts; the answers
