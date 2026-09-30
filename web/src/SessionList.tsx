@@ -805,6 +805,20 @@ function ModelNewsCard({ onOpen }: { onOpen: (id: string) => void }) {
           <ul>{n.applied.map((a) => <li key={a.what}>{appliedWords(a.what)} now think at <b>{a.to}</b>{a.from ? ` (was ${a.from})` : ''}</li>)}</ul>
         </div>
       )}
+      {(n.suggested ?? []).length > 0 && (
+        <div className="model-news-block">
+          <b>{c.agent === 'claude' ? 'Anthropic' : 'OpenAI'} recommends</b>
+          <ul>{n.suggested!.map((x) => (
+            <li key={x.what} className="model-news-suggest">
+              <span>{appliedWords(x.what)} at <b>{x.to}</b> (yours: {x.from})</span>
+              <button className="chip" onClick={async () => {
+                await api.modelNewsApply(c.agent, c.model, x.what).catch(() => {});
+                setNews(news.map((m) => (m === n ? { ...m, applied: [...m.applied, x], suggested: m.suggested!.filter((y) => y !== x) } : m)));
+              }}>Switch</button>
+            </li>
+          ))}</ul>
+        </div>
+      )}
       {(c.whatsNew.length > 0 || c.breaking.length > 0) && (
         <div className="model-news-block">
           <b>Worth knowing</b>

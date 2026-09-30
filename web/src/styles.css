@@ -3966,3 +3966,4 @@ button.deploy-link { background: none; border: 0; padding: 6px 0; color: var(--a
 .model-news-block ul { margin: 4px 0 0; padding-left: 18px; }
 .model-news-block li { margin: 2px 0; }
 .model-news-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.model-news-suggest { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

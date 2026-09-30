@@ -35,13 +35,19 @@ describe('a new model, read from its maker\'s docs', () => {
     const c = parseCard(answer, { agent: 'claude', model: 'claude-opus-5-5', displayName: 'Opus 5.5', sources: ['doc'] })!;
     const routes = { claude: { light: { model: 'haiku' }, standard: { model: 'claude-sonnet-5' }, heavy: { model: 'claude-opus-5-5', effort: 'high' } }, codex: { light: { model: 'a' }, standard: { model: 'b' }, heavy: { model: 'c' } } } as any;
     const out = settingsFromCard(c, routes, ['low', 'medium', 'high', 'xhigh', 'max']);
-    expect(out.changes).toEqual([{ what: 'claude heavy effort', from: 'high', to: 'xhigh', source: 'doc' }]);
+    // heavy's effort was set on purpose: suggested, never overridden
+    expect(out.changes).toEqual([]);
+    expect(out.suggestions).toEqual([{ what: 'claude heavy effort', from: 'high', to: 'xhigh', source: 'doc' }]);
+    expect(out.routes.claude.heavy.effort).toBe('high');
+    // a tier with no effort set is filled in
+    const unset = settingsFromCard(c, { ...routes, claude: { ...routes.claude, heavy: { model: 'claude-opus-5-5' } } }, []);
+    expect(unset.changes[0]).toMatchObject({ what: 'claude heavy effort', from: null, to: 'xhigh' });
     expect(out.routes.claude.standard).toEqual({ model: 'claude-sonnet-5' });
     expect(routes.claude.heavy.effort).toBe('high'); // pure
-    expect(settingsFromCard(c, routes, ['low', 'high']).changes).toEqual([]);
+    expect(settingsFromCard(c, routes, ['low', 'high']).suggestions).toEqual([]);
     // an alias tier ('opus') is matched by what it resolves to
     const aliased = { ...routes, claude: { ...routes.claude, heavy: { model: 'opus', effort: 'high' } } };
-    expect(settingsFromCard(c, aliased, [], (_a, m) => (m === 'opus' ? 'claude-opus-5-5[1m]' : m)).changes[0]?.to).toBe('xhigh');
+    expect(settingsFromCard(c, aliased, [], (_a, m) => (m === 'opus' ? 'claude-opus-5-5[1m]' : m)).suggestions[0]?.to).toBe('xhigh');
   });
   it('reads end to end from fetched pages, and asks for a plan, not a build', async () => {
     const pages: Record<string, string> = { 'https://platform.claude.com/llms.txt': claudeIndex };

@@ -112,6 +112,7 @@ export const api = {
     request<{ result: any; state: any }>(`/api/economy/${action}`, { method: 'POST', body: JSON.stringify(body) }),
   update: (force = false) => request<{ current: string | null; latest: string | null; notes: string; available: boolean; error?: string }>(`/api/update${force ? '?force=1' : ''}`),
   modelNews: () => request<{ news: ModelNewsItem[] }>('/api/model-news'),
+  modelNewsApply: (agent: string, model: string, what: string) => request<{ ok: boolean }>('/api/model-news/apply', { method: 'POST', body: JSON.stringify({ agent, model, what }) }),
   modelNewsSeen: (agent: string, model: string) => request<{ ok: boolean }>('/api/model-news/seen', { method: 'POST', body: JSON.stringify({ agent, model }) }),
   applyUpdate: () => request<{ ok: true; installing: string }>('/api/update/apply', { method: 'POST' }),
   games: () => request<import('./games/types').GameStoreView>('/api/games'),
@@ -204,6 +205,7 @@ export interface ModelNewsItem {
     strengths: string[]; whatsNew: string[]; breaking: string[]; prompting: string[]; ideas: Array<{ title: string; why: string }>; sources: string[]; readAt: number;
   };
   applied: Array<{ what: string; from: string | null; to: string; source: string }>;
+  suggested?: Array<{ what: string; from: string | null; to: string; source: string }>;
   proposed: string | null;
   seen: boolean;
 }

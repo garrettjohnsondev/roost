@@ -145,9 +145,12 @@ type Routes = Record<AgentKind, Record<Tier, { model: string; effort?: string }>
 /** Settings a card can change on its own: the effort of a tier that runs this
  *  model, when the docs recommend one the model supports. Pure -- the caller
  *  saves. Never touches a tier running a different model. */
-export function settingsFromCard(card: ModelDocCard, routes: Routes, supported: string[], resolve: (agent: AgentKind, model: string) => string = (_a, m) => m): { routes: Routes; changes: AppliedChange[] } {
+export function settingsFromCard(card: ModelDocCard, routes: Routes, supported: string[], resolve: (agent: AgentKind, model: string) => string = (_a, m) => m): { routes: Routes; changes: AppliedChange[]; suggestions: AppliedChange[] } {
   const next = JSON.parse(JSON.stringify(routes)) as Routes;
   const changes: AppliedChange[] = [];
+  // A tier whose effort was set on purpose (your plan's ladder, or you) keeps
+  // it: the docs' advice is offered as a one-tap suggestion instead (2026-09-30).
+  const suggestions: AppliedChange[] = [];
   const src = card.sources[0] ?? '';
   const side = next[card.agent];
   for (const tier of ['light', 'standard', 'heavy'] as Tier[]) {
@@ -157,15 +160,17 @@ export function settingsFromCard(card: ModelDocCard, routes: Routes, supported: 
     if (!want || !t || modelSlug(card.agent, resolve(card.agent, t.model)) !== modelSlug(card.agent, card.model)) continue;
     if (supported.length && !supported.includes(want)) continue;
     if ((t.effort ?? null) === want) continue;
-    changes.push({ what: `${card.agent} ${tier} effort`, from: t.effort ?? null, to: want, source: src });
+    const change = { what: `${card.agent} ${tier} effort`, from: t.effort ?? null, to: want, source: src };
+    if (t.effort) { suggestions.push(change); continue; }
+    changes.push(change);
     t.effort = want;
   }
-  return { routes: next, changes };
+  return { routes: next, changes, suggestions };
 }
 
 // ---- storage -------------------------------------------------------------------
 
-export interface ModelNews { card: ModelDocCard; applied: AppliedChange[]; proposed: string | null; seen: boolean }
+export interface ModelNews { card: ModelDocCard; applied: AppliedChange[]; suggested?: AppliedChange[]; proposed: string | null; seen: boolean }
 
 const dirOf = (dataDir: string) => join(dataDir, 'model-docs');
 const fileOf = (dataDir: string, agent: AgentKind, model: string) => join(dirOf(dataDir), `${agent}-${modelSlug(agent, model).replace(/[^a-z0-9.-]/gi, '_')}.json`);
@@ -188,4 +193,9 @@ export function markSeen(dataDir: string, agent: AgentKind, model: string): void
   if (!existsSync(f)) return;
   const n = JSON.parse(readFileSync(f, 'utf8')) as ModelNews;
   writeFileSync(f, JSON.stringify({ ...n, seen: true }, null, 2));
+}
+
+export function readNews(dataDir: string, agent: AgentKind, model: string): ModelNews | null {
+  const f = fileOf(dataDir, agent, model);
+  try { return JSON.parse(readFileSync(f, 'utf8')) as ModelNews; } catch { return null; }
 }

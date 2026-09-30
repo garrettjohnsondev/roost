@@ -43,7 +43,7 @@ import { visit } from './visits.js';
 import { allowedPeer } from './netguard.js';
 import { checkForUpdate, checkoutDir } from './updates.js';
 import { startAgentsUpdate } from './agentsUpdate.js';
-import { hasNews, listNews, markSeen, saveNews, settingsFromCard, type ModelNews } from './modelDocs.js';
+import { hasNews, listNews, markSeen, readNews, saveNews, settingsFromCard, type ModelNews } from './modelDocs.js';
 import { proposalTask, readModelDocs } from './modelNews.js';
 import { startConsultStep } from './consult.js';
 import { createProject } from './newProject.js';
@@ -777,7 +777,7 @@ async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Pr
       }).catch((e) => { console.log(`[roost] reading ${m.id} docs failed: ${e?.message ?? e}`); return null; });
       if (!card) continue;
       const supported = reg.get(m.agent, m.id)?.efforts ?? [];
-      const { routes, changes } = settingsFromCard(card, config.autoRoute as any, supported, (a, model) => reg.get(a, model)?.resolvedId ?? model);
+      const { routes, changes, suggestions } = settingsFromCard(card, config.autoRoute as any, supported, (a, model) => reg.get(a, model)?.resolvedId ?? model);
       if (changes.length) {
         config.autoRoute = routes as any;
         try { saveConfig({ ...config, autoRoute: config.autoRoute }); } catch { /* applied live either way */ }
@@ -793,7 +793,7 @@ async function readNewModelDocs(force?: { agent: AgentKind; model: string }): Pr
           proposed = s.id;
         } catch (e: any) { console.log(`[roost] could not start the ${card.displayName} plan: ${e?.message ?? e}`); }
       }
-      const news: ModelNews = { card, applied: changes, proposed, seen: false };
+      const news: ModelNews = { card, applied: changes, suggested: suggestions, proposed, seen: false };
       saveNews(dataDir(), news);
       done.push(news);
       console.log(`[roost] read ${card.displayName}'s docs: ${changes.length} setting(s) changed${proposed ? ', a plan is waiting for you' : ''}`);
@@ -813,6 +813,22 @@ app.post('/api/model-news/seen', (req, res) => {
   if ((agent === 'claude' || agent === 'codex') && typeof model === 'string') markSeen(dataDir(), agent, model);
   res.json({ ok: true });
 });
+/** Take one of the docs' suggestions: set that tier's effort (2026-09-30). */
+app.post('/api/model-news/apply', (req, res) => {
+  const { agent, model, what } = req.body ?? {};
+  if ((agent !== 'claude' && agent !== 'codex') || typeof model !== 'string' || typeof what !== 'string') return void res.status(400).json({ error: 'agent, model and what are required' });
+  const news = readNews(dataDir(), agent, model);
+  const s = news?.suggested?.find((x) => x.what === what);
+  const tier = what.split(' ')[1] as 'light' | 'standard' | 'heavy';
+  if (!news || !s || !['light', 'standard', 'heavy'].includes(tier)) return void res.status(404).json({ error: 'no such suggestion' });
+  const next = { ...config.autoRoute, [agent]: { ...config.autoRoute[agent as AgentKind], [tier]: { ...(config.autoRoute[agent as AgentKind] as any)[tier], effort: s.to } } };
+  try { saveConfig({ ...config, autoRoute: next }); } catch (err: any) { return void res.status(500).json({ error: String(err?.message ?? err) }); }
+  config.autoRoute = next as any;
+  manager.applyRoutes(config.autoRoute);
+  saveNews(dataDir(), { ...news, applied: [...news.applied, s], suggested: news.suggested!.filter((x) => x !== s) });
+  res.json({ ok: true });
+});
+
 app.post('/api/model-news/read', async (req, res) => {
   const { agent, model } = req.body ?? {};
   const force = (agent === 'claude' || agent === 'codex') && typeof model === 'string' ? { agent: agent as AgentKind, model } : undefined;
