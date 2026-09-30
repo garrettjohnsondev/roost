@@ -1,6 +1,6 @@
 # Installing Roost — a guide for AI assistants
 
-You're an AI coding assistant (Claude Code, Codex, or similar), and someone asked you to install Roost for them — probably with a sentence like *"Install Roost from github.com/gjohnsonmb1-afk/roost"*. They may not be technical. Follow these steps in order, explain each one in a sentence of plain English before you do it, and only ask them for the things marked **ASK**.
+You're an AI coding assistant (Claude Code, Codex, or similar), and someone asked you to install Roost for them — probably with a sentence like *"Install Roost from github.com/garrettjohnsondev/roost"*. They may not be technical. Follow these steps in order, explain each one in a sentence of plain English before you do it, and only ask them for the things marked **ASK**.
 
 Roost is a free, open-source app (MIT). It runs on their computer and lets them drive Claude Code and/or Codex from their phone, through a crew of pixel-art characters. It uses their own Claude or Codex subscription; it never asks for payment or API keys.
 
@@ -24,11 +24,11 @@ codex --version
 Clone into their home folder (don't overwrite an existing `~/roost` — if it exists, `git -C ~/roost pull --ff-only` instead):
 
 ```
-git clone https://github.com/gjohnsonmb1-afk/roost.git ~/roost
+git clone https://github.com/garrettjohnsondev/roost.git ~/roost
 cd ~/roost
 ```
 
-(Windows PowerShell: `git clone https://github.com/gjohnsonmb1-afk/roost.git $HOME\roost`.)
+(Windows PowerShell: `git clone https://github.com/garrettjohnsondev/roost.git $HOME\roost`.)
 
 ## 3. Tailscale — how their phone reaches this computer
 

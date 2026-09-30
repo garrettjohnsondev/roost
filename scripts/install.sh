@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # One-line install for Mac and Linux (roadmap #56):
-#   curl -fsSL https://raw.githubusercontent.com/gjohnsonmb1-afk/roost/main/scripts/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/garrettjohnsondev/roost/main/scripts/install.sh | bash
 set -euo pipefail
-REPO="${ROOST_REPO:-https://github.com/gjohnsonmb1-afk/roost.git}"
+REPO="${ROOST_REPO:-https://github.com/garrettjohnsondev/roost.git}"
 DIR="${ROOST_DIR:-$HOME/roost}"
 command -v git >/dev/null || { echo "Roost needs git: https://git-scm.com/downloads"; exit 1; }
 command -v node >/dev/null || { echo "Roost needs Node 20+: https://nodejs.org"; exit 1; }

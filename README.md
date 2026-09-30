@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gjohnsonmb1-afk/roost/actions/workflows/ci.yml"><img src="https://github.com/gjohnsonmb1-afk/roost/actions/workflows/ci.yml/badge.svg" alt="Tests on Mac, Windows and Linux"></a>
+  <a href="https://github.com/garrettjohnsondev/roost/actions/workflows/ci.yml"><img src="https://github.com/garrettjohnsondev/roost/actions/workflows/ci.yml/badge.svg" alt="Tests on Mac, Windows and Linux"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
@@ -15,7 +15,7 @@
 
 <p align="center">
   <b>To install, just ask your AI:</b><br>
-  <code>Install Roost from github.com/gjohnsonmb1-afk/roost</code><br>
+  <code>Install Roost from github.com/garrettjohnsondev/roost</code><br>
   <sub>Paste that into Claude Code or Codex. It follows <a href="docs/INSTALL-WITH-AI.md">this guide</a> and only asks you for a couple of taps.</sub>
 </p>
 
@@ -127,13 +127,13 @@ Prefer to do it by hand? You need **Node 20+**, **git**, at least one of **[Clau
 **Mac or Linux** — in Terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gjohnsonmb1-afk/roost/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/garrettjohnsondev/roost/main/scripts/install.sh | bash
 ```
 
 **Windows** — in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/gjohnsonmb1-afk/roost/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/garrettjohnsondev/roost/main/scripts/install.ps1 | iex
 ```
 
 The installer checks what's missing and walks you through it, builds Roost, starts it in the background (it comes back after a reboot) and ends on a **QR code** — scan it with your phone, then *Share → Add to Home Screen*.

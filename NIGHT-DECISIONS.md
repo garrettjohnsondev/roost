@@ -17,6 +17,6 @@ You said yes to me making design calls while you slept. Each one is here so you 
 - New project: the folder goes next to your first project (on the SSD), with a README, a .gitignore and a first commit. GitHub defaults to Private; I didn't test the GitHub step, because testing it would have created a real repo on your account.
 - Dev mode is a switch in Settings, kept per phone.
 - Onboarding: `scripts/install.sh` (Mac/Linux) and `scripts/install.ps1` (Windows) clone to ~/roost and run `scripts/setup.mjs`. Setup checks Node, git, Claude/Codex and Tailscale (it finds the Mac app's built-in CLI), builds, starts the background service (LaunchAgent / systemd user unit / Windows logon task) and prints a QR code. The Windows and Linux service paths are written but untested, since there's no machine here to try them on. The in-app welcome only shows on a phone that has no name on file, so you won't see it.
-- The installer uses your GitHub repo's URL (gjohnsonmb1-afk/remote). If the repo is private, other people can't install from it until it's public or moved.
+- The installer uses your GitHub repo's URL (garrettjohnsondev/remote). If the repo is private, other people can't install from it until it's public or moved.
 - Providers (#53): research only, in docs/PROVIDERS-ACP.md. Which provider to add first is your call.
 - Not done: #54 carry-overs (the code map report needs days of data; light/dark parity; #37 is still your call). The "why did Pip pick a plainer crew member" hint beyond the existing route reason is not built yet.
