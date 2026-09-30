@@ -262,16 +262,23 @@ export function SessionList(props: {
 
   const agentConfig = config[agent];
 
+  // Right after a deploy the server is restarting, so these first calls can
+  // fail and the home sat blank under "Start something" (2026-09-29). Retry
+  // each one every second until the server answers.
   useEffect(() => {
-    api.sessions().then((r) => setSessions(r.sessions)).catch(() => {});
-    api.gitSummaries().then((r) => setGitSummaries(r.summaries)).catch(() => {});
-    api
-      .recent()
-      .then((r) => {
-        setRecent(r.projects);
-        if (r.projects[0]) setCwd(r.projects[0].path);
-      })
-      .catch(() => setRecent([]));
+    let alive = true;
+    const retry = <T,>(call: () => Promise<T>, done: (r: T) => void, tries = 30) => {
+      call().then((r) => alive && done(r)).catch(() => {
+        if (alive && tries > 1) setTimeout(() => retry(call, done, tries - 1), 1000);
+      });
+    };
+    retry(api.sessions, (r) => setSessions(r.sessions));
+    retry(api.gitSummaries, (r) => setGitSummaries(r.summaries));
+    retry(api.recent, (r) => {
+      setRecent(r.projects);
+      if (r.projects[0]) setCwd(r.projects[0].path);
+    });
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
